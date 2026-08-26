@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+coverage/
+dist/
+.idea/
+*.log
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/android/local.properties
+firebase-service-account.json

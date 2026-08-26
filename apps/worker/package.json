@@ -1,0 +1,21 @@
+{
+  "name": "@paisa/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "check": "node --check src/index.js",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@prisma/client": "latest",
+    "bullmq": "latest",
+    "ioredis": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "eslint": "latest"
+  }
+}

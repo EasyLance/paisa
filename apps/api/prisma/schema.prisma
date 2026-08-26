@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookVisibility {
+  private
+  shared
+}
+
+enum BookRole {
+  workspace_admin
+  book_owner
+  editor
+  reviewer
+  viewer
+}
+
+enum TransactionKind {
+  expense
+  income
+  transfer
+  refund
+}
+
+enum TransactionState {
+  pending_review
+  confirmed
+  reconciled
+  excluded
+  voided
+}
+
+enum TransactionSourceType {
+  sms
+  statement
+  manual
+  recurring
+}
+
+enum IngestionState {
+  received
+  matched
+  needs_review
+  rejected
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  currency    String   @default("INR") @db.Char(3)
+  timezone    String   @default("Asia/Kolkata")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  books       Book[]
+  users       WorkspaceUser[]
+  accounts    FinancialAccount[]
+  categories  Category[]
+  auditEvents AuditEvent[]
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  firebaseUid  String   @unique
+  email        String   @unique
+  displayName  String?
+  disabledAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  workspaces   WorkspaceUser[]
+  memberships  BookMembership[]
+  comments     Comment[]
+  auditEvents  AuditEvent[] @relation("AuditActor")
+}
+
+model WorkspaceUser {
+  workspaceId String
+  userId      String
+  isAdmin     Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([workspaceId, userId])
+}
+
+model Book {
+  id            String          @id @default(cuid())
+  workspaceId   String
+  name          String
+  visibility    BookVisibility  @default(private)
+  currency      String          @default("INR") @db.Char(3)
+  timezone      String          @default("Asia/Kolkata")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships   BookMembership[]
+  accounts      FinancialAccount[]
+  transactions  Transaction[]
+  ingestion     IngestionEvent[]
+  rules         CategorizationRule[]
+  budgets       Budget[]
+  recurring     RecurringPlan[]
+  reviews       PeriodReview[]
+  attachments   Attachment[]
+  auditEvents   AuditEvent[]
+  @@index([workspaceId])
+}
+
+model BookMembership {
+  bookId      String
+  userId      String
+  role        BookRole
+  invitedById String?
+  createdAt   DateTime    @default(now())
+  book        Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([bookId, userId])
+  @@index([userId])
+}
+
+model FinancialAccount {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  bookId           String
+  name             String
+  institution      String?
+  accountMask      String?
+  accountType      String
+  currency         String   @default("INR") @db.Char(3)
+  openingBalance   BigInt   @default(0)
+  archivedAt       DateTime?
+  createdAt        DateTime @default(now())
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  transactions     Transaction[]
+  ingestion        IngestionEvent[]
+  @@index([workspaceId, bookId])
+}
+
+model IngestionEvent {
+  id              String         @id @default(cuid())
+  workspaceId     String
+  bookId          String
+  accountId       String?
+  sourceType      TransactionSourceType
+  sourceHash      String
+  externalRef     String?
+  direction       TransactionKind
+  amountMinor     BigInt
+  currency        String         @default("INR") @db.Char(3)
+  merchant        String?
+  occurredAt      DateTime
+  state           IngestionState @default(received)
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  book            Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  account         FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  source          TransactionSource?
+  @@unique([workspaceId, sourceHash])
+  @@index([bookId, occurredAt])
+}
+
+model Transaction {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  bookId          String
+  accountId       String?
+  categoryId      String?
+  kind            TransactionKind
+  state           TransactionState @default(pending_review)
+  amountMinor     BigInt
+  currency        String           @default("INR") @db.Char(3)
+  merchant        String?
+  note            String?          @db.Text
+  occurredAt      DateTime
+  transferGroupId String?
+  refundOfId      String?
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  book            Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  account         FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sources         TransactionSource[]
+  splits          TransactionSplit[]
+  comments        Comment[]
+  attachments     Attachment[]
+  @@index([workspaceId, bookId, occurredAt])
+  @@index([bookId, state])
+}
+
+model TransactionSource {
+  id               String                @id @default(cuid())
+  transactionId    String
+  ingestionEventId String?               @unique
+  sourceType       TransactionSourceType
+  sourceReference  String
+  importedAmount   BigInt
+  importedAt       DateTime              @default(now())
+  transaction      Transaction           @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  ingestionEvent   IngestionEvent?        @relation(fields: [ingestionEventId], references: [id], onDelete: Restrict)
+  @@unique([sourceType, sourceReference])
+}
+
+model TransactionSplit {
+  id            String      @id @default(cuid())
+  transactionId String
+  categoryId    String
+  amountMinor   BigInt
+  note          String?
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  groupName   String
+  color       String
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  splits       TransactionSplit[]
+  budgets      Budget[]
+  rules        CategorizationRule[]
+  recurring    RecurringPlan[]
+  @@unique([workspaceId, name])
+}
+
+model CategorizationRule {
+  id          String   @id @default(cuid())
+  bookId      String
+  categoryId  String
+  matchType   String
+  matchValue  String
+  priority    Int      @default(100)
+  enabled     Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@index([bookId, priority])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  bookId      String
+  categoryId  String
+  month       DateTime @db.Date
+  amountMinor BigInt
+  currency    String   @default("INR") @db.Char(3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@unique([bookId, categoryId, month])
+}
+
+model RecurringPlan {
+  id          String          @id @default(cuid())
+  bookId      String
+  categoryId  String?
+  name        String
+  kind        TransactionKind
+  amountMinor BigInt
+  currency    String          @default("INR") @db.Char(3)
+  cadence     String
+  nextDueAt   DateTime
+  active      Boolean         @default(true)
+  book        Book            @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category    Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+}
+
+model PeriodReview {
+  id           String   @id @default(cuid())
+  bookId       String
+  month        DateTime @db.Date
+  status       String
+  reviewedById String?
+  reviewedAt   DateTime?
+  note         String?  @db.Text
+  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  @@unique([bookId, month])
+}
+
+model Comment {
+  id            String      @id @default(cuid())
+  transactionId String
+  authorId      String
+  body          String      @db.Text
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  author        UserProfile @relation(fields: [authorId], references: [id], onDelete: Restrict)
+}
+
+model Attachment {
+  id            String   @id @default(cuid())
+  bookId        String
+  transactionId String?
+  storageKey    String   @unique
+  contentType   String
+  sizeBytes     Int
+  sha256        String
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  @@index([bookId])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  bookId      String?
+  actorId     String?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  ipHash      String?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book        Book?     @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  actor       UserProfile? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([workspaceId, createdAt])
+  @@index([bookId, createdAt])
+}
