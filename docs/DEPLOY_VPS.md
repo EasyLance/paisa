@@ -58,8 +58,11 @@ or a disabled sign-in provider is far easier to diagnose here than behind Apache
 cp deploy/local-firebase.env.example .env.firebase-local   # gitignored
 # fill in the values from the console, then:
 set -a; . ./.env.firebase-local; set +a
-npm run serve &                       # API in firebase mode, in-memory store
-npm --prefix apps/web run build && npm --prefix apps/web run start
+npm run serve &                       # API in firebase mode, in-memory store, :4000
+npm --prefix apps/web run build
+# PORT is read by both servers, and the file sets it to the API's 4000.
+# The dashboard needs its own port or it will fail with EADDRINUSE.
+PORT=3000 npm --prefix apps/web run start
 ```
 
 Open <http://localhost:3000>. You should get the **sign-in page**; sign in with the
