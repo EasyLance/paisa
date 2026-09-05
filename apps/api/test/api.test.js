@@ -9,6 +9,20 @@ describe('Paisa API authorization and ledger invariants', () => {
 
   const as = (userId) => ({ 'x-dev-user-id': userId });
 
+  it('maps the sample owner onto a real Firebase identity when SEED_ variables are set', async () => {
+    process.env.SEED_OWNER_FIREBASE_UID = 'firebase-uid-from-console';
+    process.env.SEED_OWNER_EMAIL = 'owner@paisa.test';
+    try {
+      const store = new MemoryStore();
+      expect(await store.getUserByFirebaseUid('firebase-uid-from-console')).toMatchObject({ id: 'user_owner', email: 'owner@paisa.test' });
+      expect(await store.getUserByFirebaseUid('firebase-owner')).toBeNull();
+    } finally {
+      delete process.env.SEED_OWNER_FIREBASE_UID;
+      delete process.env.SEED_OWNER_EMAIL;
+    }
+    expect(await new MemoryStore().getUserByFirebaseUid('firebase-owner')).toMatchObject({ id: 'user_owner' });
+  });
+
   it('exposes separate liveness and datastore readiness checks', async () => {
     const live = await app.inject({ method: 'GET', url: '/health' });
     const ready = await app.inject({ method: 'GET', url: '/ready' });

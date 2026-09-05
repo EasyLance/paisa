@@ -50,6 +50,8 @@ The API automatically uses a seeded in-memory store when `DATABASE_URL` is absen
 
 The exact production connection sequence, required environment variables, migration command, health probes, and launch checks are in [Production setup](docs/PRODUCTION_SETUP.md). No source-code edits are required to connect MySQL or Firebase.
 
+To run this on your own Linux box with Apache and MySQL already installed, follow [VPS deployment](docs/DEPLOY_VPS.md), which uses the systemd units, Apache vhost, and deploy scripts in [`deploy/`](deploy).
+
 ## Verification
 
 ```text

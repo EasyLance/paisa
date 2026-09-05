@@ -1,0 +1,31 @@
+[Unit]
+Description=Paisa API
+Documentation=https://github.com/your-org/paisa
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paisa
+Group=paisa
+WorkingDirectory=/srv/paisa
+EnvironmentFile=/etc/paisa/paisa.env
+ExecStart=/usr/bin/node apps/api/src/server.js
+Restart=always
+RestartSec=5
+
+# The API binds to 127.0.0.1 and is reached only through Apache.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paisa-api
+
+[Install]
+WantedBy=multi-user.target

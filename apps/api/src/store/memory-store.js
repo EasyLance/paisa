@@ -10,6 +10,20 @@ const users = [
   { id: 'user_ca', firebaseUid: 'firebase-ca', email: 'ca@example.com', displayName: 'CA Reviewer' },
 ];
 
+// The same SEED_* variables the production seed script reads. Setting them lets a
+// real Firebase sign-in resolve to the sample owner, so the Firebase project can be
+// verified end to end locally before a database exists. Absent, the placeholder
+// identities above are used and only dev-header auth works.
+const seedIdentities = { user_owner: 'OWNER', user_spouse: 'SPOUSE', user_ca: 'CA' };
+function withSeedIdentity(user) {
+  const prefix = seedIdentities[user.id];
+  return {
+    ...user,
+    firebaseUid: process.env[`SEED_${prefix}_FIREBASE_UID`] || user.firebaseUid,
+    email: process.env[`SEED_${prefix}_EMAIL`] || user.email,
+  };
+}
+
 const categories = [
   ['cat_rent', 'Rent + maintenance', 'Essentials', '#315b46'], ['cat_utilities', 'Utilities', 'Essentials', '#60806f'],
   ['cat_groceries', 'Groceries', 'Essentials', '#89a55b'], ['cat_family', 'Money sent to family', 'Essentials', '#a9bd72'],
@@ -52,7 +66,7 @@ const budgets = [
 
 export class MemoryStore {
   constructor() {
-    this.users = structuredClone(users);
+    this.users = structuredClone(users).map(withSeedIdentity);
     this.workspaces = [{ id: 'ws_household', name: 'Mohanesh household', currency: 'INR', timezone: 'Asia/Kolkata' }];
     this.books = structuredClone(books);
     this.memberships = structuredClone(memberships);

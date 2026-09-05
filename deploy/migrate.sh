@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Apply pending Prisma migrations, after taking a backup.
+#
+#   ./deploy/migrate.sh
+#
+# Deliberately separate from deploy.sh: application code can be rolled back by
+# checking out the previous commit, but a migration that drops or rewrites a
+# column cannot. This holds real ledger data, so the backup is not optional.
+set -euo pipefail
+
+APP_DIR=${APP_DIR:-/srv/paisa}
+ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+BACKUP_DIR=${BACKUP_DIR:-/var/backups/paisa}
+
+cd "$APP_DIR"
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
+# Pull credentials out of DATABASE_URL (mysql://user:pass@host:port/dbname).
+proto_stripped=${DATABASE_URL#mysql://}
+credentials=${proto_stripped%%@*}
+location=${proto_stripped#*@}
+DB_USER=${credentials%%:*}
+DB_PASS=${credentials#*:}
+DB_HOST=${location%%:*}
+host_port=${location#*:}
+DB_PORT=${host_port%%/*}
+DB_NAME=${location##*/}
+DB_NAME=${DB_NAME%%\?*}
+# Undo percent-encoding commonly needed in the URL.
+DB_PASS=$(printf '%b' "${DB_PASS//%/\\x}")
+
+mkdir -p "$BACKUP_DIR"
+STAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/$DB_NAME-$STAMP.sql.gz"
+
+echo "==> Pending migrations"
+npx --workspace @paisa/api prisma migrate status || true
+
+echo "==> Backing up $DB_NAME to $BACKUP_FILE"
+mysqldump --single-transaction --routines --triggers \
+  -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" | gzip > "$BACKUP_FILE"
+echo "    $(du -h "$BACKUP_FILE" | cut -f1) written"
+
+# A backup you have never restored is a guess, not a backup. Verify it is a
+# readable dump before changing anything.
+if ! gzip -t "$BACKUP_FILE"; then
+  echo "Backup is corrupt — refusing to migrate." >&2
+  exit 1
+fi
+
+read -r -p "==> Apply migrations to $DB_NAME? [y/N] " reply
+[ "$reply" = "y" ] || exit 1
+
+npm --workspace @paisa/api run prisma:deploy
+
+echo "==> Restarting API"
+sudo systemctl restart paisa-api
+sleep 2
+curl -fsS http://127.0.0.1:4000/ready && echo
+
+echo "==> Done. Restore with:"
+echo "    gunzip < $BACKUP_FILE | mysql -u $DB_USER -p $DB_NAME"

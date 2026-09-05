@@ -1,0 +1,36 @@
+[Unit]
+Description=Paisa dashboard
+Documentation=https://github.com/your-org/paisa
+After=network-online.target paisa-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paisa
+Group=paisa
+WorkingDirectory=/srv/paisa/apps/web
+EnvironmentFile=/etc/paisa/paisa.env
+# Overrides the API's PORT from the shared env file.
+Environment=PORT=3000
+# NOTE: vinext start ignores HOST and always binds 0.0.0.0, so this port is
+# reachable on the droplet's public IP unless the firewall blocks it. Closing
+# everything except 22/80/443 with ufw is required, not optional — see
+# docs/DEPLOY_VPS.md. (The API honours HOST=127.0.0.1 and does stay on loopback.)
+ExecStart=/srv/paisa/apps/web/node_modules/.bin/vinext start
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paisa-web
+
+[Install]
+WantedBy=multi-user.target
