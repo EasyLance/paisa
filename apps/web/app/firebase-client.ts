@@ -2,7 +2,7 @@
 
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getToken, initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 
 export const firebaseEnabled = process.env.NEXT_PUBLIC_AUTH_MODE === 'firebase';
 let appCheckInstance: ReturnType<typeof initializeAppCheck> | undefined;
@@ -35,6 +35,10 @@ export async function registerInvitedUser(email: string, password: string) {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(credential.user);
   await signOut(auth);
+}
+
+export async function sendPasswordReset(email: string) {
+  if (firebaseEnabled) await sendPasswordResetEmail(getAuth(app()), email);
 }
 
 export async function signOutUser() {

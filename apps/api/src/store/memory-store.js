@@ -93,7 +93,18 @@ export class MemoryStore {
     membership.role = role;
     return { ...membership, user: this.users.find((user) => user.id === userId) };
   }
+  async countBookOwners(bookId) { return this.memberships.filter((member) => member.bookId === bookId && member.role === 'book_owner').length; }
+  async removeMembership(bookId, userId) {
+    const index = this.memberships.findIndex((member) => member.bookId === bookId && member.userId === userId);
+    if (index === -1) return null;
+    return this.memberships.splice(index, 1)[0];
+  }
   async listInvitations(bookId) { return this.invitations.filter((item) => item.bookId === bookId && item.status === 'pending'); }
+  async revokeInvitation(bookId, invitationId) {
+    const invitation = this.invitations.find((item) => item.id === invitationId && item.bookId === bookId && item.status === 'pending');
+    if (!invitation) return null;
+    invitation.status = 'revoked'; invitation.updatedAt = new Date(); return invitation;
+  }
   async createInvitation(data) {
     this.invitations.forEach((item) => { if (item.bookId === data.bookId && item.email === data.email && item.status === 'pending') item.status = 'revoked'; });
     const invitation = { id: randomUUID(), status: 'pending', createdAt: new Date(), updatedAt: new Date(), acceptedAt: null, ...data };
@@ -114,10 +125,25 @@ export class MemoryStore {
     else this.memberships.push({ bookId: invitation.bookId, userId: user.id, role: invitation.role, invitedById: invitation.invitedById, createdAt: new Date() });
     invitation.status = 'accepted'; invitation.acceptedAt = new Date(); invitation.updatedAt = new Date(); return { ...invitation, actorId: user.id };
   }
-  async listCategories(workspaceId) { return this.categories.filter((category) => category.workspaceId === workspaceId); }
+  async listCategories(workspaceId) { return this.categories.filter((category) => category.workspaceId === workspaceId && !category.archivedAt); }
+  assertCategoryNameFree(workspaceId, name, exceptId) {
+    if (this.categories.some((item) => item.workspaceId === workspaceId && item.name.toLowerCase() === name.toLowerCase() && item.id !== exceptId)) {
+      const error = new Error('Another category in this workspace already uses that name'); error.statusCode = 409; error.code = 'CATEGORY_NAME_TAKEN'; throw error;
+    }
+  }
   async createCategory({ workspaceId, name, groupName, color }) {
-    const category = { id: randomUUID(), workspaceId, name, groupName, color };
+    this.assertCategoryNameFree(workspaceId, name);
+    const category = { id: randomUUID(), workspaceId, name, groupName, color, archivedAt: null };
     this.categories.push(category); return category;
+  }
+  async editCategory(workspaceId, categoryId, { name, groupName, color, archived }) {
+    const category = this.categories.find((item) => item.id === categoryId && item.workspaceId === workspaceId);
+    if (!category) return null;
+    if (name !== undefined) { this.assertCategoryNameFree(workspaceId, name, category.id); category.name = name; }
+    if (groupName !== undefined) category.groupName = groupName;
+    if (color !== undefined) category.color = color;
+    if (archived !== undefined) category.archivedAt = archived ? new Date() : null;
+    return category;
   }
   withComments(transaction) { return transaction && { ...transaction, comments: this.comments.filter((comment) => comment.transactionId === transaction.id).sort((a, b) => a.createdAt - b.createdAt) }; }
   async listTransactions(bookId, { state, cursor, limit = 50 } = {}) {
@@ -126,8 +152,15 @@ export class MemoryStore {
     return { items: items.slice(0, limit).map((item) => this.withComments(item)), nextCursor: items.length > limit ? items[limit - 1].id : null };
   }
   async getTransaction(bookId, transactionId) { return this.transactions.find((item) => item.bookId === bookId && item.id === transactionId) ?? null; }
-  async listAccounts(bookId) { return this.accounts.filter((account) => account.bookId === bookId); }
-  async createAccount(data) { const account = { id: randomUUID(), ...data }; this.accounts.push(account); return account; }
+  async listAccounts(bookId) { return this.accounts.filter((account) => account.bookId === bookId && !account.archivedAt); }
+  async createAccount(data) { const account = { id: randomUUID(), archivedAt: null, ...data }; this.accounts.push(account); return account; }
+  async updateAccount(bookId, accountId, { archived, ...fields }) {
+    const account = this.accounts.find((item) => item.id === accountId && item.bookId === bookId);
+    if (!account) return null;
+    Object.entries(fields).forEach(([key, value]) => { account[key] = value; });
+    if (archived !== undefined) account.archivedAt = archived ? new Date() : null;
+    return account;
+  }
   assertReferences({ bookId, workspaceId, accountId, categoryIds = [] }) {
     const book = this.books.find((item) => item.id === bookId);
     const invalidBook = !book || (workspaceId && book.workspaceId !== workspaceId);
@@ -192,8 +225,29 @@ export class MemoryStore {
   }
   async listRules(bookId) { return this.rules.filter((rule) => rule.bookId === bookId); }
   async createRule(data) { this.assertReferences({ bookId: data.bookId, categoryIds: [data.categoryId] }); const rule = { id: randomUUID(), enabled: true, priority: 100, createdAt: new Date(), ...data }; this.rules.push(rule); return rule; }
-  async listRecurring(bookId) { return this.recurring.filter((plan) => plan.bookId === bookId); }
+  async updateRule(bookId, ruleId, fields) {
+    const rule = this.rules.find((item) => item.id === ruleId && item.bookId === bookId);
+    if (!rule) return null;
+    this.assertReferences({ bookId, categoryIds: [fields.categoryId] });
+    Object.entries(fields).forEach(([key, value]) => { rule[key] = value; });
+    return rule;
+  }
+  async deleteRule(bookId, ruleId) {
+    const index = this.rules.findIndex((item) => item.id === ruleId && item.bookId === bookId);
+    if (index === -1) return null;
+    return this.rules.splice(index, 1)[0];
+  }
+  async listRecurring(bookId) { return this.recurring.filter((plan) => plan.bookId === bookId && plan.active); }
   async createRecurring(data) { this.assertReferences({ bookId: data.bookId, categoryIds: [data.categoryId] }); const plan = { id: randomUUID(), active: true, ...data, amountMinor: parseMinor(data.amountMinor), nextDueAt: new Date(data.nextDueAt) }; this.recurring.push(plan); return plan; }
+  async updateRecurring(bookId, planId, { amountMinor, nextDueAt, ...fields }) {
+    const plan = this.recurring.find((item) => item.id === planId && item.bookId === bookId);
+    if (!plan) return null;
+    this.assertReferences({ bookId, categoryIds: [fields.categoryId] });
+    Object.entries(fields).forEach(([key, value]) => { plan[key] = value; });
+    if (amountMinor !== undefined) plan.amountMinor = parseMinor(amountMinor);
+    if (nextDueAt !== undefined) plan.nextDueAt = new Date(nextDueAt);
+    return plan;
+  }
   async listImports(bookId) { return this.imports.filter((item) => item.bookId === bookId).sort((a, b) => b.createdAt - a.createdAt); }
   async createImport(data) {
     const existing = this.imports.find((item) => item.bookId === data.bookId && item.sha256 === data.sha256);

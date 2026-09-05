@@ -8,8 +8,8 @@
     "apps/worker"
   ],
   "scripts": {
-    "dev:web": "npm --prefix apps/web run dev",
-    "dev:api": "npm --workspace @paisa/api run dev",
+    "dev": "npm --prefix apps/web run dev",
+    "serve": "npm --workspace @paisa/api run dev",
     "dev:worker": "npm --workspace @paisa/worker run dev",
     "build": "npm --prefix apps/web run build && npm --workspace @paisa/api run check && npm --workspace @paisa/worker run check",
     "test": "npm --workspace @paisa/api test",

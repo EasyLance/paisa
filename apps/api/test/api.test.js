@@ -146,6 +146,60 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(retry.json().id).toBe(first.json().id);
   });
 
+  it('edits and archives an account without deleting its history', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const renamed = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/accounts/account_primary', headers, payload: { name: 'Salary account', accountMask: '9911' } });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toMatchObject({ name: 'Salary account', accountMask: '9911' });
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/accounts/account_primary', headers, payload: { archived: true } });
+    const listed = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/accounts', headers: as('user_owner') });
+    expect(listed.json().items).toEqual([]);
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') });
+    expect(audit.json().items[0].action).toBe('account.archived');
+  });
+
+  it('renames a category and refuses a name another category already uses', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const renamed = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/categories/cat_dining', headers, payload: { name: 'Eating out', color: '#aa4433' } });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toMatchObject({ name: 'Eating out', color: '#aa4433' });
+    const clash = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/categories/cat_dining', headers, payload: { name: 'Groceries' } });
+    expect(clash.statusCode).toBe(409);
+    expect(clash.json().code).toBe('CATEGORY_NAME_TAKEN');
+  });
+
+  it('edits and deletes a categorization rule', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/categorization-rules', headers, payload: { categoryId: 'cat_food', matchType: 'merchant_contains', matchValue: 'Swiggy' } });
+    const ruleId = created.json().id;
+    const edited = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/categorization-rules/${ruleId}`, headers, payload: { matchValue: 'Swiggy Instamart', priority: 20 } });
+    expect(edited.json()).toMatchObject({ matchValue: 'Swiggy Instamart', priority: 20 });
+    const removed = await app.inject({ method: 'DELETE', url: `/v1/books/book_arjun/categorization-rules/${ruleId}`, headers: as('user_owner') });
+    expect(removed.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_arjun/categorization-rules', headers: as('user_owner') })).json().items).toEqual([]);
+    expect((await app.inject({ method: 'DELETE', url: `/v1/books/book_arjun/categorization-rules/${ruleId}`, headers: as('user_owner') })).statusCode).toBe(404);
+  });
+
+  it('edits a recurring plan and stops it without deleting the record', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const edited = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/recurring-plans/recurring_salary', headers, payload: { name: 'Salary (revised)', kind: 'income', amountMinor: '60000000' } });
+    expect(edited.json()).toMatchObject({ name: 'Salary (revised)', amountMinor: '60000000' });
+    const wrongSign = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/recurring-plans/recurring_salary', headers, payload: { kind: 'income', amountMinor: '-1000' } });
+    expect(wrongSign.statusCode).toBe(400);
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/recurring-plans/recurring_salary', headers, payload: { active: false } });
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_arjun/recurring-plans', headers: as('user_owner') })).json().items).toEqual([]);
+  });
+
+  it('stops a reviewer from editing accounts, categories, rules, or plans', async () => {
+    const headers = { ...as('user_ca'), 'content-type': 'application/json' };
+    const attempts = await Promise.all([
+      app.inject({ method: 'PATCH', url: '/v1/books/book_home/categories/cat_dining', headers, payload: { name: 'Renamed by CA' } }),
+      app.inject({ method: 'PATCH', url: '/v1/books/book_home/recurring-plans/recurring_salary', headers, payload: { active: false } }),
+      app.inject({ method: 'DELETE', url: '/v1/books/book_home/categorization-rules/any', headers: as('user_ca') }),
+    ]);
+    expect(attempts.map((response) => response.statusCode)).toEqual([403, 403, 403]);
+  });
+
   it('rejects account and category references outside the authorized book scope', async () => {
     app.store.categories.push({ id: 'cat_other_workspace', workspaceId: 'ws_other', name: 'Outside', groupName: 'Other', color: '#000000' });
     const headers = { ...as('user_owner'), 'content-type': 'application/json', 'idempotency-key': 'cross-scope-reference' };
@@ -177,6 +231,38 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(role.json().role).toBe('viewer');
     const audit = await app.inject({ method: 'GET', url: '/v1/books/book_home/audit-events', headers: as('user_owner') });
     expect(audit.json().items.map((event) => event.action)).toEqual(expect.arrayContaining(['budget.updated', 'membership.role_changed']));
+  });
+
+  it('removes a member and revokes a pending invitation', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const invitation = await app.inject({ method: 'POST', url: '/v1/books/book_home/invitations', headers, payload: { email: 'auditor@example.com', role: 'viewer' } });
+    const revoked = await app.inject({ method: 'DELETE', url: `/v1/books/book_home/invitations/${invitation.json().id}`, headers: as('user_owner') });
+    expect(revoked.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_home/invitations', headers: as('user_owner') })).json().items).toEqual([]);
+    const removed = await app.inject({ method: 'DELETE', url: '/v1/books/book_home/memberships/user_ca', headers: as('user_owner') });
+    expect(removed.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_home/memberships', headers: as('user_owner') })).json().items.map((item) => item.userId)).toEqual(['user_owner', 'user_spouse']);
+    const afterRemoval = await app.inject({ method: 'GET', url: '/v1/books/book_home/transactions', headers: as('user_ca') });
+    expect(afterRemoval.statusCode).toBe(404);
+  });
+
+  it('keeps at least one owner and refuses self-service access changes', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const demoteSelf = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/memberships/user_owner', headers, payload: { role: 'viewer' } });
+    expect(demoteSelf.statusCode).toBe(409);
+    expect(demoteSelf.json().code).toBe('SELF_ACCESS_CHANGE');
+    expect((await app.inject({ method: 'DELETE', url: '/v1/books/book_arjun/memberships/user_owner', headers: as('user_owner') })).json().code).toBe('SELF_ACCESS_CHANGE');
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_home/memberships/user_spouse', headers, payload: { role: 'book_owner' } });
+    const demoteOther = await app.inject({ method: 'PATCH', url: '/v1/books/book_home/memberships/user_spouse', headers, payload: { role: 'viewer' } });
+    expect(demoteOther.statusCode).toBe(200);
+  });
+
+  it('stops an editor from managing members or invitations', async () => {
+    const attempts = await Promise.all([
+      app.inject({ method: 'DELETE', url: '/v1/books/book_home/memberships/user_ca', headers: as('user_spouse') }),
+      app.inject({ method: 'DELETE', url: '/v1/books/book_home/invitations/any', headers: as('user_spouse') }),
+    ]);
+    expect(attempts.map((response) => response.statusCode)).toEqual([403, 403]);
   });
 
   it('creates expiring book invitations and accepts them only as the invited account', async () => {

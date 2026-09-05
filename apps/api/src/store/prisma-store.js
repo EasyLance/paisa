@@ -32,7 +32,19 @@ export class PrismaStore {
     if (!current) return null;
     return this.db.bookMembership.update({ where: { bookId_userId: { bookId, userId } }, data: { role }, include: { user: true } });
   }
+  async countBookOwners(bookId) { return this.db.bookMembership.count({ where: { bookId, role: 'book_owner' } }); }
+  async removeMembership(bookId, userId) {
+    const current = await this.db.bookMembership.findUnique({ where: { bookId_userId: { bookId, userId } } });
+    if (!current) return null;
+    await this.db.bookMembership.delete({ where: { bookId_userId: { bookId, userId } } });
+    return current;
+  }
   async listInvitations(bookId) { return this.db.bookInvitation.findMany({ where: { bookId, status: 'pending' }, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, role: true, status: true, expiresAt: true, createdAt: true } }); }
+  async revokeInvitation(bookId, invitationId) {
+    const invitation = await this.db.bookInvitation.findFirst({ where: { id: invitationId, bookId, status: 'pending' } });
+    if (!invitation) return null;
+    return this.db.bookInvitation.update({ where: { id: invitationId }, data: { status: 'revoked' } });
+  }
   async createInvitation(data) {
     return this.db.$transaction(async (db) => {
       await db.bookInvitation.updateMany({ where: { bookId: data.bookId, email: data.email, status: 'pending' }, data: { status: 'revoked' } });
@@ -56,9 +68,28 @@ export class PrismaStore {
     });
   }
   async listCategories(workspaceId) { return this.db.category.findMany({ where: { workspaceId, archivedAt: null }, orderBy: [{ groupName: 'asc' }, { name: 'asc' }] }); }
-  async createCategory(data) { return this.db.category.create({ data }); }
+  async createCategory(data) {
+    try { return await this.db.category.create({ data }); }
+    catch (error) { throw this.categoryNameConflict(error); }
+  }
+  categoryNameConflict(error) {
+    if (error?.code !== 'P2002') return error;
+    const conflict = new Error('Another category in this workspace already uses that name'); conflict.statusCode = 409; conflict.code = 'CATEGORY_NAME_TAKEN'; return conflict;
+  }
+  async editCategory(workspaceId, categoryId, { archived, ...fields }) {
+    const current = await this.db.category.findFirst({ where: { id: categoryId, workspaceId } });
+    if (!current) return null;
+    const data = { ...fields, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) };
+    try { return await this.db.category.update({ where: { id: categoryId }, data }); }
+    catch (error) { throw this.categoryNameConflict(error); }
+  }
   async listAccounts(bookId) { return this.db.financialAccount.findMany({ where: { bookId, archivedAt: null }, orderBy: { name: 'asc' } }); }
   async createAccount(data) { return this.db.financialAccount.create({ data }); }
+  async updateAccount(bookId, accountId, { archived, ...fields }) {
+    const current = await this.db.financialAccount.findFirst({ where: { id: accountId, bookId } });
+    if (!current) return null;
+    return this.db.financialAccount.update({ where: { id: accountId }, data: { ...fields, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) } });
+  }
   async listTransactions(bookId, { state, cursor, limit = 50 } = {}) {
     const items = await this.db.transaction.findMany({ where: { bookId, ...(state ? { state } : {}) }, include: { sources: true, splits: true, comments: { orderBy: { createdAt: 'asc' } } }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
     const hasMore = items.length > limit; if (hasMore) items.pop(); return { items, nextCursor: hasMore ? items.at(-1).id : null };
@@ -155,8 +186,26 @@ export class PrismaStore {
   }
   async listRules(bookId) { return this.db.categorizationRule.findMany({ where: { bookId }, orderBy: { priority: 'asc' } }); }
   async createRule(data) { await this.assertReferences(this.db, { bookId: data.bookId, categoryIds: [data.categoryId] }); return this.db.categorizationRule.create({ data }); }
+  async updateRule(bookId, ruleId, fields) {
+    const current = await this.db.categorizationRule.findFirst({ where: { id: ruleId, bookId } });
+    if (!current) return null;
+    await this.assertReferences(this.db, { bookId, categoryIds: [fields.categoryId] });
+    return this.db.categorizationRule.update({ where: { id: ruleId }, data: fields });
+  }
+  async deleteRule(bookId, ruleId) {
+    const current = await this.db.categorizationRule.findFirst({ where: { id: ruleId, bookId } });
+    if (!current) return null;
+    await this.db.categorizationRule.delete({ where: { id: ruleId } });
+    return current;
+  }
   async listRecurring(bookId) { return this.db.recurringPlan.findMany({ where: { bookId, active: true }, orderBy: { nextDueAt: 'asc' } }); }
   async createRecurring(data) { await this.assertReferences(this.db, { bookId: data.bookId, categoryIds: [data.categoryId] }); return this.db.recurringPlan.create({ data: { ...data, amountMinor: parseMinor(data.amountMinor), nextDueAt: new Date(data.nextDueAt) } }); }
+  async updateRecurring(bookId, planId, { amountMinor, nextDueAt, ...fields }) {
+    const current = await this.db.recurringPlan.findFirst({ where: { id: planId, bookId } });
+    if (!current) return null;
+    await this.assertReferences(this.db, { bookId, categoryIds: [fields.categoryId] });
+    return this.db.recurringPlan.update({ where: { id: planId }, data: { ...fields, ...(amountMinor === undefined ? {} : { amountMinor: parseMinor(amountMinor) }), ...(nextDueAt === undefined ? {} : { nextDueAt: new Date(nextDueAt) }) } });
+  }
   async listImports(bookId) { return this.db.attachment.findMany({ where: { bookId, transactionId: null, contentType: { in: ['text/csv', 'application/pdf'] } }, orderBy: { createdAt: 'desc' }, take: 25 }); }
   async createImport(data) {
     const storageKey = `imports/${data.workspaceId}/${data.bookId}/${data.sha256}`;

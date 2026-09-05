@@ -5,12 +5,13 @@ Paisa is an Android-first household finance platform for India. It combines a Fl
 ## What is implemented
 
 - Private owner and spouse books plus an explicitly shared household book.
-- Owner, editor, reviewer/CA, and viewer authorization enforced by the API.
+- Owner, editor, reviewer/CA, and viewer authorization enforced by the API. Owners can change a member's role, promote a co-owner, remove access, and revoke a pending invitation; a book always keeps at least one owner and nobody can change their own access.
 - Immutable transaction sources, integer-paise money values, categorization, splits, comments, budgets, recurring plans, imports, period verification, and append-only audit events.
 - Idempotent SMS/statement ingestion with workspace-level source hashes.
 - Interactive React dashboard with overview, transaction search/review, budgets, reports, CSV exports, book switching, member roles, invitation acceptance, period verification, and audit history.
 - Dashboard reviewer workflow: split a captured payment across categories, post audited review notes on a transaction, and confirm categories with an optional merchant rule for future payments.
-- Dashboard configuration: financial accounts, workspace categories, merchant/VPA categorization rules, recurring plans, and duplicate-safe CSV/PDF statement imports fingerprinted in the browser.
+- Dashboard configuration: financial accounts, workspace categories, merchant/VPA categorization rules, and recurring plans are each editable and removable in place, plus duplicate-safe CSV/PDF statement imports fingerprinted in the browser.
+- Removal preserves history: accounts and categories are archived rather than deleted, recurring plans are stopped, and only rules — which affect nothing already recorded — are deleted outright. Every change is audited.
 - Flutter Android overview, SMS permission onboarding, native financial-message parser, encrypted offline queue, retrying REST upload, and Firebase bootstrap.
 - MySQL Prisma schema, checked-in initial migration, production seed, Redis/BullMQ workers, OpenAPI documentation, and local demo mode.
 
@@ -33,7 +34,7 @@ Requirements: Node.js 22+, Flutter 3.38+, MySQL 8, Redis 7, and Java 17 for Andr
 2. Start MySQL and Redis with `docker compose up -d` or equivalent local services.
 3. Install JavaScript packages with `npm install` and Flutter packages with `flutter pub get` inside `apps/mobile`.
 4. Apply the database with `npm run prisma:migrate`, then seed invite-only pilot users with `npm --workspace @paisa/api run seed`.
-5. Run the API with `npm run dev:api`, the worker with `npm run dev:worker`, and the dashboard with `npm run dev:web`.
+5. Run the dashboard with `npm run dev`, the API with `npm run serve`, and the optional background worker with `npm run dev:worker`. The dashboard expects the API on port 4000, so start both in separate terminals.
 6. Run Flutter with `flutter run --dart-define=API_URL=http://10.0.2.2:4000` from `apps/mobile`.
 
 The API automatically uses a seeded in-memory store when `DATABASE_URL` is absent. This makes the dashboard and automated tests runnable without external credentials; production must set `DATABASE_URL`, `AUTH_MODE=firebase`, and `APP_CHECK_MODE=enforce`.
@@ -65,3 +66,5 @@ All amounts shown by the credential-free demo are illustrative pilot data. Produ
 ## Production boundaries
 
 Paisa does not initiate payments, store UPI PINs or banking passwords, calculate tax, file taxes, lend money, or execute investments. Account Aggregator connectivity and public billing remain post-pilot work.
+
+Known gap: the web sign-in supports email, password, password reset, and invited-account creation, but it cannot yet complete a multi-factor challenge. MFA must stay unenforced in Firebase until that flow is built.

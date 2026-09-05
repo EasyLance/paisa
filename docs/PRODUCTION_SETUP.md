@@ -26,7 +26,8 @@ The seed creates users, books, memberships, and editable category suggestions. I
 
 Create separate Firebase projects for development, staging, and production. For production:
 
-- Enable Email/Password authentication, email verification, password reset, and the chosen MFA policy.
+- Enable Email/Password authentication, email verification, and password reset. The dashboard sign-in screen offers a password-reset link, so the reset email template should be configured.
+- Do not enforce multi-factor authentication yet. The web sign-in cannot complete a second-factor challenge, so enrolling a user in MFA locks them out of the dashboard. This is tracked as post-pilot work.
 - Register the web app and set all `NEXT_PUBLIC_FIREBASE_*` values in `apps/web/.env.example`.
 - Register the Android app ID `com.paisa.mobile` and run the standard FlutterFire configuration flow.
 - Enable App Check for web and Android, then set `FIREBASE_PROJECT_ID`, `FIREBASE_PROJECT_NUMBER`, and the comma-separated `FIREBASE_APP_IDS` on the API.
