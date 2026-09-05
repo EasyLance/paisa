@@ -27,6 +27,41 @@ genuinely required. Everything else runs on the droplet you already have:
 Skip both until the features that need them are built. Setting them up now buys
 nothing but a bill.
 
+## The short version
+
+**Repeat deploys are one line.** Once the droplet is set up, every future release is:
+
+```bash
+cd /srv/paisa && ./deploy/deploy.sh
+```
+
+**First-time setup is two lines plus two things only you can do.** Clone the repo,
+then run the bootstrap:
+
+```bash
+sudo git clone YOUR-REPO-URL /srv/paisa && sudo bash /srv/paisa/deploy/bootstrap.sh paisa.example.com
+```
+
+[`bootstrap.sh`](../deploy/bootstrap.sh) installs Node 22, git, Apache modules and
+certbot, creates the `paisa` service user, creates the MySQL database and user with a
+generated password, writes the env file with your domain and database URL already
+filled in, installs both systemd units, configures the Apache vhost, and closes the
+firewall. It is idempotent — re-running it never overwrites your env file or touches
+an existing database.
+
+It stops short of two things, because it cannot do them for you:
+
+1. **Your Firebase values.** You paste them into `/etc/paisa/paisa.env`. The dashboard
+   compiles `NEXT_PUBLIC_*` values in at build time, so this must happen before the
+   build, not after.
+2. **TLS.** `certbot` can only issue a certificate once your DNS A record resolves to
+   the droplet, which depends on your registrar, not this script.
+
+It prints both as numbered next steps when it finishes, with the exact commands.
+
+The rest of this document explains what bootstrap does, for when you need to debug it
+or do a step by hand.
+
 ## 1. Firebase
 
 At <https://console.firebase.google.com>:
@@ -109,6 +144,37 @@ FLUSH PRIVILEGES;
 
 Keep MySQL bound to `127.0.0.1` (the default on Ubuntu). Nothing outside the droplet
 needs to reach it, and a database of financial records should never be exposed.
+
+### Creating the 20 tables
+
+Leave the database empty. Step 4 runs `prisma:deploy`, which creates every table and
+records which migrations it applied, so later schema changes apply cleanly on top.
+That is the supported path and the one `deploy/migrate.sh` uses from then on.
+
+If you would rather create the schema by hand — through phpMyAdmin, say —
+[`deploy/schema.sql`](../deploy/schema.sql) is generated from those same migrations:
+
+```bash
+mysql -u paisa -p paisa < deploy/schema.sql
+```
+
+Import it into an **empty** database only. Its last section fills Prisma's
+`_prisma_migrations` table; without those rows the next `prisma migrate deploy` would
+try to create all 20 tables a second time and fail. If you use this file, skip the
+`prisma:deploy` line in step 4 — the schema will already exist.
+
+`deploy/schema.sql` is a generated artifact. Never edit it by hand; run
+`npm run build:schema-sql` after adding a migration. CI fails if it is out of date.
+
+The tables, for orientation:
+
+| Group | Tables |
+| --- | --- |
+| Tenancy | `Workspace`, `UserProfile`, `WorkspaceUser`, `Book`, `BookMembership`, `BookInvitation` |
+| Ledger | `Transaction`, `TransactionSource`, `TransactionSplit`, `IngestionEvent`, `FinancialAccount` |
+| Classification | `Category`, `CategorizationRule`, `Budget`, `RecurringPlan` |
+| Review and trail | `PeriodReview`, `Comment`, `AuditEvent`, `Attachment` |
+| Plumbing | `IdempotencyRecord` (makes retried SMS and imports safe) |
 
 ## 4. Code and configuration
 

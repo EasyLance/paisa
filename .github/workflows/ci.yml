@@ -38,6 +38,10 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npx --workspace @paisa/api prisma validate
+      # deploy/schema.sql is generated from the migrations. Fail if someone adds a
+      # migration without regenerating it, so the hand-import path cannot go stale.
+      - run: npm run build:schema-sql
+      - run: git diff --exit-code deploy/schema.sql
 
   flutter:
     runs-on: ubuntu-latest
