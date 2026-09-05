@@ -49,6 +49,13 @@ enum IngestionState {
   rejected
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
 model Workspace {
   id          String   @id @default(cuid())
   name        String
@@ -61,6 +68,7 @@ model Workspace {
   accounts    FinancialAccount[]
   categories  Category[]
   auditEvents AuditEvent[]
+  invitations BookInvitation[]
 }
 
 model UserProfile {
@@ -75,6 +83,7 @@ model UserProfile {
   memberships  BookMembership[]
   comments     Comment[]
   auditEvents  AuditEvent[] @relation("AuditActor")
+  sentInvitations BookInvitation[] @relation("InvitationSender")
 }
 
 model WorkspaceUser {
@@ -107,6 +116,7 @@ model Book {
   reviews       PeriodReview[]
   attachments   Attachment[]
   auditEvents   AuditEvent[]
+  invitations   BookInvitation[]
   @@index([workspaceId])
 }
 
@@ -120,6 +130,40 @@ model BookMembership {
   user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@id([bookId, userId])
   @@index([userId])
+}
+
+model BookInvitation {
+  id          String           @id @default(cuid())
+  workspaceId String
+  bookId      String
+  email       String
+  role        BookRole
+  tokenHash   String           @unique
+  status      InvitationStatus @default(pending)
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book        Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  invitedBy   UserProfile      @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  @@index([bookId, status])
+  @@index([email, status])
+}
+
+model IdempotencyRecord {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  actorId       String
+  operation     String
+  keyHash       String   @db.Char(64)
+  requestHash   String   @db.Char(64)
+  transactionId String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  @@unique([workspaceId, actorId, operation, keyHash])
+  @@index([expiresAt])
 }
 
 model FinancialAccount {

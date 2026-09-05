@@ -19,5 +19,8 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "overrides": {
+    "prisma": "6.12.0"
   }
 }

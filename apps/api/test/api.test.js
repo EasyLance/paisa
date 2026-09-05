@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
+import { MemoryStore } from '../src/store/memory-store.js';
 
 describe('Paisa API authorization and ledger invariants', () => {
   let app;
@@ -7,6 +8,20 @@ describe('Paisa API authorization and ledger invariants', () => {
   afterEach(async () => { await app.close(); });
 
   const as = (userId) => ({ 'x-dev-user-id': userId });
+
+  it('exposes separate liveness and datastore readiness checks', async () => {
+    const live = await app.inject({ method: 'GET', url: '/health' });
+    const ready = await app.inject({ method: 'GET', url: '/ready' });
+    expect(live.statusCode).toBe(200);
+    expect(ready.statusCode).toBe(200);
+    expect(ready.json()).toEqual({ status: 'ready', service: 'paisa-api', datastore: 'reachable' });
+  });
+
+  it('allows browsers to preflight the mutating dashboard methods', async () => {
+    const response = await app.inject({ method: 'OPTIONS', url: '/v1/books/book_arjun/budgets/cat_groceries', headers: { origin: 'http://localhost:3000', 'access-control-request-method': 'PUT' } });
+    expect(response.headers['access-control-allow-methods']).toContain('PUT');
+    expect(response.headers['access-control-allow-methods']).toContain('PATCH');
+  });
 
   it('returns only the books explicitly granted to a user', async () => {
     const owner = await app.inject({ method: 'GET', url: '/v1/books', headers: as('user_owner') });
@@ -30,11 +45,55 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(audit.json().items[0].action).toBe('transaction.reclassified');
   });
 
+  it('creates a merchant rule only when the reviewer applies a category to future payments', async () => {
+    const headers = { ...as('user_ca'), 'content-type': 'application/json' };
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_home/transactions/tx_5/category', headers, payload: { categoryId: 'cat_food', applyToFuture: false } });
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_home/categorization-rules', headers })).json().items).toEqual([]);
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_home/transactions/tx_5/category', headers, payload: { categoryId: 'cat_dining', applyToFuture: true } });
+    const rules = (await app.inject({ method: 'GET', url: '/v1/books/book_home/categorization-rules', headers })).json().items;
+    expect(rules).toMatchObject([{ categoryId: 'cat_dining', matchType: 'merchant_exact', matchValue: 'Fresh Market' }]);
+  });
+
   it('prevents a reviewer from creating or altering source amounts', async () => {
     const create = await app.inject({ method: 'POST', url: '/v1/books/book_home/transactions', headers: { ...as('user_ca'), 'content-type': 'application/json' }, payload: { kind: 'expense', amountMinor: '-10000', occurredAt: '2026-08-26T10:00:00.000Z' } });
     expect(create.statusCode).toBe(403);
     const mutate = await app.inject({ method: 'PATCH', url: '/v1/books/book_home/transactions/tx_5', headers: { ...as('user_ca'), 'content-type': 'application/json' }, payload: { amountMinor: '-1' } });
     expect(mutate.statusCode).toBe(403);
+  });
+
+  it('lets a reviewer split and comment without changing the imported total', async () => {
+    const headers = { ...as('user_ca'), 'content-type': 'application/json' };
+    const split = await app.inject({ method: 'PUT', url: '/v1/books/book_home/transactions/tx_5/splits', headers, payload: { splits: [{ categoryId: 'cat_groceries', amountMinor: '-300000' }, { categoryId: 'cat_food', amountMinor: '-182000' }] } });
+    expect(split.statusCode).toBe(200);
+    expect(split.json().splits).toHaveLength(2);
+    const comment = await app.inject({ method: 'POST', url: '/v1/books/book_home/transactions/tx_5/comments', headers, payload: { body: 'Please keep the receipt for reconciliation.' } });
+    expect(comment.statusCode).toBe(201);
+  });
+
+  it('returns splits and reviewer comments when the ledger is read back', async () => {
+    const headers = { ...as('user_ca'), 'content-type': 'application/json' };
+    await app.inject({ method: 'PUT', url: '/v1/books/book_home/transactions/tx_5/splits', headers, payload: { splits: [{ categoryId: 'cat_groceries', amountMinor: '-300000' }, { categoryId: 'cat_food', amountMinor: '-182000' }] } });
+    await app.inject({ method: 'POST', url: '/v1/books/book_home/transactions/tx_5/comments', headers, payload: { body: 'Split against the grocery receipt.' } });
+    const response = await app.inject({ method: 'GET', url: '/v1/books/book_home/transactions', headers: as('user_owner') });
+    const transaction = response.json().items.find((item) => item.id === 'tx_5');
+    expect(transaction.splits).toHaveLength(2);
+    expect(transaction.comments.map((comment) => comment.body)).toEqual(['Split against the grocery receipt.']);
+  });
+
+  it('lists statement imports for the book that recorded them', async () => {
+    const payload = { fileName: 'august-statement.csv', contentType: 'text/csv', sizeBytes: 2048, sha256: 'a'.repeat(64) };
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: { ...as('user_owner'), 'content-type': 'application/json' }, payload });
+    expect(created.statusCode).toBe(201);
+    const listed = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/imports', headers: as('user_owner') });
+    expect(listed.json().items.map((item) => item.sha256)).toEqual([payload.sha256]);
+    const otherBook = await app.inject({ method: 'GET', url: '/v1/books/book_home/imports', headers: as('user_owner') });
+    expect(otherBook.json().items).toEqual([]);
+  });
+
+  it('rejects a split whose parts do not equal the source amount', async () => {
+    const response = await app.inject({ method: 'PUT', url: '/v1/books/book_home/transactions/tx_5/splits', headers: { ...as('user_ca'), 'content-type': 'application/json' }, payload: { splits: [{ categoryId: 'cat_groceries', amountMinor: '-100' }, { categoryId: 'cat_food', amountMinor: '-200' }] } });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('SPLIT_TOTAL_MISMATCH');
   });
 
   it('deduplicates retried SMS ingestion by workspace and source hash', async () => {
@@ -49,8 +108,111 @@ describe('Paisa API authorization and ledger invariants', () => {
   });
 
   it('serializes money as integer strings and computes exact summary totals', async () => {
-    const response = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
+    const response = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-08', headers: as('user_owner') });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ incomeMinor: '58786700', spentMinor: '3824000', savedMinor: '54962700', pendingReview: 1 });
+    expect(response.json()).toMatchObject({ incomeMinor: '58786700', spentMinor: '3809000', savedMinor: '54977700', pendingReview: 1 });
+    const emptyMonth = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-07', headers: as('user_owner') });
+    expect(emptyMonth.json()).toMatchObject({ incomeMinor: '0', spentMinor: '0', savedMinor: '0', pendingReview: 0 });
+  });
+
+  it('assigns transactions to months using the book timezone', async () => {
+    app.store.transactions.push({ id: 'tx_boundary', workspaceId: 'ws_household', bookId: 'book_arjun', kind: 'expense', state: 'confirmed', amountMinor: -100n, currency: 'INR', merchant: 'Boundary', categoryId: 'cat_other', occurredAt: new Date('2026-07-31T19:00:00.000Z'), createdAt: new Date(), updatedAt: new Date(), sources: [], splits: [] });
+    const august = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-08', headers: as('user_owner') });
+    const july = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-07', headers: as('user_owner') });
+    expect(august.json().spentMinor).toBe('3809100');
+    expect(july.json().spentMinor).toBe('0');
+  });
+
+  it('rejects transaction amounts whose sign conflicts with their kind', async () => {
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'content-type': 'application/json', 'idempotency-key': 'invalid-positive-expense' }, payload: { kind: 'expense', amountMinor: '10000', occurredAt: '2026-08-26T10:00:00.000Z' } });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('VALIDATION_ERROR');
+  });
+
+  it('applies amount sign invariants to recurring plans', async () => {
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/recurring-plans', headers: { ...as('user_owner'), 'content-type': 'application/json' }, payload: { name: 'Invalid expense', kind: 'expense', amountMinor: '50000', currency: 'INR', cadence: 'monthly', nextDueAt: '2026-09-01T00:00:00.000Z' } });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('VALIDATION_ERROR');
+  });
+
+  it('requires and honors idempotency keys for manual ledger creation', async () => {
+    const payload = { kind: 'expense', amountMinor: '-10000', occurredAt: '2026-08-26T10:00:00.000Z' };
+    const missing = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'content-type': 'application/json' }, payload });
+    expect(missing.statusCode).toBe(400);
+    expect(missing.json().code).toBe('IDEMPOTENCY_KEY_REQUIRED');
+    const headers = { ...as('user_owner'), 'content-type': 'application/json', 'idempotency-key': 'manual-entry-one' };
+    const first = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers, payload });
+    const retry = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers, payload });
+    expect(retry.json().id).toBe(first.json().id);
+  });
+
+  it('rejects account and category references outside the authorized book scope', async () => {
+    app.store.categories.push({ id: 'cat_other_workspace', workspaceId: 'ws_other', name: 'Outside', groupName: 'Other', color: '#000000' });
+    const headers = { ...as('user_owner'), 'content-type': 'application/json', 'idempotency-key': 'cross-scope-reference' };
+    const category = await app.inject({ method: 'POST', url: '/v1/books/book_home/transactions', headers, payload: { kind: 'expense', amountMinor: '-10000', categoryId: 'cat_other_workspace', occurredAt: '2026-08-26T10:00:00.000Z' } });
+    expect(category.statusCode).toBe(400);
+    expect(category.json().code).toBe('REFERENCE_SCOPE_ERROR');
+    const account = await app.inject({ method: 'POST', url: '/v1/books/book_home/transactions', headers: { ...headers, 'idempotency-key': 'cross-book-account' }, payload: { kind: 'expense', amountMinor: '-10000', accountId: 'account_primary', occurredAt: '2026-08-26T10:00:00.000Z' } });
+    expect(account.statusCode).toBe(400);
+    expect(account.json().code).toBe('REFERENCE_SCOPE_ERROR');
+  });
+
+  it('persists period verification only after pending transactions are resolved', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const blocked = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/period-reviews', headers, payload: { month: '2026-08', status: 'verified' } });
+    expect(blocked.statusCode).toBe(409);
+    await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun/transactions/tx_2/category', headers, payload: { categoryId: 'cat_emi', applyToFuture: false } });
+    const verified = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/period-reviews', headers, payload: { month: '2026-08', status: 'verified', note: 'Reviewed' } });
+    expect(verified.statusCode).toBe(201);
+    expect(verified.json()).toMatchObject({ bookId: 'book_arjun', status: 'verified', reviewedById: 'user_owner' });
+  });
+
+  it('lets an owner update budgets and member roles with an audit trail', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const budget = await app.inject({ method: 'PUT', url: '/v1/books/book_home/budgets/cat_groceries', headers, payload: { month: '2026-08-01', amountMinor: '900000', currency: 'INR' } });
+    expect(budget.statusCode).toBe(200);
+    expect(budget.json().amountMinor).toBe('900000');
+    const role = await app.inject({ method: 'PATCH', url: '/v1/books/book_home/memberships/user_ca', headers, payload: { role: 'viewer' } });
+    expect(role.statusCode).toBe(200);
+    expect(role.json().role).toBe('viewer');
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_home/audit-events', headers: as('user_owner') });
+    expect(audit.json().items.map((event) => event.action)).toEqual(expect.arrayContaining(['budget.updated', 'membership.role_changed']));
+  });
+
+  it('creates expiring book invitations and accepts them only as the invited account', async () => {
+    const invitation = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/invitations', headers: { ...as('user_owner'), 'content-type': 'application/json' }, payload: { email: 'priya@example.com', role: 'editor' } });
+    expect(invitation.statusCode).toBe(201);
+    expect(invitation.json().token).toHaveLength(43);
+    const mismatch = await app.inject({ method: 'POST', url: '/v1/invitations/accept', headers: { ...as('user_ca'), 'content-type': 'application/json' }, payload: { token: invitation.json().token } });
+    expect(mismatch.statusCode).toBe(403);
+    const accepted = await app.inject({ method: 'POST', url: '/v1/invitations/accept', headers: { ...as('user_spouse'), 'content-type': 'application/json' }, payload: { token: invitation.json().token } });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json()).toMatchObject({ accepted: true, bookId: 'book_arjun', role: 'editor' });
+    const books = await app.inject({ method: 'GET', url: '/v1/books', headers: as('user_spouse') });
+    expect(books.json().items.map((book) => book.id)).toContain('book_arjun');
+  });
+
+  it('provisions a newly invited Firebase identity only when its email matches', async () => {
+    const store = new MemoryStore();
+    await store.createInvitation({
+      workspaceId: 'ws_household',
+      bookId: 'book_home',
+      email: 'new.member@example.com',
+      role: 'viewer',
+      tokenHash: 'new-member-token-hash',
+      invitedById: 'user_owner',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const accepted = await store.acceptInvitation('new-member-token-hash', {
+      firebaseUid: 'firebase-new-member',
+      email: 'new.member@example.com',
+      displayName: 'New Member',
+    });
+
+    const user = await store.getUserByFirebaseUid('firebase-new-member');
+    expect(user).toMatchObject({ email: 'new.member@example.com', displayName: 'New Member' });
+    expect(accepted.actorId).toBe(user.id);
+    expect(await store.getMembership('book_home', user.id)).toMatchObject({ role: 'viewer' });
   });
 });
