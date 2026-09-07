@@ -23,6 +23,10 @@ APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 ENV_FILE=${ENV_FILE:-$APP_DIR/paisa.env}
 DB_NAME=${DB_NAME:-paisa}
 DB_USER=${DB_USER:-paisa}
+# Account the services run as. Defaults to a dedicated "paisa" user, but on a box
+# where the checkout already belongs to someone (e.g. /var/www owned by your deploy
+# user), set SERVICE_USER to that account so nothing is chowned out from under you.
+SERVICE_USER=${SERVICE_USER:-paisa}
 API_PORT=4000
 WEB_PORT=3000
 
@@ -132,9 +136,15 @@ fi
 apt-get install -y git certbot python3-certbot-apache mysql-client >/dev/null
 
 step "Service user"
-id paisa >/dev/null 2>&1 || adduser --system --group --home "$APP_DIR" --no-create-home paisa
+if [ "$SERVICE_USER" = "paisa" ]; then
+  id paisa >/dev/null 2>&1 || adduser --system --group --home "$APP_DIR" --no-create-home paisa
+  chown -R paisa:paisa "$APP_DIR"
+else
+  id "$SERVICE_USER" >/dev/null 2>&1 || die "SERVICE_USER=$SERVICE_USER does not exist."
+  echo "    using existing user $SERVICE_USER; ownership of $APP_DIR left as-is"
+fi
 mkdir -p /var/backups/paisa
-chown -R paisa:paisa "$APP_DIR" /var/backups/paisa
+chown -R "$SERVICE_USER" /var/backups/paisa
 
 step "Database"
 if mysql -e "USE \`$DB_NAME\`" 2>/dev/null; then
@@ -161,12 +171,13 @@ else
       "$APP_DIR/deploy/paisa.env.example" > "$ENV_FILE"
   echo "    wrote $ENV_FILE"
 fi
-chown paisa:paisa "$ENV_FILE"; chmod 600 "$ENV_FILE"
+chown "$SERVICE_USER" "$ENV_FILE"; chmod 600 "$ENV_FILE"
 
 step "systemd units"
 # systemd needs absolute paths, so bake this checkout's location into the units.
 for unit in paisa-api paisa-web; do
   sed -e "s|/srv/paisa|$APP_DIR|g" -e "s|^EnvironmentFile=.*|EnvironmentFile=$ENV_FILE|" \
+      -e "s|^User=.*|User=$SERVICE_USER|" -e "s|^Group=.*|Group=$SERVICE_USER|" \
       "$APP_DIR/deploy/$unit.service" > "/etc/systemd/system/$unit.service"
 done
 systemctl daemon-reload
