@@ -59,9 +59,12 @@ source "$ENV_FILE"
 set +a
 
 echo "==> Installing dependencies"
-npm ci
+# --include=dev is required: the env file sets NODE_ENV=production, which would
+# otherwise make npm skip devDependencies - and vinext, the dashboard's build
+# tool, is one of them.
+npm ci --include=dev
 # apps/web is not part of the npm workspace and carries its own lockfile.
-npm --prefix apps/web ci
+npm --prefix apps/web ci --include=dev
 
 echo "==> Generating Prisma client"
 npm --workspace @paisa/api run prisma:generate
@@ -81,6 +84,12 @@ if npx --workspace @paisa/api prisma migrate status 2>&1 | grep -qi "not yet bee
 fi
 
 echo "==> Restarting services"
+if [ ! -f /etc/systemd/system/paisa-api.service ]; then
+  echo "  Services are not installed yet, so there is nothing to restart." >&2
+  echo "  The build above succeeded. Install them with:" >&2
+  echo "      sudo bash $APP_DIR/deploy/bootstrap.sh --check your-subdomain.example.com" >&2
+  exit 1
+fi
 sudo systemctl restart paisa-api paisa-web
 sleep 3
 

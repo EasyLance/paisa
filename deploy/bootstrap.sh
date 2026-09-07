@@ -201,7 +201,7 @@ Done. Your other sites were not modified.
 
 2. Build, migrate, seed and start:
 
-     cd $APP_DIR && sudo -u paisa --preserve-env bash -c 'set -a; . $ENV_FILE; set +a; npm ci && npm --prefix apps/web ci && npm --workspace @paisa/api run prisma:generate && npm --workspace @paisa/api run prisma:deploy && npm --workspace @paisa/api run seed && npm --prefix apps/web run build' && systemctl restart paisa-api paisa-web
+     cd $APP_DIR && sudo -u paisa --preserve-env bash -c 'set -a; . $ENV_FILE; set +a; npm ci --include=dev && npm --prefix apps/web ci --include=dev && npm --workspace @paisa/api run prisma:generate && npm --workspace @paisa/api run prisma:deploy && npm --workspace @paisa/api run seed && npm --prefix apps/web run build' && systemctl restart paisa-api paisa-web
 
 3. Once DNS for $DOMAIN points here:
 

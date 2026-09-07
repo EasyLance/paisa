@@ -223,8 +223,8 @@ Then install and build once by hand:
 
 ```bash
 cd /srv/paisa
-sudo -u paisa npm ci
-sudo -u paisa npm --prefix apps/web ci
+sudo -u paisa npm ci --include=dev
+sudo -u paisa npm --prefix apps/web ci --include=dev
 set -a; . <checkout>/paisa.env; set +a
 sudo -u paisa --preserve-env npm --workspace @paisa/api run prisma:generate
 sudo -u paisa --preserve-env npm --workspace @paisa/api run prisma:deploy
