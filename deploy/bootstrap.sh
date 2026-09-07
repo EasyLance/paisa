@@ -91,9 +91,13 @@ step "MySQL"
 if ! command -v mysql >/dev/null; then
   warn "no mysql client found"
 elif ! mysql -e "SELECT 1" >/dev/null 2>&1; then
-  warn "cannot connect to MySQL as root via socket. If you set a root password,
+  if [ -f "$ENV_FILE" ] && grep -q '^DATABASE_URL=mysql://..*@' "$ENV_FILE"; then
+    ok "no root socket access, but $ENV_FILE already has a DATABASE_URL, so none is needed"
+  else
+    warn "cannot connect to MySQL as root via socket. If root has a password,
              create the database and user by hand (see docs/DEPLOY_VPS.md step 3)
              and write $ENV_FILE before re-running."
+  fi
 else
   ok "MySQL reachable; existing databases left untouched:"
   mysql -N -e "SHOW DATABASES" 2>/dev/null | grep -vE '^(information_schema|performance_schema|mysql|sys)$' | sed 's/^/      - /'
@@ -147,7 +151,12 @@ mkdir -p /var/backups/paisa
 chown -R "$SERVICE_USER" /var/backups/paisa
 
 step "Database"
-if mysql -e "USE \`$DB_NAME\`" 2>/dev/null; then
+# If the env file already carries a filled-in DATABASE_URL, the database was
+# provisioned by hand and root socket access is not needed at all.
+if [ -f "$ENV_FILE" ] && grep -q '^DATABASE_URL=mysql://..*@' "$ENV_FILE" && ! grep -q 'CHANGE_ME' "$ENV_FILE"; then
+  echo "    $ENV_FILE already has a DATABASE_URL; leaving the database alone"
+  DB_PASS=""
+elif mysql -e "USE \`$DB_NAME\`" 2>/dev/null; then
   echo "    $DB_NAME already exists, leaving it alone"
   DB_PASS=""
 else
