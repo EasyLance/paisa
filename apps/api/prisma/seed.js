@@ -25,10 +25,12 @@ async function main() {
     create: { id: 'ws_household', name: 'Household finances' },
   });
 
+  // `||` not `??`: an unset variable in an env file arrives as an empty string, and
+  // firebaseUid is unique - two blank ones collide on the second insert.
   const people = [
-    ['user_owner', process.env.SEED_OWNER_FIREBASE_UID ?? 'replace-owner-firebase-uid', process.env.SEED_OWNER_EMAIL ?? 'owner@example.com', 'Workspace owner'],
-    ['user_spouse', process.env.SEED_SPOUSE_FIREBASE_UID ?? 'replace-spouse-firebase-uid', process.env.SEED_SPOUSE_EMAIL ?? 'spouse@example.com', 'Spouse'],
-    ['user_ca', process.env.SEED_CA_FIREBASE_UID ?? 'replace-ca-firebase-uid', process.env.SEED_CA_EMAIL ?? 'ca@example.com', 'CA reviewer'],
+    ['user_owner', process.env.SEED_OWNER_FIREBASE_UID || 'replace-owner-firebase-uid', process.env.SEED_OWNER_EMAIL || 'owner@example.com', 'Workspace owner'],
+    ['user_spouse', process.env.SEED_SPOUSE_FIREBASE_UID || 'replace-spouse-firebase-uid', process.env.SEED_SPOUSE_EMAIL || 'spouse@example.com', 'Spouse'],
+    ['user_ca', process.env.SEED_CA_FIREBASE_UID || 'replace-ca-firebase-uid', process.env.SEED_CA_EMAIL || 'ca@example.com', 'CA reviewer'],
   ];
   for (const [id, firebaseUid, email, displayName] of people) {
     await db.userProfile.upsert({ where: { id }, update: { firebaseUid, email, displayName }, create: { id, firebaseUid, email, displayName } });
