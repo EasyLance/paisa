@@ -20,7 +20,7 @@ for arg in "$@"; do
 done
 
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+ENV_FILE=${ENV_FILE:-$APP_DIR/paisa.env}
 DB_NAME=${DB_NAME:-paisa}
 DB_USER=${DB_USER:-paisa}
 API_PORT=4000
@@ -133,7 +133,7 @@ apt-get install -y git certbot python3-certbot-apache mysql-client >/dev/null
 
 step "Service user"
 id paisa >/dev/null 2>&1 || adduser --system --group --home "$APP_DIR" --no-create-home paisa
-mkdir -p /etc/paisa /var/backups/paisa
+mkdir -p /var/backups/paisa
 chown -R paisa:paisa "$APP_DIR" /var/backups/paisa
 
 step "Database"

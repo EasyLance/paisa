@@ -82,7 +82,7 @@ an existing database.
 
 It stops short of two things, because it cannot do them for you:
 
-1. **Your Firebase values.** You paste them into `/etc/paisa/paisa.env`. The dashboard
+1. **Your Firebase values.** You paste them into `<checkout>/paisa.env`. The dashboard
    compiles `NEXT_PUBLIC_*` values in at build time, so this must happen before the
    build, not after.
 2. **TLS.** `certbot` can only issue a certificate once your DNS A record resolves to
@@ -158,7 +158,7 @@ sudo apt-get install -y nodejs git
 
 # A service account that owns the code and runs both processes.
 sudo adduser --system --group --home /srv/paisa paisa
-sudo mkdir -p /srv/paisa /etc/paisa
+sudo mkdir -p /srv/paisa
 sudo chown paisa:paisa /srv/paisa
 ```
 
@@ -211,10 +211,9 @@ The tables, for orientation:
 
 ```bash
 sudo -u paisa git clone https://github.com/YOUR-ORG/paisa.git /srv/paisa
-sudo cp /srv/paisa/deploy/paisa.env.example /etc/paisa/paisa.env
-sudo chown paisa:paisa /etc/paisa/paisa.env
-sudo chmod 600 /etc/paisa/paisa.env
-sudo -e /etc/paisa/paisa.env      # fill in every blank
+sudo -u paisa cp /srv/paisa/deploy/paisa.env.example /srv/paisa/paisa.env
+sudo chmod 600 /srv/paisa/paisa.env
+sudo -e /srv/paisa/paisa.env      # fill in every blank
 ```
 
 Set `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` to the same public URL, e.g.
@@ -226,7 +225,7 @@ Then install and build once by hand:
 cd /srv/paisa
 sudo -u paisa npm ci
 sudo -u paisa npm --prefix apps/web ci
-set -a; . /etc/paisa/paisa.env; set +a
+set -a; . <checkout>/paisa.env; set +a
 sudo -u paisa --preserve-env npm --workspace @paisa/api run prisma:generate
 sudo -u paisa --preserve-env npm --workspace @paisa/api run prisma:deploy
 sudo -u paisa --preserve-env npm --workspace @paisa/api run seed

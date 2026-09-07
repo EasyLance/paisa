@@ -15,12 +15,8 @@ trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAN
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 # Prefer an env file inside the checkout, fall back to the system one.
 # .env is gitignored, so secrets there are not committed.
-if [ -z "${ENV_FILE:-}" ]; then
-  for candidate in "$APP_DIR/.env" /etc/paisa/paisa.env; do
-    [ -r "$candidate" ] && ENV_FILE="$candidate" && break
-  done
-  ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
-fi
+# Config lives beside the code: <checkout>/paisa.env (gitignored).
+ENV_FILE=${ENV_FILE:-$APP_DIR/paisa.env}
 
 cd "$APP_DIR"
 echo "Paisa deploy"
