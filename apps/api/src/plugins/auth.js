@@ -82,7 +82,12 @@ export default fp(async function authPlugin(app, options) {
       if (!request.actor || request.actor.disabledAt) {
         return reply.code(403).send({ code: 'INVITE_REQUIRED', message: 'This account is not active in a workspace' });
       }
-    } catch {
+    } catch (error) {
+      // The client is told nothing beyond "invalid", but the operator needs the
+      // reason: a wrong FIREBASE_PROJECT_ID, an unreachable JWKS endpoint and a
+      // genuinely expired token are indistinguishable without it. The token
+      // itself is never logged.
+      request.log.warn({ reason: error?.message, code: error?.code }, 'Firebase token verification failed');
       return reply.code(401).send({ code: 'INVALID_TOKEN', message: 'Token is invalid or expired' });
     }
   });
