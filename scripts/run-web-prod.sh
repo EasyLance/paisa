@@ -20,6 +20,7 @@ else
   echo "No $ENV_FILE — building without Firebase config, so sign-in will be skipped." >&2
 fi
 
+rm -rf apps/web/dist apps/web/.vinext
 npm --prefix apps/web run build
 # The env file's PORT belongs to the API; the dashboard needs its own.
 exec env PORT=3000 npm --prefix apps/web run start

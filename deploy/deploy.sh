@@ -70,7 +70,17 @@ echo "==> Generating Prisma client"
 npm --workspace @paisa/api run prisma:generate
 
 echo "==> Building dashboard"
+# Clear the cache first: vinext reuses cached chunks, so a changed NEXT_PUBLIC_*
+# value can silently fail to reach the bundle even though the build "succeeds".
+rm -rf apps/web/dist apps/web/.vinext
 npm --prefix apps/web run build
+# The dashboard is useless if auth was compiled out, so fail loudly here rather
+# than serving an unauthenticated dashboard on a public URL.
+if [ "${NEXT_PUBLIC_AUTH_MODE:-}" = "firebase" ] && ! grep -rq "${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-__unset__}" apps/web/dist/client/; then
+  echo "Build finished but the Firebase config is not in the bundle." >&2
+  echo "Check the NEXT_PUBLIC_FIREBASE_* values in $ENV_FILE." >&2
+  exit 1
+fi
 
 echo "==> Checking for pending migrations"
 if npx --workspace @paisa/api prisma migrate status 2>&1 | grep -qi "not yet been applied"; then
