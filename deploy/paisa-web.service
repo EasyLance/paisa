@@ -10,13 +10,16 @@ User=paisa
 Group=paisa
 WorkingDirectory=/srv/paisa/apps/web
 EnvironmentFile=/etc/paisa/paisa.env
-# Overrides the API's PORT from the shared env file.
-Environment=PORT=3000
+# PORT is set inside ExecStart, not via Environment=. systemd applies
+# EnvironmentFile= AFTER Environment= no matter the line order, so the env file's
+# PORT=4000 (the API's port) would otherwise win and the dashboard would fight the
+# API for 4000 and crash-loop with EADDRINUSE.
+#
 # NOTE: vinext start ignores HOST and always binds 0.0.0.0, so this port is
 # reachable on the droplet's public IP unless the firewall blocks it. Closing
 # everything except 22/80/443 with ufw is required, not optional — see
 # docs/DEPLOY_VPS.md. (The API honours HOST=127.0.0.1 and does stay on loopback.)
-ExecStart=/srv/paisa/apps/web/node_modules/.bin/vinext start
+ExecStart=/bin/sh -c 'PORT=3000 exec /srv/paisa/apps/web/node_modules/.bin/vinext start'
 Restart=always
 RestartSec=5
 

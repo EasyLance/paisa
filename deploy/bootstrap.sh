@@ -213,7 +213,9 @@ echo "    zz-paisa.conf enabled; existing sites untouched"
 
 if [ "$UFW_ACTIVE" = "1" ]; then
   step "Firewall"
-  ufw allow 'Apache Full' >/dev/null
+  # The "Apache Full" app profile is not present on every install, so fall back
+  # to explicit ports. Existing rules make these no-ops.
+  ufw allow 'Apache Full' >/dev/null 2>&1 || { ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; }
   ufw deny "$WEB_PORT" >/dev/null; ufw deny "$API_PORT" >/dev/null
   echo "    80/443 allowed, $WEB_PORT/$API_PORT closed to the internet"
 fi
