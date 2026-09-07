@@ -9,10 +9,13 @@
 // never edited. `npm test` fails if it is out of date.
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const MIGRATIONS_DIR = 'apps/api/prisma/migrations';
-const OUTPUT = 'deploy/schema.sql';
+// Resolved from this file's location so the script works from any working directory.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const MIGRATIONS_DIR = join(REPO_ROOT, 'apps/api/prisma/migrations');
+const OUTPUT = join(REPO_ROOT, 'deploy/schema.sql');
 
 export function buildSchemaSql() {
   const names = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })

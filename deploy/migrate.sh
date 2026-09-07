@@ -9,7 +9,12 @@
 set -euo pipefail
 
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+if [ -z "${ENV_FILE:-}" ]; then
+  for candidate in "$APP_DIR/.env" /etc/paisa/paisa.env; do
+    [ -r "$candidate" ] && ENV_FILE="$candidate" && break
+  done
+  ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+fi
 BACKUP_DIR=${BACKUP_DIR:-/var/backups/paisa}
 
 cd "$APP_DIR"

@@ -19,7 +19,7 @@ for arg in "$@"; do
   esac
 done
 
-APP_DIR=${APP_DIR:-/srv/paisa}
+APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
 DB_NAME=${DB_NAME:-paisa}
 DB_USER=${DB_USER:-paisa}
@@ -164,7 +164,11 @@ fi
 chown paisa:paisa "$ENV_FILE"; chmod 600 "$ENV_FILE"
 
 step "systemd units"
-cp "$APP_DIR/deploy/paisa-api.service" "$APP_DIR/deploy/paisa-web.service" /etc/systemd/system/
+# systemd needs absolute paths, so bake this checkout's location into the units.
+for unit in paisa-api paisa-web; do
+  sed -e "s|/srv/paisa|$APP_DIR|g" -e "s|^EnvironmentFile=.*|EnvironmentFile=$ENV_FILE|" \
+      "$APP_DIR/deploy/$unit.service" > "/etc/systemd/system/$unit.service"
+done
 systemctl daemon-reload
 systemctl enable paisa-api paisa-web >/dev/null
 echo "    installed (started later, after the first build)"

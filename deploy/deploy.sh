@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Manual deploy: pull main, rebuild, restart. Run from /srv/paisa on the VPS.
+# Manual deploy: pull main, rebuild, restart. Run from anywhere in the checkout.
 #
 #   ./deploy/deploy.sh
 #
@@ -13,7 +13,14 @@ trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAN
 
 # Resolve the checkout from this script's own location, so it works from anywhere.
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+# Prefer an env file inside the checkout, fall back to the system one.
+# .env is gitignored, so secrets there are not committed.
+if [ -z "${ENV_FILE:-}" ]; then
+  for candidate in "$APP_DIR/.env" /etc/paisa/paisa.env; do
+    [ -r "$candidate" ] && ENV_FILE="$candidate" && break
+  done
+  ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
+fi
 
 cd "$APP_DIR"
 echo "Paisa deploy"
@@ -26,6 +33,13 @@ echo "  user: $(whoami)"
 # restart something running from somewhere else. `|| true` because grep exits 1
 # when the unit is not installed yet, which is not an error.
 UNIT_DIR=$(grep -h '^WorkingDirectory=' /etc/systemd/system/paisa-api.service 2>/dev/null | cut -d= -f2 || true)
+# The build below reads ENV_FILE, but the running services read whatever
+# EnvironmentFile the unit names. Different files means the dashboard is built
+# with one config and the API runs with another.
+UNIT_ENV=$(grep -h '^EnvironmentFile=' /etc/systemd/system/paisa-api.service 2>/dev/null | cut -d= -f2 || true)
+if [ -n "$UNIT_ENV" ] && [ "$UNIT_ENV" != "$ENV_FILE" ]; then
+  echo "  WARNING: building with $ENV_FILE but paisa-api.service loads $UNIT_ENV" >&2
+fi
 if [ -n "$UNIT_DIR" ] && [ "$UNIT_DIR" != "$APP_DIR" ]; then
   echo "Mismatch: paisa-api.service runs from $UNIT_DIR but this checkout is $APP_DIR." >&2
   echo "Either run deploy.sh from $UNIT_DIR, or update the paths in deploy/paisa-*.service and reinstall them." >&2
