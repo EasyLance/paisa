@@ -137,7 +137,15 @@ if [ "$NEED_NODE" = "1" ]; then
   apt-get install -y nodejs
 fi
 # Additive only; none of these reconfigure your existing sites.
-apt-get install -y git certbot python3-certbot-apache mysql-client >/dev/null
+apt-get install -y git certbot python3-certbot-apache >/dev/null
+# The mysql CLI is only needed for backups. On MariaDB boxes the package is
+# mariadb-client, and "mysql-client" does not exist - so try the metapackage and
+# never let a missing client abort the install.
+if ! command -v mysql >/dev/null; then
+  apt-get install -y default-mysql-client >/dev/null 2>&1 \
+    || apt-get install -y mariadb-client >/dev/null 2>&1 \
+    || echo "    note: no mysql client installed; deploy/migrate.sh backups will need one"
+fi
 
 step "Service user"
 if [ "$SERVICE_USER" = "paisa" ]; then
