@@ -7,15 +7,25 @@
 # run ./deploy/migrate.sh separately — it takes a backup first.
 set -euo pipefail
 
+# Any failure names itself. Without this, `set -e` exits silently and a failed
+# deploy looks like "nothing happened".
+trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAND" >&2; echo "Nothing was restarted. Fix the above and re-run." >&2; exit $status' ERR
+
 # Resolve the checkout from this script's own location, so it works from anywhere.
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
 
 cd "$APP_DIR"
+echo "Paisa deploy"
+echo "  app:  $APP_DIR"
+echo "  env:  $ENV_FILE"
+echo "  node: $(node -v 2>/dev/null || echo 'NOT FOUND')"
+echo "  user: $(whoami)"
 
 # systemd units carry an absolute path; a mismatch means we would build here and
-# restart something running from somewhere else.
-UNIT_DIR=$(grep -h '^WorkingDirectory=' /etc/systemd/system/paisa-api.service 2>/dev/null | cut -d= -f2)
+# restart something running from somewhere else. `|| true` because grep exits 1
+# when the unit is not installed yet, which is not an error.
+UNIT_DIR=$(grep -h '^WorkingDirectory=' /etc/systemd/system/paisa-api.service 2>/dev/null | cut -d= -f2 || true)
 if [ -n "$UNIT_DIR" ] && [ "$UNIT_DIR" != "$APP_DIR" ]; then
   echo "Mismatch: paisa-api.service runs from $UNIT_DIR but this checkout is $APP_DIR." >&2
   echo "Either run deploy.sh from $UNIT_DIR, or update the paths in deploy/paisa-*.service and reinstall them." >&2
@@ -62,10 +72,31 @@ fi
 
 echo "==> Restarting services"
 sudo systemctl restart paisa-api paisa-web
-
 sleep 3
-echo "==> Health check"
-curl -fsS http://127.0.0.1:4000/health && echo
-curl -fsS -o /dev/null -w "dashboard: %{http_code}\n" http://127.0.0.1:3000/
 
-echo "==> Deployed"
+echo "==> Health check"
+FAILED=0
+for unit in paisa-api paisa-web; do
+  if systemctl is-active --quiet "$unit"; then
+    echo "    $unit: active"
+  else
+    echo "    $unit: NOT RUNNING" >&2
+    FAILED=1
+  fi
+done
+
+api=$(curl -fsS -m 5 http://127.0.0.1:4000/health 2>/dev/null || echo "unreachable")
+web=$(curl -fsS -m 5 -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ 2>/dev/null || echo "unreachable")
+echo "    api  http://127.0.0.1:4000/health -> $api"
+echo "    web  http://127.0.0.1:3000/       -> $web"
+if [ "$api" = "unreachable" ] || [ "$web" != "200" ]; then FAILED=1; fi
+
+echo
+if [ "$FAILED" = "0" ]; then
+  echo "==> Deployed: $(git rev-parse --short HEAD) \"$(git log -1 --pretty=%s)\""
+else
+  echo "==> Deploy finished but something is not healthy. Logs:" >&2
+  echo "      sudo journalctl -u paisa-api -n 40 --no-pager" >&2
+  echo "      sudo journalctl -u paisa-web -n 40 --no-pager" >&2
+  exit 1
+fi
