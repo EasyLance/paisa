@@ -27,6 +27,37 @@ genuinely required. Everything else runs on the droplet you already have:
 Skip both until the features that need them are built. Setting them up now buys
 nothing but a bill.
 
+## If other sites already run on this droplet
+
+Check before you change anything:
+
+```bash
+sudo bash /srv/paisa/deploy/bootstrap.sh --check paisa.example.com
+```
+
+Read-only. It reports Node version and who it would affect, whether ports 3000/4000
+are free, your existing Apache vhosts and which one is the default, your existing
+databases, and firewall state. Nothing is modified.
+
+What Paisa shares with your Laravel and React sites, and how conflicts are avoided:
+
+| Shared thing | Risk | How this handles it |
+| --- | --- | --- |
+| **Node** | Installing Node 22 replaces it system-wide and can break other build tooling | Never upgraded without `--upgrade-node`. Test your Laravel/React builds after |
+| **Apache default vhost** | A new vhost sorting first would catch requests meant for other sites | Installed as `zz-paisa.conf`, always last alphabetically |
+| **MySQL** | Touching an existing database | Creates only `paisa`; the user's privileges are scoped to that one database |
+| **ufw** | Enabling a firewall can lock you out and affect other sites | Never enabled automatically. If already active, only adds 80/443 and closes 3000/4000 |
+| **Ports 3000/4000** | Already taken by another app | Reported by `--check`; change `PORT` and the vhost's ProxyPass lines if so |
+
+Two things worth knowing regardless:
+
+- `vinext` ignores `HOST` and binds `0.0.0.0`, so port 3000 is internet-reachable
+  unless a firewall closes it. On a shared box you may prefer to close it yourself
+  rather than let a script enable ufw.
+- `certbot --apache` edits Apache config. It only touches the vhost for the domain
+  you pass, but take a config backup first if your other sites' TLS is hand-tuned:
+  `sudo cp -r /etc/apache2 /root/apache2-backup-$(date +%F)`
+
 ## The short version
 
 **Repeat deploys are one line.** Once the droplet is set up, every future release is:

@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "paisa-web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/web", "run", "dev"],
+      "cwd": "apps/web",
+      "runtimeExecutable": "/Users/arjunmohanesh/.nvm/versions/node/v26.5.0/bin/node",
+      "runtimeArgs": ["node_modules/vinext/dist/cli.js", "start"],
       "port": 3000
     }
   ]
