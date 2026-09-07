@@ -8,7 +8,7 @@
 # column cannot. This holds real ledger data, so the backup is not optional.
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/srv/paisa}
+APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
 BACKUP_DIR=${BACKUP_DIR:-/var/backups/paisa}
 

@@ -7,10 +7,20 @@
 # run ./deploy/migrate.sh separately — it takes a backup first.
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/srv/paisa}
+# Resolve the checkout from this script's own location, so it works from anywhere.
+APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 ENV_FILE=${ENV_FILE:-/etc/paisa/paisa.env}
 
 cd "$APP_DIR"
+
+# systemd units carry an absolute path; a mismatch means we would build here and
+# restart something running from somewhere else.
+UNIT_DIR=$(grep -h '^WorkingDirectory=' /etc/systemd/system/paisa-api.service 2>/dev/null | cut -d= -f2)
+if [ -n "$UNIT_DIR" ] && [ "$UNIT_DIR" != "$APP_DIR" ]; then
+  echo "Mismatch: paisa-api.service runs from $UNIT_DIR but this checkout is $APP_DIR." >&2
+  echo "Either run deploy.sh from $UNIT_DIR, or update the paths in deploy/paisa-*.service and reinstall them." >&2
+  exit 1
+fi
 
 if [ ! -r "$ENV_FILE" ]; then
   echo "Cannot read $ENV_FILE — create it from deploy/paisa.env.example first." >&2
