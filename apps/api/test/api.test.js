@@ -361,10 +361,23 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(imported).toHaveLength(4);
     expect(imported.every((item) => item.state === 'pending_review')).toBe(true);
 
+    // A second upload of the same file is re-parsed, but every row is recognised.
     const second = await upload();
     expect(second.statusCode).toBe(200);
-    expect(second.json().duplicate).toBe(true);
+    expect(second.json()).toMatchObject({ duplicate: true, imported: 0, duplicates: 4 });
     expect(await fromStatement()).toHaveLength(4);
+  });
+
+  it('imports a statement whose file was recorded by an earlier build that never parsed it', async () => {
+    const payload = { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'd'.repeat(64) };
+    // The fingerprint-only upload the previous release performed.
+    const recorded = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'), payload });
+    expect(recorded.statusCode).toBe(201);
+    expect(recorded.json().imported).toBeUndefined();
+
+    const retried = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'), payload: { ...payload, content: sbiStatement } });
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json()).toMatchObject({ duplicate: true, imported: 4, duplicates: 0 });
   });
 
   it('rejects a file that is not a statement instead of importing nothing quietly', async () => {

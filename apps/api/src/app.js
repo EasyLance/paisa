@@ -192,7 +192,10 @@ export async function buildApp(options = {}) {
       const { book } = await access(request, 'edit');
       const { content, accountId, ...meta } = parse(importInput, request.body);
       const record = await app.store.createImport({ ...meta, workspaceId: book.workspaceId, bookId: book.id });
-      if (record.duplicate || !content) return reply.code(record.duplicate ? 200 : 201).send(record);
+      // Parse even a file we have seen before. Each row carries its own hash, so
+      // re-uploading is already safe, and a file recorded by an older build that
+      // never parsed anything would otherwise be impossible to import.
+      if (!content) return reply.code(record.duplicate ? 200 : 201).send(record);
       let parsed;
       try { parsed = parseStatementCsv(content); }
       catch (error) { const failure = new Error(error.message); failure.statusCode = 422; failure.code = 'STATEMENT_UNPARSEABLE'; throw failure; }
@@ -201,7 +204,7 @@ export async function buildApp(options = {}) {
         const event = await app.store.ingest({ ...row, accountId: accountId ?? null, workspaceId: book.workspaceId, bookId: book.id }, request.actor.id, `statement:${meta.sha256}:${index}`);
         if (event.duplicate) duplicates += 1; else imported += 1;
       }
-      return reply.code(201).send({ ...record, status: 'parsed', account: parsed.account, imported, duplicates, warnings: parsed.warnings });
+      return reply.code(record.duplicate ? 200 : 201).send({ ...record, status: 'parsed', account: parsed.account, imported, duplicates, warnings: parsed.warnings });
     });
     api.get('/books/:bookId/audit-events', async (request) => { await access(request); return { items: await app.store.listAudit(request.params.bookId, 50) }; });
     api.post('/books/:bookId/period-reviews', async (request, reply) => { const { book } = await access(request, 'verify'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), status: z.enum(['in_review', 'verified']), note: z.string().max(2000).optional() }), request.body); return reply.code(201).send(await app.store.reviewPeriod(book, body, request.actor.id)); });
