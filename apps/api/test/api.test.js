@@ -474,37 +474,43 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(audit.json().items.find((event) => event.action === 'transaction.corrected')).toMatchObject({ entityId: id, before: { amountMinor: '-5000000', kind: 'expense' }, after: { amountMinor: '5000000', kind: 'income' } });
   });
 
-  it('refuses to rewrite an imported amount but still allows voiding the entry', async () => {
+  it('edits an imported entry in full while keeping the figure the bank sent', async () => {
     const imported = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
       payload: { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'e'.repeat(64), content: sbiStatement } });
     expect(imported.statusCode).toBe(201);
     const hashes = new Set(parseStatementCsv(sbiStatement).rows.map((row) => row.sourceHash));
     const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
     const row = ledger.json().items.find((item) => item.sources?.some((source) => hashes.has(source.sourceReference)));
+    const bankAmount = row.sources.find((source) => hashes.has(source.sourceReference)).importedAmount;
 
-    const rewrite = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { kind: 'income', amountMinor: '1' } });
-    expect(rewrite.statusCode).toBe(409);
-    expect(rewrite.json().code).toBe('IMMUTABLE_SOURCE');
-    const redate = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { occurredAt: '2026-01-01T00:00:00.000Z' } });
-    expect(redate.statusCode).toBe(409);
+    const edited = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'),
+      payload: { kind: 'transfer', amountMinor: '-90000', merchant: 'Moved to my HDFC account', occurredAt: '2026-09-03T18:30:00.000Z', accountId: 'account_primary' } });
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json()).toMatchObject({ kind: 'transfer', amountMinor: '-90000', merchant: 'Moved to my HDFC account', accountId: 'account_primary' });
 
-    // A debit to your own other account is a transfer, not spending. The bank's
-    // amount is untouched, so re-reading what it was for is allowed.
-    const before = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
-    const reclassified = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { kind: 'transfer', amountMinor: row.amountMinor } });
-    expect(reclassified.statusCode).toBe(200);
-    expect(reclassified.json()).toMatchObject({ kind: 'transfer', amountMinor: row.amountMinor });
-    const after = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
-    // It stops counting as spending, and the breakdown still adds up.
-    expect(BigInt(after.json().spentMinor)).toBe(BigInt(before.json().spentMinor) + BigInt(row.amountMinor));
-    expect(after.json().byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(after.json().spentMinor));
+    // The bank's own figure is still on the source record after the edit, and the
+    // previous values are in the audit trail.
+    const reread = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+    const after = reread.json().items.find((item) => item.id === row.id);
+    expect(after.sources.find((source) => hashes.has(source.sourceReference)).importedAmount).toBe(bankAmount);
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') });
+    expect(audit.json().items.find((event) => event.action === 'transaction.corrected' && event.entityId === row.id))
+      .toMatchObject({ before: { amountMinor: bankAmount, kind: 'expense' }, after: { amountMinor: '-90000', kind: 'transfer' } });
+
+    // A transfer stops counting as spending, and the breakdown still adds up.
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
+    expect(summary.json().byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(summary.json().spentMinor));
 
     const voided = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { state: 'voided' } });
-    expect(voided.statusCode).toBe(200);
     expect(voided.json().state).toBe('voided');
-    // A voided entry stays in the ledger but stops counting towards the month.
-    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
-    expect(summary.statusCode).toBe(200);
+  });
+
+  it('refuses to move an entry onto an account from another book', async () => {
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'wrong-account-001' },
+      payload: { kind: 'expense', amountMinor: '-2500', merchant: 'Chai', occurredAt: '2026-09-04T05:30:00.000Z', categoryId: 'cat_dining' } });
+    const response = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${created.json().id}`, headers: as('user_owner'), payload: { accountId: 'acct_not_in_this_book' } });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('REFERENCE_SCOPE_ERROR');
   });
 
   it('will not accept a correction that separates the kind from the sign, or an empty one', async () => {

@@ -4,7 +4,6 @@ import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
 import { duePostings, postingKey } from '../domain/recurring.js';
-import { assertCorrectable } from '../domain/permissions.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
 
@@ -181,7 +180,7 @@ export class MemoryStore {
   async updateTransaction(bookId, transactionId, fields, actorId) {
     const transaction = this.transactions.find((item) => item.bookId === bookId && item.id === transactionId);
     if (!transaction) return null;
-    assertCorrectable((transaction.sources ?? []).map((source) => source.sourceType), fields, transaction.amountMinor);
+    this.assertReferences({ bookId, accountId: fields.accountId ?? undefined, categoryIds: [] });
     const before = {}; const after = {};
     for (const [key, value] of Object.entries(fields)) {
       const next = key === 'amountMinor' ? parseMinor(value) : key === 'occurredAt' ? new Date(value) : value;

@@ -39,6 +39,7 @@ const transactionPatch = z.object({
   merchant: z.string().max(160).nullable().optional(), note: z.string().max(2000).nullable().optional(),
   amountMinor: z.string().regex(/^-?\d+$/).optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']).optional(),
   occurredAt: z.string().datetime().optional(), state: z.enum(['pending_review', 'confirmed', 'reconciled', 'excluded', 'voided']).optional(),
+  accountId: z.string().nullable().optional(),
 }).superRefine((value, context) => {
   requireFields(value, context);
   // The sign carries the direction, so changing one without the other would

@@ -5,7 +5,6 @@ import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
 import { duePostings, postingKey } from '../domain/recurring.js';
-import { assertCorrectable } from '../domain/permissions.js';
 
 export class PrismaStore {
   constructor(client = new PrismaClient()) { this.db = client; }
@@ -97,7 +96,7 @@ export class PrismaStore {
     return this.db.$transaction(async (db) => {
       const current = await db.transaction.findFirst({ where: { id: transactionId, bookId }, include: { sources: { select: { sourceType: true } } } });
       if (!current) return null;
-      assertCorrectable(current.sources.map((source) => source.sourceType), fields, current.amountMinor);
+      await this.assertReferences(db, { bookId, accountId: fields.accountId ?? undefined, categoryIds: [] });
       const data = { ...fields };
       if (fields.amountMinor !== undefined) data.amountMinor = parseMinor(fields.amountMinor);
       if (fields.occurredAt !== undefined) data.occurredAt = new Date(fields.occurredAt);

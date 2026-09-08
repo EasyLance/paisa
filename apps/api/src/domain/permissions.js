@@ -18,22 +18,3 @@ export function assertCapability(role, capability) {
     throw error;
   }
 }
-
-// An imported amount is the bank's word and stays as it arrived. Which bucket
-// it belongs in is our reading of it, not the bank's - a debit to your own other
-// account is a transfer, not spending - so `kind` stays editable as long as the
-// amount and direction are untouched. A manual entry has no source of truth
-// behind it at all, so a typo in one is just a typo.
-const SOURCE_PROTECTED = ['occurredAt', 'merchant'];
-
-export function assertCorrectable(sourceTypes, fields, currentAmountMinor) {
-  const imported = [...new Set(sourceTypes.filter((type) => type && type !== 'manual'))];
-  if (!imported.length) return;
-  const touched = SOURCE_PROTECTED.filter((field) => fields[field] !== undefined);
-  if (fields.amountMinor !== undefined && BigInt(fields.amountMinor) !== BigInt(currentAmountMinor)) touched.push('amountMinor');
-  if (!touched.length) return;
-  const error = new Error(`This entry came from ${imported.join(' and ')}, so ${touched.join(', ')} cannot be edited. You can change its type, or void it and add a corrected entry.`);
-  error.statusCode = 409;
-  error.code = 'IMMUTABLE_SOURCE';
-  throw error;
-}
