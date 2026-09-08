@@ -368,6 +368,53 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(await fromStatement()).toHaveLength(4);
   });
 
+  it('corrects a manual entry that was booked the wrong way round', async () => {
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'salary-typo-0001' },
+      payload: { kind: 'expense', amountMinor: '-5000000', merchant: 'Salary', occurredAt: '2026-09-01T05:30:00.000Z', categoryId: 'cat_salary' } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id;
+
+    const fixed = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${id}`, headers: as('user_owner'), payload: { kind: 'income', amountMinor: '5000000' } });
+    expect(fixed.statusCode).toBe(200);
+    expect(fixed.json()).toMatchObject({ kind: 'income', amountMinor: '5000000' });
+
+    // The correction is on the record, with what it used to say.
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') });
+    expect(audit.json().items.find((event) => event.action === 'transaction.corrected')).toMatchObject({ entityId: id, before: { amountMinor: '-5000000', kind: 'expense' }, after: { amountMinor: '5000000', kind: 'income' } });
+  });
+
+  it('refuses to rewrite an imported amount but still allows voiding the entry', async () => {
+    const imported = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'e'.repeat(64), content: sbiStatement } });
+    expect(imported.statusCode).toBe(201);
+    const hashes = new Set(parseStatementCsv(sbiStatement).rows.map((row) => row.sourceHash));
+    const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+    const row = ledger.json().items.find((item) => item.sources?.some((source) => hashes.has(source.sourceReference)));
+
+    const rewrite = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { kind: 'income', amountMinor: '1' } });
+    expect(rewrite.statusCode).toBe(409);
+    expect(rewrite.json().code).toBe('IMMUTABLE_SOURCE');
+
+    const voided = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { state: 'voided' } });
+    expect(voided.statusCode).toBe(200);
+    expect(voided.json().state).toBe('voided');
+    // A voided entry stays in the ledger but stops counting towards the month.
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
+    expect(summary.statusCode).toBe(200);
+  });
+
+  it('will not accept a correction that separates the kind from the sign, or an empty one', async () => {
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'sign-check-0001' },
+      payload: { kind: 'expense', amountMinor: '-1000', merchant: 'Tea', occurredAt: '2026-09-01T05:30:00.000Z', categoryId: 'cat_dining' } });
+    const id = created.json().id;
+    const halfway = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${id}`, headers: as('user_owner'), payload: { kind: 'income' } });
+    expect(halfway.statusCode).toBe(400);
+    const wrongSign = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${id}`, headers: as('user_owner'), payload: { kind: 'income', amountMinor: '-1000' } });
+    expect(wrongSign.statusCode).toBe(400);
+    const empty = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${id}`, headers: as('user_owner'), payload: {} });
+    expect(empty.statusCode).toBe(400);
+  });
+
   it('imports a statement whose file was recorded by an earlier build that never parsed it', async () => {
     const payload = { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'd'.repeat(64) };
     // The fingerprint-only upload the previous release performed.

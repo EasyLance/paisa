@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { parseMinor, serializeMoney } from '../domain/money.js';
+import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { assertCorrectable } from '../domain/permissions.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
 
@@ -173,6 +174,21 @@ export class MemoryStore {
     return { items: items.slice(0, limit).map((item) => this.withComments(item)), nextCursor: items.length > limit ? items[limit - 1].id : null };
   }
   async getTransaction(bookId, transactionId) { return this.transactions.find((item) => item.bookId === bookId && item.id === transactionId) ?? null; }
+  async updateTransaction(bookId, transactionId, fields, actorId) {
+    const transaction = this.transactions.find((item) => item.bookId === bookId && item.id === transactionId);
+    if (!transaction) return null;
+    assertCorrectable((transaction.sources ?? []).map((source) => source.sourceType), fields);
+    const before = {}; const after = {};
+    for (const [key, value] of Object.entries(fields)) {
+      const next = key === 'amountMinor' ? parseMinor(value) : key === 'occurredAt' ? new Date(value) : value;
+      before[key] = transaction[key] instanceof Date ? transaction[key].toISOString() : jsonSafe(transaction[key]);
+      transaction[key] = next;
+      after[key] = next instanceof Date ? next.toISOString() : jsonSafe(next);
+    }
+    transaction.updatedAt = new Date();
+    await this.addAudit({ workspaceId: transaction.workspaceId, bookId, actorId, action: 'transaction.corrected', entityType: 'transaction', entityId: transaction.id, before, after });
+    return this.withComments(transaction);
+  }
   async listAccounts(bookId) { return this.accounts.filter((account) => account.bookId === bookId && !account.archivedAt); }
   async createAccount(data) { const account = { id: randomUUID(), archivedAt: null, ...data }; this.accounts.push(account); return account; }
   async updateAccount(bookId, accountId, { archived, ...fields }) {

@@ -35,6 +35,18 @@ const recurringPatch = z.object({
   if ((value.amountMinor === undefined) !== (value.kind === undefined)) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Provide kind and amountMinor together' });
   else if (value.amountMinor !== undefined) validateAmountSign(value, context);
 });
+const transactionPatch = z.object({
+  merchant: z.string().max(160).nullable().optional(), note: z.string().max(2000).nullable().optional(),
+  amountMinor: z.string().regex(/^-?\d+$/).optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']).optional(),
+  occurredAt: z.string().datetime().optional(), state: z.enum(['pending_review', 'confirmed', 'reconciled', 'excluded', 'voided']).optional(),
+}).superRefine((value, context) => {
+  requireFields(value, context);
+  // The sign carries the direction, so changing one without the other would
+  // silently turn income into an expense or vice versa.
+  if ((value.amountMinor === undefined) !== (value.kind === undefined)) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Provide kind and amountMinor together' });
+  else if (value.amountMinor !== undefined) validateAmountSign(value, context);
+});
+
 const importInput = z.object({
   fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']),
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i),
@@ -156,7 +168,13 @@ export async function buildApp(options = {}) {
     api.patch('/books/:bookId/transactions/:transactionId/category', async (request) => { await access(request, 'reclassify'); const body = parse(z.object({ categoryId: z.string(), applyToFuture: z.boolean().default(false) }), request.body); const transaction = await app.store.updateCategory(request.params.bookId, request.params.transactionId, body.categoryId, request.actor.id, body.applyToFuture); if (!transaction) { const error = new Error('Transaction not found'); error.statusCode = 404; throw error; } return transaction; });
     api.put('/books/:bookId/transactions/:transactionId/splits', async (request) => { await access(request, 'split'); const body = parse(z.object({ splits: z.array(z.object({ categoryId: z.string(), amountMinor: z.string().regex(/^-?\d+$/), note: z.string().max(250).optional() })).min(2).max(20) }), request.body); const transaction = await app.store.splitTransaction(request.params.bookId, request.params.transactionId, body.splits, request.actor.id); if (!transaction) { const error = new Error('Transaction not found'); error.statusCode = 404; throw error; } return transaction; });
     api.post('/books/:bookId/transactions/:transactionId/comments', async (request, reply) => { await access(request, 'comment'); const body = parse(z.object({ body: z.string().trim().min(1).max(2000) }), request.body); const comment = await app.store.addComment(request.params.bookId, request.params.transactionId, body.body, request.actor.id); if (!comment) { const error = new Error('Transaction not found'); error.statusCode = 404; throw error; } return reply.code(201).send(comment); });
-    api.patch('/books/:bookId/transactions/:transactionId', async (request) => { await access(request, 'edit'); const error = new Error('Imported amount and source fields are immutable; use a categorization or note endpoint'); error.statusCode = 409; error.code = 'IMMUTABLE_SOURCE'; throw error; });
+    api.patch('/books/:bookId/transactions/:transactionId', async (request) => {
+      await access(request, 'edit');
+      const body = parse(transactionPatch, request.body);
+      const updated = await app.store.updateTransaction(request.params.bookId, request.params.transactionId, body, request.actor.id);
+      if (!updated) { const error = new Error('Transaction not found in this book'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      return updated;
+    });
     api.post('/books/:bookId/ingestion-events', async (request, reply) => { const { book } = await access(request, 'create'); const body = parse(ingestionInput, request.body); const event = await app.store.ingest({ ...body, workspaceId: book.workspaceId, bookId: book.id }, request.actor.id, requireIdempotencyKey(request)); return reply.code(event.duplicate ? 200 : 201).send(event); });
     api.get('/books/:bookId/budgets', async (request) => { await access(request); return { items: await app.store.listBudgets(request.params.bookId) }; });
     api.put('/books/:bookId/budgets/:categoryId', async (request) => { const { book } = await access(request, 'edit'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}-01$/), amountMinor: z.string().regex(/^\d+$/).refine((value) => BigInt(value) > 0n, 'Budget must be greater than zero'), currency: z.string().length(3).default('INR') }), request.body); const budget = await app.store.upsertBudget({ bookId: book.id, categoryId: request.params.categoryId, ...body }); await app.store.addAudit({ workspaceId: book.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'budget.updated', entityType: 'budget', entityId: budget.id, after: { categoryId: request.params.categoryId, month: body.month, amountMinor: body.amountMinor } }); return budget; });

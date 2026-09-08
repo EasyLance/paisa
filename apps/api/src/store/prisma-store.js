@@ -1,8 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { createHash } from 'node:crypto';
-import { parseMinor, serializeMoney } from '../domain/money.js';
+import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { assertCorrectable } from '../domain/permissions.js';
 
 export class PrismaStore {
   constructor(client = new PrismaClient()) { this.db = client; }
@@ -88,6 +89,21 @@ export class PrismaStore {
     const data = { ...fields, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) };
     try { return await this.db.category.update({ where: { id: categoryId }, data }); }
     catch (error) { throw this.categoryNameConflict(error); }
+  }
+  async updateTransaction(bookId, transactionId, fields, actorId) {
+    const include = { sources: true, splits: true, comments: { orderBy: { createdAt: 'asc' } } };
+    return this.db.$transaction(async (db) => {
+      const current = await db.transaction.findFirst({ where: { id: transactionId, bookId }, include: { sources: { select: { sourceType: true } } } });
+      if (!current) return null;
+      assertCorrectable(current.sources.map((source) => source.sourceType), fields);
+      const data = { ...fields };
+      if (fields.amountMinor !== undefined) data.amountMinor = parseMinor(fields.amountMinor);
+      if (fields.occurredAt !== undefined) data.occurredAt = new Date(fields.occurredAt);
+      const updated = await db.transaction.update({ where: { id: transactionId }, data, include });
+      const snapshot = (row) => Object.fromEntries(Object.keys(fields).map((key) => [key, jsonSafe(row[key])]));
+      await db.auditEvent.create({ data: { workspaceId: current.workspaceId, bookId, actorId, action: 'transaction.corrected', entityType: 'transaction', entityId: transactionId, before: snapshot(current), after: snapshot(updated) } });
+      return updated;
+    });
   }
   async listAccounts(bookId) { return this.db.financialAccount.findMany({ where: { bookId, archivedAt: null }, orderBy: { name: 'asc' } }); }
   async createAccount(data) { return this.db.financialAccount.create({ data }); }
