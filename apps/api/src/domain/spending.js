@@ -19,7 +19,10 @@ export function spendByCategory(transactions, categories) {
   const add = (categoryId, amount) => { if (amount > 0n) totals.set(categoryId, (totals.get(categoryId) ?? 0n) + amount); };
 
   for (const transaction of transactions) {
-    if (transaction.kind !== 'expense') continue;
+    // Expenses, plus transfers that left the account: an investment or a top-up
+    // of your own savings is not consumption, but it is still where money went.
+    // A transfer coming in is not an outflow, so its positive amount is skipped.
+    if (transaction.kind !== 'expense' && !(transaction.kind === 'transfer' && BigInt(transaction.amountMinor) < 0n)) continue;
     const splits = transaction.splits ?? [];
     if (splits.length) { for (const split of splits) add(split.categoryId ?? null, magnitude(split.amountMinor)); continue; }
     add(transaction.categoryId ?? null, magnitude(transaction.amountMinor));

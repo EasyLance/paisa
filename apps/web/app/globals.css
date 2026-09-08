@@ -26,3 +26,10 @@
 .correction-form{display:grid;gap:10px;margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:11px;background:#fbfcfa}
 .correction-form .eyebrow{margin:0}
 .legend-dot.g0{background:#244e3c}.legend-dot.g1{background:#a9c467}.legend-dot.g2{background:#df8d6d}.legend-dot.g3{background:#6399a4}.legend-dot.g4{background:#a1a8a3}
+.legend-group{grid-template-columns:auto 1fr auto}
+.legend-group ul{grid-column:2/4;display:grid;gap:5px;margin:2px 0 0;padding:0;list-style:none}
+.legend-group li{display:flex;justify-content:space-between;gap:10px;color:#7c857f;font-size:9px}
+.legend-group li b{color:#54605a;font-weight:650}
+.stat-card.slate{background:#eef1f4;border-color:#d5dde4}
+.stats-grid:has(>:nth-child(4)){grid-template-columns:repeat(4,1fr)}
+.legend-total{display:block;margin-top:4px;color:#7c857f;font-size:9px;line-height:1.45}

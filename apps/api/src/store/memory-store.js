@@ -326,8 +326,11 @@ export class MemoryStore {
     const txs = this.transactions.filter((item) => item.bookId === bookId && !['excluded', 'voided'].includes(item.state) && (!month || isInBookMonth(item.occurredAt, month, timezone)));
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
+    // Money that left for your own accounts. Not spending, so it is kept out of
+    // `spent` and `saved`, but the breakdown accounts for it.
+    const moved = txs.filter((item) => item.kind === 'transfer' && item.amountMinor < 0n).reduce((sum, item) => sum + -item.amountMinor, 0n);
     const byCategory = spendByCategory(txs, this.categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     if (status === 'verified' && this.transactions.some((item) => item.bookId === book.id && item.state === 'pending_review' && isInBookMonth(item.occurredAt, month, book.timezone))) {

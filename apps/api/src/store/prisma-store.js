@@ -269,11 +269,14 @@ export class PrismaStore {
     const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true, splits: { select: { categoryId: true, amountMinor: true } } } });
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
+    // Money that left for your own accounts. Not spending, so it is kept out of
+    // `spent` and `saved`, but the breakdown accounts for it.
+    const moved = txs.filter((item) => item.kind === 'transfer' && item.amountMinor < 0n).reduce((sum, item) => sum + -item.amountMinor, 0n);
     // Every category in the workspace, not just those already on a transaction:
     // a split can name a category the parent row does not.
     const categories = await this.db.category.findMany({ where: { workspaceId: book?.workspaceId } });
     const byCategory = spendByCategory(txs, categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     const { start, end } = monthRangeUtc(month, book.timezone);

@@ -378,8 +378,9 @@ describe('Paisa API authorization and ledger invariants', () => {
     const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
     const { spentMinor, byCategory } = summary.json();
     const breakdown = byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n);
-    // The invariant the dashboard depends on: the panel adds up to the tile.
-    expect(breakdown).toBe(BigInt(spentMinor));
+    // The invariant the dashboard depends on: the panel accounts for everything
+    // that left the account, spending and transfers out alike.
+    expect(breakdown).toBe(BigInt(spentMinor) + BigInt(summary.json().movedMinor));
     expect(byCategory.find((item) => item.categoryId === null)).toMatchObject({ name: 'Uncategorized', groupName: 'Other' });
     // Largest first, so "top spending" is actually the top.
     expect([...byCategory].sort((a, b) => (BigInt(b.amountMinor) > BigInt(a.amountMinor) ? 1 : -1)).map((item) => item.name)).toEqual(byCategory.map((item) => item.name));
@@ -399,6 +400,20 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(amountOf('cat_dining')).toBe(60000n);
     expect(amountOf('cat_groceries')).toBe(40000n);
     expect(byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(spentMinor));
+  });
+
+  it('shows an investment moved to your own account under its category', async () => {
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'investment-0001' },
+      payload: { kind: 'transfer', amountMinor: '-2500000', merchant: 'Moved to my HDFC', occurredAt: '2026-09-01T05:30:00.000Z', categoryId: 'cat_investment' } });
+    expect(created.statusCode).toBe(201);
+
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
+    const { byCategory, spentMinor, movedMinor } = summary.json();
+    // It is not spending...
+    expect(BigInt(spentMinor)).toBe(0n);
+    expect(BigInt(movedMinor)).toBe(2500000n);
+    // ...but "where your money went" still shows it, under Saving.
+    expect(byCategory.find((item) => item.categoryId === 'cat_investment')).toMatchObject({ name: 'Investment', groupName: 'Saving', amountMinor: '2500000' });
   });
 
   it('keeps a month-end recurring plan at month end instead of drifting backwards', () => {
@@ -497,9 +512,11 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(audit.json().items.find((event) => event.action === 'transaction.corrected' && event.entityId === row.id))
       .toMatchObject({ before: { amountMinor: bankAmount, kind: 'expense' }, after: { amountMinor: '-90000', kind: 'transfer' } });
 
-    // A transfer stops counting as spending, and the breakdown still adds up.
+    // A transfer stops counting as spending but is still accounted for, so the
+    // money does not simply vanish from the breakdown.
     const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
-    expect(summary.json().byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(summary.json().spentMinor));
+    expect(BigInt(summary.json().movedMinor)).toBe(90000n);
+    expect(summary.json().byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(summary.json().spentMinor) + BigInt(summary.json().movedMinor));
 
     const voided = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { state: 'voided' } });
     expect(voided.json().state).toBe('voided');
