@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
+import { matchCategoryRule } from '../domain/categorization.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
 
@@ -229,7 +230,12 @@ export class MemoryStore {
     if (idempotencyKey && this.idempotency.has(idempotencyKey)) return this.idempotency.get(idempotencyKey);
     const event = { id: randomUUID(), key, ...data, amountMinor: parseMinor(data.amountMinor), state: 'received', createdAt: new Date(), duplicate: false };
     this.ingestion.push(event);
-    const transaction = await this.createTransaction({ ...data, state: data.categoryId ? 'confirmed' : 'pending_review' }, actorId, `ingestion:${key}`);
+    // A rule the user already taught this book classifies the payment now, so a
+    // repeat of a payment they categorised once does not come back for review.
+    const rule = data.categoryId ? null : matchCategoryRule(await this.listRules(data.bookId), { merchant: data.merchant });
+    const categoryId = data.categoryId ?? rule?.categoryId ?? null;
+    const transaction = await this.createTransaction({ ...data, categoryId, state: categoryId ? 'confirmed' : 'pending_review' }, actorId, `ingestion:${key}`);
+    if (rule) await this.addAudit({ workspaceId: data.workspaceId, bookId: data.bookId, actorId, action: 'transaction.auto_categorized', entityType: 'transaction', entityId: transaction.id, after: { categoryId, ruleId: rule.id, matchType: rule.matchType, matchValue: rule.matchValue } });
     transaction.sources = [{ id: randomUUID(), sourceType: data.sourceType, sourceReference: data.sourceHash, importedAmount: parseMinor(data.amountMinor) }];
     event.transactionId = transaction.id; if (idempotencyKey) this.idempotency.set(idempotencyKey, event); return event;
   }

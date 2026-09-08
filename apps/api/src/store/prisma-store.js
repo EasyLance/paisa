@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
+import { matchCategoryRule } from '../domain/categorization.js';
 
 export class PrismaStore {
   constructor(client = new PrismaClient()) { this.db = client; }
@@ -168,8 +169,13 @@ export class PrismaStore {
         const event = await db.ingestionEvent.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, sourceType: data.sourceType,
           sourceHash: data.sourceHash, externalRef: data.externalRef ?? null, direction: data.kind, amountMinor, currency: data.currency ?? 'INR', merchant: data.merchant ?? null,
           occurredAt: new Date(data.occurredAt), metadata: data.metadata ?? undefined } });
-        const transaction = await db.transaction.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, categoryId: data.categoryId ?? null,
-          kind: data.kind, state: data.categoryId ? 'confirmed' : 'pending_review', amountMinor, currency: data.currency ?? 'INR', merchant: data.merchant ?? null, occurredAt: new Date(data.occurredAt), createdById: actorId } });
+        // A rule the user already taught this book classifies the payment now, so a
+        // repeat of a payment they categorised once does not come back for review.
+        const rule = data.categoryId ? null : matchCategoryRule(await db.categorizationRule.findMany({ where: { bookId: data.bookId }, orderBy: { priority: 'asc' } }), { merchant: data.merchant });
+        const categoryId = data.categoryId ?? rule?.categoryId ?? null;
+        const transaction = await db.transaction.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, categoryId,
+          kind: data.kind, state: categoryId ? 'confirmed' : 'pending_review', amountMinor, currency: data.currency ?? 'INR', merchant: data.merchant ?? null, occurredAt: new Date(data.occurredAt), createdById: actorId } });
+        if (rule) await db.auditEvent.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, actorId, action: 'transaction.auto_categorized', entityType: 'transaction', entityId: transaction.id, after: { categoryId, ruleId: rule.id, matchType: rule.matchType, matchValue: rule.matchValue } } });
         await db.transactionSource.create({ data: { transactionId: transaction.id, ingestionEventId: event.id, sourceType: data.sourceType, sourceReference: data.sourceHash, importedAmount: amountMinor } });
         return { ...event, transactionId: transaction.id, duplicate: false };
       });

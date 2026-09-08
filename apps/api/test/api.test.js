@@ -110,6 +110,33 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(response.json().code).toBe('SPLIT_TOTAL_MISMATCH');
   });
 
+  it('auto-categorizes a repeat payment to a VPA the user classified once', async () => {
+    const headers = { ...as('user_owner'), 'content-type': 'application/json' };
+    const sms = (hash, occurredAt) => ({ sourceType: 'sms', sourceHash: hash, kind: 'expense', amountMinor: '-92000', merchant: 'bluetokai@okhdfcbank', occurredAt });
+
+    // Month one: nothing knows this VPA, so it lands in the review queue.
+    const first = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/ingestion-events', headers: { ...headers, 'idempotency-key': 'sms-dinner-month-1' }, payload: sms('sha256:dinner-month-1', '2026-08-10T19:30:00.000Z') });
+    expect(first.statusCode).toBe(201);
+    const monthOneId = first.json().transactionId;
+    const pending = (await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions', headers: as('user_owner') })).json().items.find((item) => item.id === monthOneId);
+    expect(pending.state).toBe('pending_review');
+    expect(pending.categoryId).toBeNull();
+
+    // The user reviews it once and asks for it to apply to future payments.
+    await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${monthOneId}/category`, headers, payload: { categoryId: 'cat_dining', applyToFuture: true } });
+
+    // Month two: the same VPA arrives and is classified without asking again.
+    const second = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/ingestion-events', headers: { ...headers, 'idempotency-key': 'sms-dinner-month-2' }, payload: sms('sha256:dinner-month-2', '2026-09-10T19:30:00.000Z') });
+    expect(second.statusCode).toBe(201);
+    const monthTwo = (await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions', headers: as('user_owner') })).json().items.find((item) => item.id === second.json().transactionId);
+    expect(monthTwo.categoryId).toBe('cat_dining');
+    expect(monthTwo.state).toBe('confirmed');
+
+    // And the reason is attributable, not magic.
+    const audit = (await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') })).json().items;
+    expect(audit[0]).toMatchObject({ action: 'transaction.auto_categorized', after: { categoryId: 'cat_dining', matchValue: 'bluetokai@okhdfcbank' } });
+  });
+
   it('deduplicates retried SMS ingestion by workspace and source hash', async () => {
     const payload = { sourceType: 'sms', sourceHash: 'sha256:one-financial-event', kind: 'expense', amountMinor: '-49900', merchant: 'UPI MERCHANT', occurredAt: '2026-08-26T10:00:00.000Z' };
     const headers = { ...as('user_owner'), 'content-type': 'application/json', 'idempotency-key': 'sms-device-1-message-1' };
