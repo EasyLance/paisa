@@ -25,3 +25,4 @@
 
 .correction-form{display:grid;gap:10px;margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:11px;background:#fbfcfa}
 .correction-form .eyebrow{margin:0}
+.legend-dot.g0{background:#244e3c}.legend-dot.g1{background:#a9c467}.legend-dot.g2{background:#df8d6d}.legend-dot.g3{background:#6399a4}.legend-dot.g4{background:#a1a8a3}

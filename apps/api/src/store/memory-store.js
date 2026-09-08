@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { spendByCategory } from '../domain/spending.js';
 import { assertCorrectable } from '../domain/permissions.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
@@ -177,7 +178,7 @@ export class MemoryStore {
   async updateTransaction(bookId, transactionId, fields, actorId) {
     const transaction = this.transactions.find((item) => item.bookId === bookId && item.id === transactionId);
     if (!transaction) return null;
-    assertCorrectable((transaction.sources ?? []).map((source) => source.sourceType), fields);
+    assertCorrectable((transaction.sources ?? []).map((source) => source.sourceType), fields, transaction.amountMinor);
     const before = {}; const after = {};
     for (const [key, value] of Object.entries(fields)) {
       const next = key === 'amountMinor' ? parseMinor(value) : key === 'occurredAt' ? new Date(value) : value;
@@ -302,8 +303,7 @@ export class MemoryStore {
     const txs = this.transactions.filter((item) => item.bookId === bookId && !['excluded', 'voided'].includes(item.state) && (!month || isInBookMonth(item.occurredAt, month, timezone)));
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
-    const byCategory = this.categories.map((category) => ({ categoryId: category.id, name: category.name, groupName: category.groupName,
-      amountMinor: txs.filter((item) => item.categoryId === category.id && item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n) })).filter((item) => item.amountMinor > 0n);
+    const byCategory = spendByCategory(txs, this.categories);
     return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {

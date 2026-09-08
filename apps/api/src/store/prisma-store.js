@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { spendByCategory } from '../domain/spending.js';
 import { assertCorrectable } from '../domain/permissions.js';
 
 export class PrismaStore {
@@ -95,7 +96,7 @@ export class PrismaStore {
     return this.db.$transaction(async (db) => {
       const current = await db.transaction.findFirst({ where: { id: transactionId, bookId }, include: { sources: { select: { sourceType: true } } } });
       if (!current) return null;
-      assertCorrectable(current.sources.map((source) => source.sourceType), fields);
+      assertCorrectable(current.sources.map((source) => source.sourceType), fields, current.amountMinor);
       const data = { ...fields };
       if (fields.amountMinor !== undefined) data.amountMinor = parseMinor(fields.amountMinor);
       if (fields.occurredAt !== undefined) data.occurredAt = new Date(fields.occurredAt);
@@ -242,14 +243,15 @@ export class PrismaStore {
     return { ...record, duplicate: false, status: 'upload_pending' };
   }
   async summary(bookId, month) {
-    const book = await this.db.book.findUnique({ where: { id: bookId }, select: { timezone: true } });
+    const book = await this.db.book.findUnique({ where: { id: bookId }, select: { timezone: true, workspaceId: true } });
     const range = month ? monthRangeUtc(month, book?.timezone ?? 'UTC') : null; const period = range ? { gte: range.start, lt: range.end } : undefined;
-    const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true } });
+    const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true, splits: { select: { categoryId: true, amountMinor: true } } } });
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
-    const categories = await this.db.category.findMany({ where: { transactions: { some: { bookId } } } });
-    const byCategory = categories.map((category) => ({ categoryId: category.id, name: category.name, groupName: category.groupName,
-      amountMinor: txs.filter((item) => item.categoryId === category.id && item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n) })).filter((item) => item.amountMinor > 0n);
+    // Every category in the workspace, not just those already on a transaction:
+    // a split can name a category the parent row does not.
+    const categories = await this.db.category.findMany({ where: { workspaceId: book?.workspaceId } });
+    const byCategory = spendByCategory(txs, categories);
     return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {

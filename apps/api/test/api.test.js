@@ -368,6 +368,38 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(await fromStatement()).toHaveLength(4);
   });
 
+  it('accounts for every rupee it says was spent, including uncategorized and split payments', async () => {
+    // 17 statement rows, none of them categorised yet.
+    const imported = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'f'.repeat(64), content: sbiStatement } });
+    expect(imported.json().imported).toBe(4);
+
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
+    const { spentMinor, byCategory } = summary.json();
+    const breakdown = byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n);
+    // The invariant the dashboard depends on: the panel adds up to the tile.
+    expect(breakdown).toBe(BigInt(spentMinor));
+    expect(byCategory.find((item) => item.categoryId === null)).toMatchObject({ name: 'Uncategorized', groupName: 'Other' });
+    // Largest first, so "top spending" is actually the top.
+    expect([...byCategory].sort((a, b) => (BigInt(b.amountMinor) > BigInt(a.amountMinor) ? 1 : -1)).map((item) => item.name)).toEqual(byCategory.map((item) => item.name));
+  });
+
+  it('attributes a split payment to its parts rather than to the parent category', async () => {
+    const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'split-summary-001' },
+      payload: { kind: 'expense', amountMinor: '-100000', merchant: 'Big Bazaar', occurredAt: '2026-09-02T05:30:00.000Z', categoryId: 'cat_groceries' } });
+    const id = created.json().id;
+    const split = await app.inject({ method: 'PUT', url: `/v1/books/book_arjun/transactions/${id}/splits`, headers: as('user_owner'),
+      payload: { splits: [{ categoryId: 'cat_groceries', amountMinor: '-40000' }, { categoryId: 'cat_dining', amountMinor: '-60000' }] } });
+    expect(split.statusCode).toBe(200);
+
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-09', headers: as('user_owner') });
+    const { byCategory, spentMinor } = summary.json();
+    const amountOf = (categoryId) => BigInt(byCategory.find((item) => item.categoryId === categoryId)?.amountMinor ?? '0');
+    expect(amountOf('cat_dining')).toBe(60000n);
+    expect(amountOf('cat_groceries')).toBe(40000n);
+    expect(byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(spentMinor));
+  });
+
   it('corrects a manual entry that was booked the wrong way round', async () => {
     const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'salary-typo-0001' },
       payload: { kind: 'expense', amountMinor: '-5000000', merchant: 'Salary', occurredAt: '2026-09-01T05:30:00.000Z', categoryId: 'cat_salary' } });
@@ -394,6 +426,19 @@ describe('Paisa API authorization and ledger invariants', () => {
     const rewrite = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { kind: 'income', amountMinor: '1' } });
     expect(rewrite.statusCode).toBe(409);
     expect(rewrite.json().code).toBe('IMMUTABLE_SOURCE');
+    const redate = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { occurredAt: '2026-01-01T00:00:00.000Z' } });
+    expect(redate.statusCode).toBe(409);
+
+    // A debit to your own other account is a transfer, not spending. The bank's
+    // amount is untouched, so re-reading what it was for is allowed.
+    const before = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
+    const reclassified = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { kind: 'transfer', amountMinor: row.amountMinor } });
+    expect(reclassified.statusCode).toBe(200);
+    expect(reclassified.json()).toMatchObject({ kind: 'transfer', amountMinor: row.amountMinor });
+    const after = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary', headers: as('user_owner') });
+    // It stops counting as spending, and the breakdown still adds up.
+    expect(BigInt(after.json().spentMinor)).toBe(BigInt(before.json().spentMinor) + BigInt(row.amountMinor));
+    expect(after.json().byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(after.json().spentMinor));
 
     const voided = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${row.id}`, headers: as('user_owner'), payload: { state: 'voided' } });
     expect(voided.statusCode).toBe(200);
