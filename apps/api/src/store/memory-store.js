@@ -87,6 +87,12 @@ export class MemoryStore {
 
   async getUserById(id) { return this.users.find((user) => user.id === id) ?? null; }
   async getUserByFirebaseUid(uid) { return this.users.find((user) => user.firebaseUid === uid) ?? null; }
+  async updateProfile(userId, { displayName }) {
+    const user = this.users.find((item) => item.id === userId);
+    if (!user) return null;
+    user.displayName = displayName;
+    return user;
+  }
   async ping() { return true; }
   async close() { return undefined; }
   async listWorkspaces(userId) {

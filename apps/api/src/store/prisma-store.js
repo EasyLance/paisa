@@ -15,6 +15,11 @@ export class PrismaStore {
   }
   async getUserById(id) { return this.db.userProfile.findUnique({ where: { id } }); }
   async getUserByFirebaseUid(firebaseUid) { return this.db.userProfile.findUnique({ where: { firebaseUid } }); }
+  async updateProfile(userId, { displayName }) {
+    const current = await this.db.userProfile.findUnique({ where: { id: userId } });
+    if (!current) return null;
+    return this.db.userProfile.update({ where: { id: userId }, data: { displayName } });
+  }
   async ping() { await this.db.$queryRaw`SELECT 1`; return true; }
   async close() { await this.db.$disconnect(); }
   async listWorkspaces(userId) {

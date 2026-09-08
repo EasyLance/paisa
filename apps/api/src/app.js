@@ -86,6 +86,14 @@ export async function buildApp(options = {}) {
   app.register(async function v1(api) {
     api.addHook('preHandler', app.authenticate);
     api.get('/me', async (request) => ({ id: request.actor.id, email: request.actor.email, displayName: request.actor.displayName ?? null }));
+    api.patch('/me', async (request) => {
+      // Only the display name is editable here: email and password belong to the
+      // identity provider, not this ledger.
+      const body = parse(z.object({ displayName: z.string().trim().min(1).max(120) }), request.body);
+      const profile = await app.store.updateProfile(request.actor.id, body);
+      if (!profile) { const error = new Error('Profile not found'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      return { id: profile.id, email: profile.email, displayName: profile.displayName ?? null };
+    });
     api.get('/workspaces', async (request) => ({ items: await app.store.listWorkspaces(request.actor.id) }));
     api.get('/books', async (request) => ({ items: await app.store.listBooks(request.actor.id) }));
     api.get('/books/:bookId/memberships', async (request) => { await access(request, 'manage_book'); return { items: await app.store.listMemberships(request.params.bookId) }; });
