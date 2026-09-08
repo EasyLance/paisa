@@ -101,31 +101,54 @@ if [ ! -f /etc/systemd/system/paisa-api.service ]; then
   exit 1
 fi
 sudo systemctl restart paisa-api paisa-web
-sleep 3
 
 echo "==> Health check"
-FAILED=0
-for unit in paisa-api paisa-web; do
-  if systemctl is-active --quiet "$unit"; then
-    echo "    $unit: active"
-  else
-    echo "    $unit: NOT RUNNING" >&2
-    FAILED=1
-  fi
+# systemd reports Type=simple units "active" the moment the process spawns, so
+# poll the real endpoints instead - a service that is up but still connecting to
+# the database, or hung before it listens, looks identical to a healthy one here.
+probe() { curl -fsS -m 5 -o /dev/null "$1" 2>/dev/null; }
+api_url=http://127.0.0.1:${API_PORT:-4000}/health
+web_url=http://127.0.0.1:${WEB_PORT:-3000}/
+for attempt in $(seq 1 20); do
+  probe "$api_url" && api=ok || api=unreachable
+  probe "$web_url" && web=ok || web=unreachable
+  [ "$api$web" = "okok" ] && break
+  [ "$attempt" = 20 ] || sleep 2
 done
 
-api=$(curl -fsS -m 5 http://127.0.0.1:4000/health 2>/dev/null || echo "unreachable")
-web=$(curl -fsS -m 5 -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ 2>/dev/null || echo "unreachable")
-echo "    api  http://127.0.0.1:4000/health -> $api"
-echo "    web  http://127.0.0.1:3000/       -> $web"
-if [ "$api" = "unreachable" ] || [ "$web" != "200" ]; then FAILED=1; fi
+FAILED=0
+for unit in paisa-api paisa-web; do
+  state=$(systemctl is-active "$unit" 2>/dev/null || true)
+  echo "    $unit: $state"
+  [ "$state" = active ] || FAILED=1
+done
+echo "    api  $api_url -> $api"
+echo "    web  $web_url -> $web"
+[ "$api" = ok ] && [ "$web" = ok ] || FAILED=1
 
 echo
 if [ "$FAILED" = "0" ]; then
   echo "==> Deployed: $(git rev-parse --short HEAD) \"$(git log -1 --pretty=%s)\""
-else
-  echo "==> Deploy finished but something is not healthy. Logs:" >&2
-  echo "      sudo journalctl -u paisa-api -n 40 --no-pager" >&2
-  echo "      sudo journalctl -u paisa-web -n 40 --no-pager" >&2
-  exit 1
+  exit 0
 fi
+
+echo "==> Deploy finished but something is not healthy." >&2
+for unit in paisa-api paisa-web; do
+  case "$unit:$api$web" in paisa-api:ok*) continue ;; paisa-web:*ok) continue ;; esac
+  echo >&2
+  # A unit that is running but not answering never crashed, so there is no error
+  # to find - say what that means rather than leaving 40 lines of journal to read.
+  if systemctl is-active --quiet "$unit"; then
+    echo "  $unit is running but not answering on its port. It is most likely still" >&2
+    echo "  starting, or stuck before it listens - for paisa-api that is nearly always" >&2
+    echo "  the database connection (wrong DATABASE_URL, or an @ in the password that" >&2
+    echo "  needs to be written %40). Last 20 log lines:" >&2
+  else
+    echo "  $unit is not running. Last 20 log lines:" >&2
+  fi
+  echo >&2
+  sudo journalctl -u "$unit" -n 20 --no-pager 2>&1 | sed 's/^/      /' >&2
+done
+echo >&2
+echo "  Full logs:  sudo journalctl -u paisa-api -n 200 --no-pager" >&2
+exit 1
