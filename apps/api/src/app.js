@@ -10,6 +10,7 @@ import authPlugin from './plugins/auth.js';
 import { assertCapability } from './domain/permissions.js';
 import { jsonSafe } from './domain/money.js';
 import { createStore } from './store/index.js';
+import { parseStatementCsv } from './domain/statement-csv.js';
 
 const transactionFields = z.object({
   accountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
@@ -34,6 +35,14 @@ const recurringPatch = z.object({
   if ((value.amountMinor === undefined) !== (value.kind === undefined)) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Provide kind and amountMinor together' });
   else if (value.amountMinor !== undefined) validateAmountSign(value, context);
 });
+const importInput = z.object({
+  fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']),
+  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i),
+  accountId: z.string().nullable().optional(), content: z.string().max(2 * 1024 * 1024).optional(),
+}).superRefine((value, context) => {
+  if (value.content !== undefined && value.contentType !== 'text/csv') context.addIssue({ code: 'custom', path: ['content'], message: 'Only CSV statements can be parsed on upload' });
+});
+
 function requireFields(value, context) {
   if (!Object.keys(value).length) context.addIssue({ code: 'custom', path: [], message: 'Provide at least one field to update' });
 }
@@ -179,7 +188,21 @@ export async function buildApp(options = {}) {
     api.get('/books/:bookId/recurring-plans', async (request) => { await access(request); return { items: await app.store.listRecurring(request.params.bookId) }; });
     api.post('/books/:bookId/recurring-plans', async (request, reply) => { await access(request, 'edit'); const body = parse(recurringInput, request.body); return reply.code(201).send(await app.store.createRecurring({ ...body, bookId: request.params.bookId })); });
     api.get('/books/:bookId/imports', async (request) => { await access(request); return { items: await app.store.listImports(request.params.bookId) }; });
-    api.post('/books/:bookId/imports', async (request, reply) => { const { book } = await access(request, 'edit'); const body = parse(z.object({ fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']), sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i) }), request.body); const record = await app.store.createImport({ ...body, workspaceId: book.workspaceId, bookId: book.id }); return reply.code(record.duplicate ? 200 : 201).send(record); });
+    api.post('/books/:bookId/imports', async (request, reply) => {
+      const { book } = await access(request, 'edit');
+      const { content, accountId, ...meta } = parse(importInput, request.body);
+      const record = await app.store.createImport({ ...meta, workspaceId: book.workspaceId, bookId: book.id });
+      if (record.duplicate || !content) return reply.code(record.duplicate ? 200 : 201).send(record);
+      let parsed;
+      try { parsed = parseStatementCsv(content); }
+      catch (error) { const failure = new Error(error.message); failure.statusCode = 422; failure.code = 'STATEMENT_UNPARSEABLE'; throw failure; }
+      let imported = 0; let duplicates = 0;
+      for (const [index, row] of parsed.rows.entries()) {
+        const event = await app.store.ingest({ ...row, accountId: accountId ?? null, workspaceId: book.workspaceId, bookId: book.id }, request.actor.id, `statement:${meta.sha256}:${index}`);
+        if (event.duplicate) duplicates += 1; else imported += 1;
+      }
+      return reply.code(201).send({ ...record, status: 'parsed', account: parsed.account, imported, duplicates, warnings: parsed.warnings });
+    });
     api.get('/books/:bookId/audit-events', async (request) => { await access(request); return { items: await app.store.listAudit(request.params.bookId, 50) }; });
     api.post('/books/:bookId/period-reviews', async (request, reply) => { const { book } = await access(request, 'verify'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), status: z.enum(['in_review', 'verified']), note: z.string().max(2000).optional() }), request.body); return reply.code(201).send(await app.store.reviewPeriod(book, body, request.actor.id)); });
   }, { prefix: '/v1' });

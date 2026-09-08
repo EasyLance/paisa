@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildApp } from '../src/app.js';
 import { MemoryStore } from '../src/store/memory-store.js';
+import { parseStatementCsv } from '../src/domain/statement-csv.js';
+
+const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
 
 describe('Paisa API authorization and ledger invariants', () => {
   let app;
@@ -317,6 +322,56 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(accepted.json()).toMatchObject({ accepted: true, bookId: 'book_arjun', role: 'editor' });
     const books = await app.inject({ method: 'GET', url: '/v1/books', headers: as('user_spouse') });
     expect(books.json().items.map((book) => book.id)).toContain('book_arjun');
+  });
+
+  it('parses a real SBI CSV export, wrapped narrations and all', () => {
+    const { account, rows, warnings } = parseStatementCsv(sbiStatement);
+    expect(account).toEqual({ number: '37791533954', ifsc: 'SBIN0070190' });
+    // The bank's own running balance column agrees with every amount we read.
+    expect(warnings).toEqual([]);
+    expect(rows).toHaveLength(4);
+    // "smohanes\n h1" is one wrapped token, not two words.
+    expect(rows[0]).toMatchObject({ kind: 'expense', amountMinor: '-100000', merchant: 'SHOBHA M', externalRef: '624417205755' });
+    expect(rows[0].metadata.upiHandle).toBe('smohanesh1');
+    expect(rows[1]).toMatchObject({ kind: 'income', amountMinor: '500000', merchant: 'BOAZ M R' });
+    // A non-UPI narration keeps its description but drops the branch booking suffix.
+    expect(rows[2].merchant).toBe('DIRECT DR 0043896596535 OF Mr. Test User');
+    expect(rows[3]).toMatchObject({ merchant: 'SAAVN', amountMinor: '-8900' });
+    // Midnight in Asia/Kolkata, so a payment never slips into the previous month.
+    expect(rows[0].occurredAt).toBe('2026-08-31T18:30:00.000Z');
+    // Re-parsing produces the same identity for each row, so re-imports dedupe.
+    expect(parseStatementCsv(sbiStatement).rows.map((row) => row.sourceHash)).toEqual(rows.map((row) => row.sourceHash));
+  });
+
+  it('imports statement rows into the ledger and ignores a second upload of the same file', async () => {
+    const upload = () => app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'sbi.csv', contentType: 'text/csv', sizeBytes: sbiStatement.length, sha256: 'a'.repeat(64), content: sbiStatement } });
+
+    const fromStatement = async () => {
+      const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+      const hashes = new Set(parseStatementCsv(sbiStatement).rows.map((row) => row.sourceHash));
+      return ledger.json().items.filter((item) => item.sources?.some((source) => hashes.has(source.sourceReference)));
+    };
+
+    const first = await upload();
+    expect(first.statusCode).toBe(201);
+    expect(first.json()).toMatchObject({ status: 'parsed', imported: 4, duplicates: 0, warnings: [] });
+
+    const imported = await fromStatement();
+    expect(imported).toHaveLength(4);
+    expect(imported.every((item) => item.state === 'pending_review')).toBe(true);
+
+    const second = await upload();
+    expect(second.statusCode).toBe(200);
+    expect(second.json().duplicate).toBe(true);
+    expect(await fromStatement()).toHaveLength(4);
+  });
+
+  it('rejects a file that is not a statement instead of importing nothing quietly', async () => {
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'notes.csv', contentType: 'text/csv', sizeBytes: 20, sha256: 'b'.repeat(64), content: 'hello,world\n1,2\n' } });
+    expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe('STATEMENT_UNPARSEABLE');
   });
 
   it('provisions a newly invited Firebase identity only when its email matches', async () => {
