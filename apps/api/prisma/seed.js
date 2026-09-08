@@ -15,6 +15,8 @@ const categorySeeds = [
   ['cat_subscriptions', 'Subscriptions', 'Lifestyle', '#9d83a6'],
   ['cat_travel', 'Travel', 'Lifestyle', '#6399a4'],
   ['cat_salary', 'Salary', 'Income', '#397454'],
+  ['cat_investment', 'Investment', 'Saving', '#4a7c8c'],
+  ['cat_savings_transfer', 'Transfer to savings', 'Saving', '#5f8f9c'],
   ['cat_other', 'Uncategorized', 'Other', '#a1a8a3'],
 ];
 
@@ -56,6 +58,11 @@ async function main() {
     await db.bookMembership.upsert({ where: { bookId_userId: { bookId, userId } }, update: { role }, create: { bookId, userId, role } });
   }
   for (const [id, name, groupName, color] of categorySeeds) {
+    // Someone may already have created this category by hand. Seeding a second
+    // one with the same name would leave two indistinguishable rows in every
+    // picker, so leave theirs alone.
+    const sameName = await db.category.findFirst({ where: { workspaceId: 'ws_household', name, id: { not: id } } });
+    if (sameName) continue;
     await db.category.upsert({ where: { id }, update: { name, groupName, color }, create: { id, workspaceId: 'ws_household', name, groupName, color } });
   }
 }

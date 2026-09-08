@@ -3,6 +3,7 @@ import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
+import { duePostings, postingKey } from '../domain/recurring.js';
 import { assertCorrectable } from '../domain/permissions.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
@@ -33,7 +34,9 @@ const categories = [
   ['cat_emi', 'EMI', 'Essentials', '#607b87'], ['cat_transport', 'Transportation', 'Essentials', '#6f8f83'],
   ['cat_food', 'Food delivery', 'Lifestyle', '#df8d6d'], ['cat_dining', 'Dining out', 'Lifestyle', '#d29a65'],
   ['cat_subscriptions', 'Subscriptions', 'Lifestyle', '#9d83a6'], ['cat_travel', 'Travel', 'Lifestyle', '#6399a4'],
-  ['cat_salary', 'Salary', 'Income', '#397454'], ['cat_other', 'Uncategorized', 'Other', '#a1a8a3'],
+  ['cat_salary', 'Salary', 'Income', '#397454'],
+  ['cat_investment', 'Investment', 'Saving', '#4a7c8c'], ['cat_savings_transfer', 'Transfer to savings', 'Saving', '#5f8f9c'],
+  ['cat_other', 'Uncategorized', 'Other', '#a1a8a3'],
 ].map(([id, name, groupName, color]) => ({ id, workspaceId: 'ws_household', name, groupName, color }));
 
 const books = [
@@ -290,6 +293,27 @@ export class MemoryStore {
     if (amountMinor !== undefined) plan.amountMinor = parseMinor(amountMinor);
     if (nextDueAt !== undefined) plan.nextDueAt = new Date(nextDueAt);
     return plan;
+  }
+  // Post whatever the active plans owe. Entries land as pending_review, not
+  // confirmed: a plan is a prediction, and the same payment will usually turn up
+  // again from the bank, so it belongs in front of a human either way.
+  async postDueRecurring(now = new Date()) {
+    const posted = [];
+    for (const plan of this.recurring.filter((item) => item.active)) {
+      const { postings, nextDueAt } = duePostings(plan, now);
+      if (!postings.length) continue;
+      const book = this.books.find((item) => item.id === plan.bookId);
+      const actorId = this.memberships.find((member) => member.bookId === plan.bookId && member.role === 'book_owner')?.userId ?? null;
+      for (const dueAt of postings) {
+        const transaction = await this.createTransaction({ workspaceId: book.workspaceId, bookId: plan.bookId, categoryId: plan.categoryId ?? null, kind: plan.kind,
+          amountMinor: String(plan.amountMinor), currency: plan.currency ?? 'INR', merchant: plan.name, state: 'pending_review', occurredAt: dueAt.toISOString() }, actorId, postingKey(plan.id, dueAt));
+        if (transaction.__idempotentReplay) continue;
+        await this.addAudit({ workspaceId: book.workspaceId, bookId: plan.bookId, actorId, action: 'recurring.posted', entityType: 'transaction', entityId: transaction.id, after: { planId: plan.id, planName: plan.name, dueAt: dueAt.toISOString() } });
+        posted.push({ planId: plan.id, transactionId: transaction.id, dueAt: dueAt.toISOString() });
+      }
+      plan.nextDueAt = nextDueAt;
+    }
+    return posted;
   }
   async listImports(bookId) { return this.imports.filter((item) => item.bookId === bookId).sort((a, b) => b.createdAt - a.createdAt); }
   async createImport(data) {

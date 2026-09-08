@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildApp } from '../src/app.js';
 import { MemoryStore } from '../src/store/memory-store.js';
 import { parseStatementCsv } from '../src/domain/statement-csv.js';
+import { advance, duePostings } from '../src/domain/recurring.js';
 
 const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
 
@@ -398,6 +399,64 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(amountOf('cat_dining')).toBe(60000n);
     expect(amountOf('cat_groceries')).toBe(40000n);
     expect(byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(spentMinor));
+  });
+
+  it('keeps a month-end recurring plan at month end instead of drifting backwards', () => {
+    const day = (value) => new Date(value).toISOString().slice(0, 10);
+    // Clamping alone would give 28 Feb, then 28 Mar, then 28 Apr - the plan
+    // would walk away from month end and never come back.
+    let due = '2026-01-31T00:00:00.000Z';
+    const run = [];
+    for (let index = 0; index < 5; index += 1) { run.push(day(due)); due = advance(due, 'monthly'); }
+    expect(run).toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31']);
+    // A mid-month plan keeps its own day.
+    expect(day(advance('2026-01-15T00:00:00.000Z', 'monthly'))).toBe('2026-02-15');
+    expect(day(advance('2026-11-30T00:00:00.000Z', 'quarterly'))).toBe('2027-02-28');
+    expect(() => advance('2026-01-15T00:00:00.000Z', 'fortnightly')).toThrow(/cadence/i);
+
+    // Months missed while the API was down are all caught up, not skipped.
+    const behind = duePostings({ nextDueAt: '2026-06-30T00:00:00.000Z', cadence: 'monthly', active: true }, new Date('2026-09-08T00:00:00.000Z'));
+    expect(behind.postings.map(day)).toEqual(['2026-06-30', '2026-07-31', '2026-08-31']);
+    expect(day(behind.nextDueAt)).toBe('2026-09-30');
+  });
+
+  it('posts a due recurring plan into the ledger exactly once', async () => {
+    const plan = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/recurring-plans', headers: as('user_owner'),
+      payload: { name: 'Salary', kind: 'income', amountMinor: '10417800', categoryId: 'cat_salary', cadence: 'monthly', nextDueAt: '2026-09-30T00:00:00.000Z' } });
+    expect(plan.statusCode).toBe(201);
+    const planId = plan.json().id;
+    // The seeded book has its own plans, so look only at this one.
+    const run = async (at) => (await app.store.postDueRecurring(new Date(at))).filter((entry) => entry.planId === planId);
+
+    // Not due yet: nothing is posted early.
+    expect(await run('2026-09-29T00:00:00.000Z')).toEqual([]);
+
+    expect(await run('2026-09-30T06:00:00.000Z')).toHaveLength(1);
+    // A running tick, or a restart, must not post the same month again.
+    expect(await run('2026-09-30T23:00:00.000Z')).toEqual([]);
+
+    const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+    const salaries = ledger.json().items.filter((item) => item.merchant === 'Salary');
+    expect(salaries).toHaveLength(1);
+    // A plan is a prediction, so it waits for a human rather than counting itself.
+    expect(salaries[0]).toMatchObject({ kind: 'income', amountMinor: '10417800', categoryId: 'cat_salary', state: 'pending_review' });
+    expect(salaries[0].occurredAt.slice(0, 10)).toBe('2026-09-30');
+
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') });
+    expect(audit.json().items.find((event) => event.action === 'recurring.posted')).toMatchObject({ after: { planName: 'Salary' } });
+
+    // The plan has moved on to October, and October is month end too.
+    const plans = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/recurring-plans', headers: as('user_owner') });
+    expect(plans.json().items.find((item) => item.name === 'Salary').nextDueAt.slice(0, 10)).toBe('2026-10-31');
+  });
+
+  it('files salary under Income and savings transfers under Saving', async () => {
+    const categories = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/categories', headers: as('user_owner') });
+    const groupOf = (name) => categories.json().items.find((item) => item.name === name)?.groupName;
+    expect(groupOf('Salary')).toBe('Income');
+    expect(groupOf('Investment')).toBe('Saving');
+    expect(groupOf('Transfer to savings')).toBe('Saving');
+    expect(new Set(categories.json().items.map((item) => item.groupName))).toEqual(new Set(['Essentials', 'Income', 'Lifestyle', 'Saving', 'Other']));
   });
 
   it('corrects a manual entry that was booked the wrong way round', async () => {

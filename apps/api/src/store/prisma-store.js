@@ -4,6 +4,7 @@ import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
+import { duePostings, postingKey } from '../domain/recurring.js';
 import { assertCorrectable } from '../domain/permissions.js';
 
 export class PrismaStore {
@@ -233,6 +234,27 @@ export class PrismaStore {
     if (!current) return null;
     await this.assertReferences(this.db, { bookId, categoryIds: [fields.categoryId] });
     return this.db.recurringPlan.update({ where: { id: planId }, data: { ...fields, ...(amountMinor === undefined ? {} : { amountMinor: parseMinor(amountMinor) }), ...(nextDueAt === undefined ? {} : { nextDueAt: new Date(nextDueAt) }) } });
+  }
+  // Post whatever the active plans owe. Entries land as pending_review, not
+  // confirmed: a plan is a prediction, and the same payment will usually turn up
+  // again from the bank, so it belongs in front of a human either way.
+  async postDueRecurring(now = new Date()) {
+    const plans = await this.db.recurringPlan.findMany({ where: { active: true, nextDueAt: { lte: now } }, include: { book: { select: { workspaceId: true } } } });
+    const posted = [];
+    for (const plan of plans) {
+      const { postings, nextDueAt } = duePostings(plan, now);
+      if (!postings.length) continue;
+      const owner = await this.db.bookMembership.findFirst({ where: { bookId: plan.bookId, role: 'book_owner' }, select: { userId: true } });
+      for (const dueAt of postings) {
+        const transaction = await this.createTransaction({ workspaceId: plan.book.workspaceId, bookId: plan.bookId, categoryId: plan.categoryId ?? null, kind: plan.kind,
+          amountMinor: plan.amountMinor.toString(), currency: plan.currency, merchant: plan.name, state: 'pending_review', occurredAt: dueAt.toISOString() }, owner?.userId ?? null, postingKey(plan.id, dueAt));
+        if (transaction.__idempotentReplay) continue;
+        await this.db.auditEvent.create({ data: { workspaceId: plan.book.workspaceId, bookId: plan.bookId, actorId: owner?.userId ?? null, action: 'recurring.posted', entityType: 'transaction', entityId: transaction.id, after: { planId: plan.id, planName: plan.name, dueAt: dueAt.toISOString() } } });
+        posted.push({ planId: plan.id, transactionId: transaction.id, dueAt: dueAt.toISOString() });
+      }
+      await this.db.recurringPlan.update({ where: { id: plan.id }, data: { nextDueAt } });
+    }
+    return posted;
   }
   async listImports(bookId) { return this.db.attachment.findMany({ where: { bookId, transactionId: null, contentType: { in: ['text/csv', 'application/pdf'] } }, orderBy: { createdAt: 'desc' }, take: 25 }); }
   async createImport(data) {
