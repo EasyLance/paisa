@@ -48,3 +48,19 @@ export function duePostings(plan, now = new Date(), limit = 24) {
 export function postingKey(planId, dueAt) {
   return `recurring:${planId}:${new Date(dueAt).toISOString().slice(0, 10)}`;
 }
+
+// What a book expects to earn in a month, from its own income plans. Budgets are
+// set at the start of a month, before the salary has actually arrived, so a
+// percentage of income-so-far would read zero for most of the month.
+const PER_YEAR = { weekly: 52, monthly: 12, quarterly: 4, yearly: 1 };
+
+export function monthlyIncomeMinor(plans) {
+  return plans
+    .filter((plan) => plan.active !== false && plan.kind === 'income')
+    .reduce((sum, plan) => {
+      const perYear = PER_YEAR[plan.cadence];
+      if (!perYear) return sum;
+      const amount = BigInt(plan.amountMinor);
+      return sum + (amount < 0n ? -amount : amount) * BigInt(perYear) / 12n;
+    }, 0n);
+}

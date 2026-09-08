@@ -4,7 +4,7 @@ import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
-import { duePostings, postingKey } from '../domain/recurring.js';
+import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
 export class PrismaStore {
   constructor(client = new PrismaClient()) { this.db = client; }
@@ -200,6 +200,26 @@ export class PrismaStore {
       if (error?.code !== 'P2002') throw error;
       const winner = await findExisting(); if (winner) return winner; throw error;
     }
+  }
+  async getBudgetPlan(bookId) {
+    const [items, plans] = await Promise.all([
+      this.db.budgetPlan.findMany({ where: { bookId }, select: { groupName: true, percent: true }, orderBy: { percent: 'desc' } }),
+      this.db.recurringPlan.findMany({ where: { bookId, active: true }, select: { kind: true, cadence: true, amountMinor: true } }),
+    ]);
+    return { items, baseIncomeMinor: monthlyIncomeMinor(plans) };
+  }
+  async saveBudgetPlan(bookId, allocations, actorId) {
+    const book = await this.db.book.findUnique({ where: { id: bookId }, select: { workspaceId: true } });
+    if (!book) return null;
+    await this.db.$transaction(async (db) => {
+      // Replace the whole plan rather than patching entries, so a group dropped
+      // from the form is actually removed instead of lingering at its old share.
+      await db.budgetPlan.deleteMany({ where: { bookId } });
+      const kept = allocations.filter((entry) => entry.percent > 0);
+      if (kept.length) await db.budgetPlan.createMany({ data: kept.map((entry) => ({ bookId, groupName: entry.groupName, percent: entry.percent })) });
+      await db.auditEvent.create({ data: { workspaceId: book.workspaceId, bookId, actorId, action: 'budget_plan.saved', entityType: 'book', entityId: bookId, after: { allocations } } });
+    });
+    return this.getBudgetPlan(bookId);
   }
   async listBudgets(bookId) { return this.db.budget.findMany({ where: { bookId }, include: { category: true }, orderBy: { month: 'desc' } }); }
   async upsertBudget({ bookId, categoryId, month, amountMinor, currency = 'INR' }) {

@@ -3,7 +3,7 @@ import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { spendByCategory } from '../domain/spending.js';
-import { duePostings, postingKey } from '../domain/recurring.js';
+import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
 
@@ -80,6 +80,7 @@ export class MemoryStore {
     this.budgets = structuredClone(budgets);
     this.accounts = [{ id: 'account_primary', workspaceId: 'ws_household', bookId: 'book_arjun', name: 'Primary bank', institution: 'Demo Bank', accountMask: '0042', accountType: 'bank', currency: 'INR' }];
     this.rules = [];
+    this.budgetPlans = [];
     this.recurring = [{ id: 'recurring_salary', bookId: 'book_arjun', categoryId: 'cat_salary', name: 'Monthly salary', kind: 'income', amountMinor: 58786700n, currency: 'INR', cadence: 'monthly', nextDueAt: new Date('2026-09-25T05:30:00.000Z'), active: true }];
     this.comments = [];
     this.imports = [];
@@ -257,6 +258,17 @@ export class MemoryStore {
     if (rule) await this.addAudit({ workspaceId: data.workspaceId, bookId: data.bookId, actorId, action: 'transaction.auto_categorized', entityType: 'transaction', entityId: transaction.id, after: { categoryId, ruleId: rule.id, matchType: rule.matchType, matchValue: rule.matchValue } });
     transaction.sources = [{ id: randomUUID(), sourceType: data.sourceType, sourceReference: data.sourceHash, importedAmount: parseMinor(data.amountMinor) }];
     event.transactionId = transaction.id; if (idempotencyKey) this.idempotency.set(idempotencyKey, event); return event;
+  }
+  async getBudgetPlan(bookId) {
+    return { items: this.budgetPlans.filter((entry) => entry.bookId === bookId).map(({ groupName, percent }) => ({ groupName, percent })).sort((a, b) => b.percent - a.percent),
+      baseIncomeMinor: monthlyIncomeMinor(this.recurring.filter((plan) => plan.bookId === bookId)) };
+  }
+  async saveBudgetPlan(bookId, allocations, actorId) {
+    const book = this.books.find((item) => item.id === bookId);
+    this.budgetPlans = this.budgetPlans.filter((entry) => entry.bookId !== bookId)
+      .concat(allocations.filter((entry) => entry.percent > 0).map((entry) => ({ id: randomUUID(), bookId, ...entry })));
+    await this.addAudit({ workspaceId: book.workspaceId, bookId, actorId, action: 'budget_plan.saved', entityType: 'book', entityId: bookId, after: { allocations } });
+    return this.getBudgetPlan(bookId);
   }
   async listBudgets(bookId) { return this.budgets.filter((budget) => budget.bookId === bookId); }
   async upsertBudget({ bookId, categoryId, month, amountMinor, currency = 'INR' }) {

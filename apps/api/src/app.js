@@ -48,6 +48,15 @@ const transactionPatch = z.object({
   else if (value.amountMinor !== undefined) validateAmountSign(value, context);
 });
 
+const budgetPlanInput = z.object({
+  allocations: z.array(z.object({ groupName: z.string().trim().min(1).max(80), percent: z.number().int().min(0).max(100) })).max(20),
+}).superRefine((value, context) => {
+  const names = value.allocations.map((entry) => entry.groupName.toLowerCase());
+  if (new Set(names).size !== names.length) context.addIssue({ code: 'custom', path: ['allocations'], message: 'Each group can only be given one share' });
+  const total = value.allocations.reduce((sum, entry) => sum + entry.percent, 0);
+  if (total > 100) context.addIssue({ code: 'custom', path: ['allocations'], message: `Shares add up to ${total}% — they cannot exceed 100%` });
+});
+
 const importInput = z.object({
   fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']),
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i),
@@ -177,6 +186,14 @@ export async function buildApp(options = {}) {
       return updated;
     });
     api.post('/books/:bookId/ingestion-events', async (request, reply) => { const { book } = await access(request, 'create'); const body = parse(ingestionInput, request.body); const event = await app.store.ingest({ ...body, workspaceId: book.workspaceId, bookId: book.id }, request.actor.id, requireIdempotencyKey(request)); return reply.code(event.duplicate ? 200 : 201).send(event); });
+    api.get('/books/:bookId/budget-plan', async (request) => { await access(request); return app.store.getBudgetPlan(request.params.bookId); });
+    api.put('/books/:bookId/budget-plan', async (request) => {
+      const { book } = await access(request, 'edit');
+      const body = parse(budgetPlanInput, request.body);
+      return app.store.saveBudgetPlan(book.id, body.allocations, request.actor.id);
+    });
+    // Superseded by budget-plan above, which budgets a share of income per group.
+    // Kept because the endpoints work and the table may hold existing rows.
     api.get('/books/:bookId/budgets', async (request) => { await access(request); return { items: await app.store.listBudgets(request.params.bookId) }; });
     api.put('/books/:bookId/budgets/:categoryId', async (request) => { const { book } = await access(request, 'edit'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}-01$/), amountMinor: z.string().regex(/^\d+$/).refine((value) => BigInt(value) > 0n, 'Budget must be greater than zero'), currency: z.string().length(3).default('INR') }), request.body); const budget = await app.store.upsertBudget({ bookId: book.id, categoryId: request.params.categoryId, ...body }); await app.store.addAudit({ workspaceId: book.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'budget.updated', entityType: 'budget', entityId: budget.id, after: { categoryId: request.params.categoryId, month: body.month, amountMinor: body.amountMinor } }); return budget; });
     api.get('/books/:bookId/categorization-rules', async (request) => { await access(request); return { items: await app.store.listRules(request.params.bookId) }; });

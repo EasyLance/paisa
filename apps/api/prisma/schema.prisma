@@ -118,6 +118,7 @@ model Book {
   auditEvents   AuditEvent[]
   invitations   BookInvitation[]
   @@index([workspaceId])
+  budgetPlan       BudgetPlan[]
 }
 
 model BookMembership {
@@ -290,6 +291,18 @@ model CategorizationRule {
   book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   @@index([bookId, priority])
+}
+
+// A share of expected income per category group - "50% Essentials, 30%
+// Lifestyle, 20% Saving". Not stored per month: the plan holds until changed,
+// and the rupee figure is derived from income each time it is read.
+model BudgetPlan {
+  id        String @id @default(cuid())
+  bookId    String
+  groupName String
+  percent   Int
+  book      Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  @@unique([bookId, groupName])
 }
 
 model Budget {

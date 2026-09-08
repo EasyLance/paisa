@@ -402,6 +402,46 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(spentMinor));
   });
 
+  it('budgets a share of expected income per group, not a rupee figure per category', async () => {
+    const headers = as('user_owner');
+    // Expected income comes from the recurring plan, so a budget can be set
+    // before payday rather than reading zero until the salary lands.
+    await app.inject({ method: 'POST', url: '/v1/books/book_arjun/recurring-plans', headers,
+      payload: { name: 'Salary', kind: 'income', amountMinor: '10000000', categoryId: 'cat_salary', cadence: 'monthly', nextDueAt: '2026-10-31T00:00:00.000Z' } });
+
+    const saved = await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budget-plan', headers,
+      payload: { allocations: [{ groupName: 'Essentials', percent: 50 }, { groupName: 'Lifestyle', percent: 30 }, { groupName: 'Saving', percent: 20 }, { groupName: 'Other', percent: 0 }] } });
+    expect(saved.statusCode).toBe(200);
+    // A group given nothing is dropped rather than stored at 0.
+    expect(saved.json().items).toEqual([{ groupName: 'Essentials', percent: 50 }, { groupName: 'Lifestyle', percent: 30 }, { groupName: 'Saving', percent: 20 }]);
+
+    const plan = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/budget-plan', headers });
+    // The seeded book already has a salary plan, so expected income is both.
+    expect(BigInt(plan.json().baseIncomeMinor)).toBe(10000000n + 58786700n);
+
+    // Saving again replaces the plan instead of merging into it.
+    await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budget-plan', headers, payload: { allocations: [{ groupName: 'Essentials', percent: 60 }] } });
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_arjun/budget-plan', headers })).json().items).toEqual([{ groupName: 'Essentials', percent: 60 }]);
+
+    const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers });
+    expect(audit.json().items.some((event) => event.action === 'budget_plan.saved')).toBe(true);
+  });
+
+  it('refuses shares that add up to more than the whole income', async () => {
+    const over = await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budget-plan', headers: as('user_owner'),
+      payload: { allocations: [{ groupName: 'Essentials', percent: 60 }, { groupName: 'Lifestyle', percent: 50 }] } });
+    expect(over.statusCode).toBe(400);
+    expect(JSON.stringify(over.json().details)).toContain('110%');
+
+    const twice = await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budget-plan', headers: as('user_owner'),
+      payload: { allocations: [{ groupName: 'Essentials', percent: 30 }, { groupName: 'essentials', percent: 20 }] } });
+    expect(twice.statusCode).toBe(400);
+
+    // A reviewer can see the plan but not change it.
+    expect((await app.inject({ method: 'GET', url: '/v1/books/book_home/budget-plan', headers: as('user_ca') })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'PUT', url: '/v1/books/book_home/budget-plan', headers: as('user_ca'), payload: { allocations: [{ groupName: 'Essentials', percent: 10 }] } })).statusCode).toBe(403);
+  });
+
   it('shows an investment moved to your own account under its category', async () => {
     const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': 'investment-0001' },
       payload: { kind: 'transfer', amountMinor: '-2500000', merchant: 'Moved to my HDFC', occurredAt: '2026-09-01T05:30:00.000Z', categoryId: 'cat_investment' } });
