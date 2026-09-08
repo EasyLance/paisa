@@ -97,7 +97,10 @@ const demoSummary:Summary = {incomeMinor:'58786700',spentMinor:'28755000',savedM
 function money(minor:string, signed=false) {
   const value = BigInt(minor || '0'); const absolute = value < 0n ? -value : value;
   const whole=absolute/100n;const fraction=(absolute%100n).toString().padStart(2,'0');const formatted=`₹${new Intl.NumberFormat('en-IN').format(whole)}${fraction==='00'?'':`.${fraction}`}`;
-  return signed ? value > 0n ? `+${formatted}` : value < 0n ? `−${formatted}` : formatted : formatted;
+  // A minus sign is never decoration: without this, a negative balance reads as
+  // a healthy positive one. `signed` only adds the + on credits.
+  if (value < 0n) return `−${formatted}`;
+  return signed && value > 0n ? `+${formatted}` : formatted;
 }
 function ratio(part:string,total:string) { const denominator=BigInt(total||'0'); if(denominator===0n)return 0; return Number((BigInt(part||'0')*1000n)/denominator)/10; }
 function rupeesToMinor(input:string) { const clean=input.replace(/,/g,'').trim(); if(!/^\d{1,12}(\.\d{1,2})?$/.test(clean))throw new Error('Enter a valid amount'); const [whole,fraction='']=clean.split('.'); return (BigInt(whole)*100n+BigInt((fraction+'00').slice(0,2))).toString(); }
@@ -194,7 +197,7 @@ export default function Home(){
     setDialog(null);if(dataMode==='live'&&record.imported)await refresh(bookId);}catch(error){reportFailure(error,'Could not import this statement');}finally{setSaving(false);}}
   function downloadCsv(){const rows=[['Date','Merchant','Type','Category','State','Amount (paise)'],...filteredTransactions.map(tx=>[tx.occurredAt,tx.merchant??'',tx.kind,categoryMap[tx.categoryId??'']??'Uncategorized',tx.state,tx.amountMinor])];const csv=rows.map(row=>row.map(cell=>`"${String(cell).replaceAll('"','""')}"`).join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const link=document.createElement('a');link.href=url;link.download=`paisa-${bookId}-${period.value}.csv`;link.click();URL.revokeObjectURL(url);flash('Visible ledger rows downloaded as CSV');}
 
-  const stats=[{label:'Income',value:money(summary.incomeMinor),detail:'Received this month',tone:'mint',icon:'↓'},{label:'Spent',value:money(summary.spentMinor),detail:`${ratio(summary.spentMinor,summary.incomeMinor).toFixed(1)}% of income`,tone:'coral',icon:'↑'},{label:'Saved',value:money(summary.savedMinor),detail:'Available after spending',tone:'navy',icon:'◆'}];
+  const stats=[{label:'Income',value:money(summary.incomeMinor),detail:'Received this month',tone:'mint',icon:'↓'},{label:'Spent',value:money(summary.spentMinor),detail:BigInt(summary.incomeMinor||'0')>0n?`${ratio(summary.spentMinor,summary.incomeMinor).toFixed(1)}% of income`:'No income recorded this month',tone:'coral',icon:'↑'},{label:'Saved',value:money(summary.savedMinor),detail:BigInt(summary.savedMinor||'0')<0n?'Spent more than you received':'Income minus spending — not your balance',tone:'navy',icon:'◆'}];
   const spentByCategory=(categoryId:string)=>(summary.byCategory?.find(item=>item.categoryId===categoryId)?.amountMinor??'0');
   const totalBudget=budgets.reduce((sum,budget)=>sum+BigInt(budget.amountMinor),0n).toString();const budgetUse=ratio(summary.spentMinor,totalBudget);
   const budgetAtRisk=budgets.map(budget=>({...budget,used:ratio(spentByCategory(budget.categoryId),budget.amountMinor)})).find(budget=>budget.used>=85);
