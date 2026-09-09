@@ -104,6 +104,7 @@ export class MemoryStore {
     await this.addAudit({ workspaceId: workspace.id, bookId: null, actorId: user.id, action: 'workspace.provisioned', entityType: 'workspace', entityId: workspace.id, after: { name: workspace.name, email } });
     return user;
   }
+  async getUserByEmail(email) { return this.users.find((user) => user.email.toLowerCase() === String(email).toLowerCase()) ?? null; }
   async getUserById(id) { return this.users.find((user) => user.id === id) ?? null; }
   async getUserByFirebaseUid(uid) { return this.users.find((user) => user.firebaseUid === uid) ?? null; }
   async updateProfile(userId, { displayName }) {

@@ -101,11 +101,14 @@ resolves a `BookMembership` and 404s without one, and `listBooks` /
 
 - **Sharing inside a household** — invite from People & access. The invitee
   joins an existing book in the inviter's workspace.
-- **A separate household** — `TENANT_SELF_PROVISION=true` makes an unknown but
-  email-verified Firebase identity get its own workspace, two books and its own
-  copy of `DEFAULT_CATEGORIES` on first sign-in. An outstanding invitation takes
+- **A separate household** — `TENANT_SELF_PROVISION=true` makes an unknown
+  Firebase identity get its own workspace, two books and its own copy of
+  `DEFAULT_CATEGORIES` on first sign-in. An outstanding invitation takes
   precedence, so an invited person still joins the book they were invited to.
-  Off by default; requires public sign-up to be disabled in Firebase.
+  Off by default; **disabling public sign-up in Firebase is the only real
+  control** — console-created accounts are never email-verified, so this path
+  cannot require verification. When it declines, the API logs
+  `Not provisioning a household` with the reason.
 
 Categories are **workspace-scoped**, so any new workspace needs its own copies —
 `src/domain/default-categories.js` is the one list, used by the seed, the memory

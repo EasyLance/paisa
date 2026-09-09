@@ -38,6 +38,7 @@ export class PrismaStore {
       return user;
     });
   }
+  async getUserByEmail(email) { return this.db.userProfile.findUnique({ where: { email } }); }
   async getUserById(id) { return this.db.userProfile.findUnique({ where: { id } }); }
   async getUserByFirebaseUid(firebaseUid) { return this.db.userProfile.findUnique({ where: { firebaseUid } }); }
   async updateProfile(userId, { displayName }) {

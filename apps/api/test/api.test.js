@@ -422,6 +422,29 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect((await store.listWorkspaces('user_owner')).map((workspace) => workspace.id)).toEqual(['ws_household']);
   });
 
+  it('provisions a household for a console-created account, which is never email-verified', async () => {
+    process.env.TENANT_SELF_PROVISION = 'true';
+    try {
+      const store = new MemoryStore();
+      const app2 = await buildApp({ store, authMode: 'firebase' });
+      try {
+        // An account an operator creates in the Firebase console arrives with
+        // email_verified false. Requiring verification would block the only way
+        // this feature is meant to be used.
+        expect(await store.getUserByEmail('tptp.jadheer@example.com')).toBeNull();
+        const user = await store.provisionTenant({ firebaseUid: 'firebase-console-made', email: 'tptp.jadheer@example.com', displayName: null });
+        // Falls back to the email local part when Firebase carries no name.
+        expect((await store.listBooks(user.id)).map((book) => book.name).sort()).toEqual(['Household', "tptp.jadheer's finances"]);
+        // A second identity on the same address must not collide on the unique column.
+        expect(await store.getUserByEmail('TPTP.JADHEER@example.com')).toMatchObject({ id: user.id });
+      } finally {
+        await app2.close();
+      }
+    } finally {
+      delete process.env.TENANT_SELF_PROVISION;
+    }
+  });
+
   it('sends someone with an outstanding invitation to that book instead of a new household', async () => {
     const store = new MemoryStore();
     expect(await store.hasPendingInvitation('nobody@example.com')).toBe(false);
