@@ -73,6 +73,16 @@ guesswork until real SMS from Arjun's own banks is flowing.
       and correct, but weekends and holidays need a calendar. A plan due Sat 31
       Oct fires on the 31st, not Fri the 30th.
 
+## Before turning on TENANT_SELF_PROVISION
+
+- [ ] **Disable public sign-up in Firebase** — *Arjun's step.* Authentication →
+      Settings → User actions → uncheck "Enable create (sign-up)". Without this,
+      the web API key is enough for anyone to register themselves a household.
+- [ ] Consider letting a new household **rename its books**. Provisioning names
+      them `<Name>'s finances` and `Household`; there is no rename endpoint.
+- [ ] A provisioned owner cannot be **removed or disabled** from the dashboard —
+      `disabledAt` exists on `UserProfile` but nothing sets it.
+
 ## Known data quirks in the live book
 
 - `BOAZ M R +₹5,000` is typed `transfer`, so it is excluded from Income. If it

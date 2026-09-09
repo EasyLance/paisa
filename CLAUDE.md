@@ -93,6 +93,24 @@ backup. Arjun's book is `book_owner`.
 - `DELETE` with a `content-type` header and no body is a 400 at parse; a 204
   response has no JSON to read.
 
+## Tenancy
+
+A workspace is a household and they are fully isolated: every book route
+resolves a `BookMembership` and 404s without one, and `listBooks` /
+`listWorkspaces` are membership-filtered.
+
+- **Sharing inside a household** — invite from People & access. The invitee
+  joins an existing book in the inviter's workspace.
+- **A separate household** — `TENANT_SELF_PROVISION=true` makes an unknown but
+  email-verified Firebase identity get its own workspace, two books and its own
+  copy of `DEFAULT_CATEGORIES` on first sign-in. An outstanding invitation takes
+  precedence, so an invited person still joins the book they were invited to.
+  Off by default; requires public sign-up to be disabled in Firebase.
+
+Categories are **workspace-scoped**, so any new workspace needs its own copies —
+`src/domain/default-categories.js` is the one list, used by the seed, the memory
+store and provisioning.
+
 ## Where things stand
 
 Phases 1 and 2 (dashboard, ledger, statement import, budgets) are live. The

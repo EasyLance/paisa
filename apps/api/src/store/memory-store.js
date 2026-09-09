@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { DEFAULT_CATEGORIES, categoriesFor } from '../domain/default-categories.js';
 import { spendByCategory } from '../domain/spending.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
@@ -27,16 +28,7 @@ function withSeedIdentity(user) {
   };
 }
 
-const categories = [
-  ['cat_rent', 'Rent + maintenance', 'Essentials', '#315b46'], ['cat_utilities', 'Utilities', 'Essentials', '#60806f'],
-  ['cat_groceries', 'Groceries', 'Essentials', '#89a55b'], ['cat_family', 'Money sent to family', 'Essentials', '#a9bd72'],
-  ['cat_emi', 'EMI', 'Essentials', '#607b87'], ['cat_transport', 'Transportation', 'Essentials', '#6f8f83'],
-  ['cat_food', 'Food delivery', 'Lifestyle', '#df8d6d'], ['cat_dining', 'Dining out', 'Lifestyle', '#d29a65'],
-  ['cat_subscriptions', 'Subscriptions', 'Lifestyle', '#9d83a6'], ['cat_travel', 'Travel', 'Lifestyle', '#6399a4'],
-  ['cat_salary', 'Salary', 'Income', '#397454'],
-  ['cat_investment', 'Investment', 'Saving', '#4a7c8c'], ['cat_savings_transfer', 'Transfer to savings', 'Saving', '#5f8f9c'],
-  ['cat_other', 'Uncategorized', 'Other', '#a1a8a3'],
-].map(([id, name, groupName, color]) => ({ id, workspaceId: 'ws_household', name, groupName, color }));
+const categories = DEFAULT_CATEGORIES.map(([id, name, groupName, color]) => ({ id, workspaceId: 'ws_household', name, groupName, color }));
 
 const books = [
   { id: 'book_arjun', workspaceId: 'ws_household', name: "Arjun's finances", visibility: 'private', currency: 'INR', timezone: 'Asia/Kolkata' },
@@ -91,6 +83,27 @@ export class MemoryStore {
     this.ingestion = [];
   }
 
+  async hasPendingInvitation(email) {
+    return this.invitations.some((item) => item.status === 'pending' && item.email.toLowerCase() === String(email).toLowerCase() && new Date(item.expiresAt) > new Date());
+  }
+  // A whole new household: its own workspace, its own books, its own categories.
+  // Nothing links it to any existing workspace, so no other user can see it -
+  // every book route resolves a membership and 404s without one.
+  async provisionTenant({ firebaseUid, email, displayName }) {
+    const label = displayName?.trim() || String(email).split('@')[0];
+    const user = { id: randomUUID(), firebaseUid, email, displayName: displayName ?? null, disabledAt: null, createdAt: new Date() };
+    this.users.push(user);
+    const workspace = { id: randomUUID(), name: `${label}'s household`, currency: 'INR', timezone: 'Asia/Kolkata' };
+    this.workspaces.push(workspace);
+    this.categories.push(...categoriesFor(workspace.id, () => randomUUID()));
+    for (const [name, visibility] of [[`${label}'s finances`, 'private'], ['Household', 'shared']]) {
+      const book = { id: randomUUID(), workspaceId: workspace.id, name, visibility, currency: 'INR', timezone: 'Asia/Kolkata' };
+      this.books.push(book);
+      this.memberships.push({ bookId: book.id, userId: user.id, role: 'book_owner' });
+    }
+    await this.addAudit({ workspaceId: workspace.id, bookId: null, actorId: user.id, action: 'workspace.provisioned', entityType: 'workspace', entityId: workspace.id, after: { name: workspace.name, email } });
+    return user;
+  }
   async getUserById(id) { return this.users.find((user) => user.id === id) ?? null; }
   async getUserByFirebaseUid(uid) { return this.users.find((user) => user.firebaseUid === uid) ?? null; }
   async updateProfile(userId, { displayName }) {

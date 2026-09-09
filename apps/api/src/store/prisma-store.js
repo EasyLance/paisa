@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
+import { categoriesFor } from '../domain/default-categories.js';
 import { spendByCategory } from '../domain/spending.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
@@ -15,6 +16,27 @@ export class PrismaStore {
     const uniqueCategories = [...new Set(categoryIds.filter(Boolean))];
     const categoryCount = uniqueCategories.length ? await db.category.count({ where: { id: { in: uniqueCategories }, workspaceId: book?.workspaceId } }) : 0;
     if (invalidBook || !account || categoryCount !== uniqueCategories.length) { const error = new Error('Referenced account or category is outside this book'); error.statusCode = 400; error.code = 'REFERENCE_SCOPE_ERROR'; throw error; }
+  }
+  async hasPendingInvitation(email) {
+    return Boolean(await this.db.bookInvitation.findFirst({ where: { email, status: 'pending', expiresAt: { gt: new Date() } }, select: { id: true } }));
+  }
+  // A whole new household: its own workspace, its own books, its own categories.
+  // Nothing links it to any existing workspace, so no other user can see it -
+  // every book route resolves a membership and 404s without one.
+  async provisionTenant({ firebaseUid, email, displayName }) {
+    const label = displayName?.trim() || String(email).split('@')[0];
+    return this.db.$transaction(async (db) => {
+      const user = await db.userProfile.create({ data: { firebaseUid, email, displayName: displayName ?? null } });
+      const workspace = await db.workspace.create({ data: { name: `${label}'s household` } });
+      await db.workspaceUser.create({ data: { workspaceId: workspace.id, userId: user.id, isAdmin: true } });
+      await db.category.createMany({ data: categoriesFor(workspace.id) });
+      for (const [name, visibility] of [[`${label}'s finances`, 'private'], ['Household', 'shared']]) {
+        const book = await db.book.create({ data: { workspaceId: workspace.id, name, visibility } });
+        await db.bookMembership.create({ data: { bookId: book.id, userId: user.id, role: 'book_owner' } });
+      }
+      await db.auditEvent.create({ data: { workspaceId: workspace.id, actorId: user.id, action: 'workspace.provisioned', entityType: 'workspace', entityId: workspace.id, after: { name: workspace.name, email } } });
+      return user;
+    });
   }
   async getUserById(id) { return this.db.userProfile.findUnique({ where: { id } }); }
   async getUserByFirebaseUid(firebaseUid) { return this.db.userProfile.findUnique({ where: { firebaseUid } }); }

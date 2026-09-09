@@ -402,6 +402,46 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(byCategory.reduce((sum, item) => sum + BigInt(item.amountMinor), 0n)).toBe(BigInt(spentMinor));
   });
 
+  it('gives a first-time Firebase identity its own household, invisible to everyone else', async () => {
+    const store = new MemoryStore();
+    const stranger = await store.provisionTenant({ firebaseUid: 'firebase-stranger', email: 'stranger@example.com', displayName: 'Ravi' });
+
+    const books = await store.listBooks(stranger.id);
+    expect(books.map((book) => [book.name, book.visibility, book.role]).sort((a, b) => a[0].localeCompare(b[0])))
+      .toEqual([['Household', 'shared', 'book_owner'], ["Ravi's finances", 'private', 'book_owner']]);
+    // Their own workspace, with its own copy of the starter categories.
+    const workspaceId = books[0].workspaceId;
+    expect(workspaceId).not.toBe('ws_household');
+    expect(await store.listCategories(workspaceId)).toHaveLength(15);
+
+    // Arjun cannot see any of it, and they cannot see his.
+    expect((await store.listBooks('user_owner')).map((book) => book.id)).not.toContain(books[0].id);
+    expect(await store.getMembership('book_owner', stranger.id)).toBeFalsy();
+    expect(await store.getMembership(books[0].id, 'user_owner')).toBeFalsy();
+    expect((await store.listWorkspaces(stranger.id)).map((workspace) => workspace.id)).toEqual([workspaceId]);
+    expect((await store.listWorkspaces('user_owner')).map((workspace) => workspace.id)).toEqual(['ws_household']);
+  });
+
+  it('sends someone with an outstanding invitation to that book instead of a new household', async () => {
+    const store = new MemoryStore();
+    expect(await store.hasPendingInvitation('nobody@example.com')).toBe(false);
+    await store.createInvitation({
+      workspaceId: 'ws_household', bookId: 'book_home', email: 'spouse.to.be@example.com', role: 'editor',
+      tokenHash: 'pending-token-hash', invitedById: 'user_owner', expiresAt: new Date(Date.now() + 60_000),
+    });
+    // The auth hook checks this before provisioning, so an invited person joins
+    // the household they were invited to rather than starting their own.
+    expect(await store.hasPendingInvitation('spouse.to.be@example.com')).toBe(true);
+    expect(await store.hasPendingInvitation('SPOUSE.TO.BE@example.com')).toBe(true);
+
+    const expired = await store.createInvitation({
+      workspaceId: 'ws_household', bookId: 'book_home', email: 'stale@example.com', role: 'viewer',
+      tokenHash: 'stale-token-hash', invitedById: 'user_owner', expiresAt: new Date(Date.now() - 60_000),
+    });
+    expect(expired).toBeTruthy();
+    expect(await store.hasPendingInvitation('stale@example.com')).toBe(false);
+  });
+
   it('budgets a share of expected income per group, not a rupee figure per category', async () => {
     const headers = as('user_owner');
     // Expected income comes from the recurring plan, so a budget can be set

@@ -45,6 +45,8 @@ async function verifyFirebaseAppCheck(token) {
   return payload;
 }
 
+const selfProvisionEnabled = () => /^(1|true|yes)$/i.test(process.env.TENANT_SELF_PROVISION ?? '');
+
 export default fp(async function authPlugin(app, options) {
   const mode = options.mode ?? process.env.AUTH_MODE ?? 'dev';
 
@@ -76,8 +78,21 @@ export default fp(async function authPlugin(app, options) {
       const decoded = await verifyFirebaseIdToken(token);
       request.actor = await app.store.getUserByFirebaseUid(decoded.sub, decoded.email);
       const isInvitationAcceptance = request.method === 'POST' && request.url.split('?')[0] === '/v1/invitations/accept';
-      if (!request.actor && isInvitationAcceptance && decoded.email_verified === true && typeof decoded.email === 'string') {
+      const verifiedEmail = decoded.email_verified === true && typeof decoded.email === 'string';
+      if (!request.actor && isInvitationAcceptance && verifiedEmail) {
         request.actor = { firebaseUid: decoded.sub, email: decoded.email, displayName: typeof decoded.name === 'string' ? decoded.name : null, provisional: true };
+      }
+      // A Firebase identity nobody has invited gets a household of its own, but
+      // only when the operator has switched this on - the Firebase project must
+      // have public sign-up disabled first, or this is open registration.
+      //
+      // An outstanding invitation wins: someone invited to an existing book who
+      // signs in before clicking the link must join that book, not start a
+      // separate household they would then have to abandon.
+      if (!request.actor && !isInvitationAcceptance && verifiedEmail && selfProvisionEnabled()
+        && !(await app.store.hasPendingInvitation(decoded.email))) {
+        request.actor = await app.store.provisionTenant({ firebaseUid: decoded.sub, email: decoded.email, displayName: typeof decoded.name === 'string' ? decoded.name : null });
+        request.log.info({ email: decoded.email }, 'Provisioned a new household for a first-time sign-in');
       }
       if (!request.actor || request.actor.disabledAt) {
         return reply.code(403).send({ code: 'INVITE_REQUIRED', message: 'This account is not active in a workspace' });
