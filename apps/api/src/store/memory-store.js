@@ -4,6 +4,7 @@ import { isInBookMonth } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { DEFAULT_CATEGORIES, categoriesFor } from '../domain/default-categories.js';
 import { spendByCategory } from '../domain/spending.js';
+import { accountActivity, assertDistinctAccounts } from '../domain/accounts.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
@@ -196,6 +197,8 @@ export class MemoryStore {
     const transaction = this.transactions.find((item) => item.bookId === bookId && item.id === transactionId);
     if (!transaction) return null;
     this.assertReferences({ bookId, accountId: fields.accountId ?? undefined, categoryIds: [] });
+    this.assertReferences({ bookId, accountId: fields.counterAccountId ?? undefined, categoryIds: [] });
+    assertDistinctAccounts({ ...transaction, ...fields });
     const before = {}; const after = {};
     for (const [key, value] of Object.entries(fields)) {
       const next = key === 'amountMinor' ? parseMinor(value) : key === 'occurredAt' ? new Date(value) : value;
@@ -228,7 +231,7 @@ export class MemoryStore {
     if (scopedKey && this.idempotency.has(scopedKey)) return { ...this.idempotency.get(scopedKey), __idempotentReplay: true };
     this.assertReferences({ ...data, categoryIds: [data.categoryId] });
     const transaction = { id: randomUUID(), workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, categoryId: data.categoryId ?? null,
-      kind: data.kind, state: data.state ?? 'confirmed', amountMinor: parseMinor(data.amountMinor), currency: data.currency ?? 'INR', merchant: data.merchant ?? null,
+      kind: data.kind, state: data.state ?? 'confirmed', amountMinor: parseMinor(data.amountMinor), currency: data.currency ?? 'INR', merchant: data.merchant ?? null, counterAccountId: data.counterAccountId ?? null,
       note: data.note ?? null, occurredAt: new Date(data.occurredAt), createdAt: new Date(), updatedAt: new Date(), sources: [{ id: randomUUID(), sourceType: 'manual', sourceReference: `manual:${randomUUID()}`, importedAmount: parseMinor(data.amountMinor) }], splits: [] };
     this.transactions.push(transaction); if (scopedKey) this.idempotency.set(scopedKey, transaction); return transaction;
   }
@@ -356,7 +359,8 @@ export class MemoryStore {
     // `spent` and `saved`, but the breakdown accounts for it.
     const moved = txs.filter((item) => item.kind === 'transfer' && item.amountMinor < 0n).reduce((sum, item) => sum + -item.amountMinor, 0n);
     const byCategory = spendByCategory(txs, this.categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    const { byAccount, flows } = accountActivity(txs, await this.listAccounts(bookId));
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     if (status === 'verified' && this.transactions.some((item) => item.bookId === book.id && item.state === 'pending_review' && isInBookMonth(item.occurredAt, month, book.timezone))) {

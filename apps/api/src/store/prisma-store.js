@@ -5,6 +5,7 @@ import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { categoriesFor } from '../domain/default-categories.js';
 import { spendByCategory } from '../domain/spending.js';
+import { accountActivity, assertDistinctAccounts } from '../domain/accounts.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
 
 export class PrismaStore {
@@ -120,6 +121,8 @@ export class PrismaStore {
       const current = await db.transaction.findFirst({ where: { id: transactionId, bookId }, include: { sources: { select: { sourceType: true } } } });
       if (!current) return null;
       await this.assertReferences(db, { bookId, accountId: fields.accountId ?? undefined, categoryIds: [] });
+      await this.assertReferences(db, { bookId, accountId: fields.counterAccountId ?? undefined, categoryIds: [] });
+      assertDistinctAccounts({ ...current, ...fields });
       const data = { ...fields };
       if (fields.amountMinor !== undefined) data.amountMinor = parseMinor(fields.amountMinor);
       if (fields.occurredAt !== undefined) data.occurredAt = new Date(fields.occurredAt);
@@ -151,7 +154,7 @@ export class PrismaStore {
     try {
       return await this.db.$transaction(async (db) => {
         await this.assertReferences(db, { ...data, categoryIds: [data.categoryId] });
-        const transaction = await db.transaction.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, categoryId: data.categoryId ?? null,
+        const transaction = await db.transaction.create({ data: { workspaceId: data.workspaceId, bookId: data.bookId, accountId: data.accountId ?? null, counterAccountId: data.counterAccountId ?? null, categoryId: data.categoryId ?? null,
           kind: data.kind, state: data.state ?? 'confirmed', amountMinor, currency: data.currency ?? 'INR', merchant: data.merchant ?? null, note: data.note ?? null,
           occurredAt: new Date(data.occurredAt), createdById: actorId } });
         await db.transactionSource.create({ data: { transactionId: transaction.id, sourceType: 'manual', sourceReference: `manual:${transaction.id}`, importedAmount: amountMinor } });
@@ -309,7 +312,7 @@ export class PrismaStore {
   async summary(bookId, month) {
     const book = await this.db.book.findUnique({ where: { id: bookId }, select: { timezone: true, workspaceId: true } });
     const range = month ? monthRangeUtc(month, book?.timezone ?? 'UTC') : null; const period = range ? { gte: range.start, lt: range.end } : undefined;
-    const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true, splits: { select: { categoryId: true, amountMinor: true } } } });
+    const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true, accountId: true, counterAccountId: true, splits: { select: { categoryId: true, amountMinor: true } } } });
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
     // Money that left for your own accounts. Not spending, so it is kept out of
@@ -319,7 +322,8 @@ export class PrismaStore {
     // a split can name a category the parent row does not.
     const categories = await this.db.category.findMany({ where: { workspaceId: book?.workspaceId } });
     const byCategory = spendByCategory(txs, categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    const { byAccount, flows } = accountActivity(txs, await this.listAccounts(bookId));
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     const { start, end } = monthRangeUtc(month, book.timezone);

@@ -181,7 +181,8 @@ model FinancialAccount {
   createdAt        DateTime @default(now())
   workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  transactions     Transaction[]
+  transactions     Transaction[]     @relation("TransactionAccount")
+  transfersIn      Transaction[]     @relation("TransactionCounterAccount")
   ingestion        IngestionEvent[]
   @@index([workspaceId, bookId])
 }
@@ -214,6 +215,8 @@ model Transaction {
   workspaceId     String
   bookId          String
   accountId       String?
+  // Where a transfer landed. Only meaningful when kind is transfer.
+  counterAccountId String?
   categoryId      String?
   kind            TransactionKind
   state           TransactionState @default(pending_review)
@@ -228,7 +231,8 @@ model Transaction {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   book            Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  account         FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  account         FinancialAccount? @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: SetNull)
+  counterAccount  FinancialAccount? @relation("TransactionCounterAccount", fields: [counterAccountId], references: [id], onDelete: SetNull)
   category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sources         TransactionSource[]
   splits          TransactionSplit[]

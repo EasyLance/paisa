@@ -13,7 +13,7 @@ import { createStore } from './store/index.js';
 import { parseStatementCsv } from './domain/statement-csv.js';
 
 const transactionFields = z.object({
-  accountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
+  accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
   amountMinor: z.string().regex(/^-?\d+$/), currency: z.string().length(3).default('INR'), merchant: z.string().max(160).nullable().optional(),
   note: z.string().max(2000).nullable().optional(), occurredAt: z.string().datetime(), state: z.enum(['pending_review', 'confirmed']).optional(),
 });
@@ -39,7 +39,7 @@ const transactionPatch = z.object({
   merchant: z.string().max(160).nullable().optional(), note: z.string().max(2000).nullable().optional(),
   amountMinor: z.string().regex(/^-?\d+$/).optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']).optional(),
   occurredAt: z.string().datetime().optional(), state: z.enum(['pending_review', 'confirmed', 'reconciled', 'excluded', 'voided']).optional(),
-  accountId: z.string().nullable().optional(),
+  accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(),
 }).superRefine((value, context) => {
   requireFields(value, context);
   // The sign carries the direction, so changing one without the other would

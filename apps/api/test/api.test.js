@@ -505,6 +505,34 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect((await app.inject({ method: 'PUT', url: '/v1/books/book_home/budget-plan', headers: as('user_ca'), payload: { allocations: [{ groupName: 'Essentials', percent: 10 }] } })).statusCode).toBe(403);
   });
 
+  it('reports where money moved between accounts, and only when a destination is named', async () => {
+    const headers = as('user_owner');
+    const account = async (name) => (await app.inject({ method: 'POST', url: '/v1/books/book_arjun/accounts', headers, payload: { name, accountType: 'bank', currency: 'INR' } })).json();
+    const sbi = await account('SBI - Salary');
+    const hdfc = await account('HDFC Saving');
+    const post = async (payload, key) => { const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...headers, 'idempotency-key': key }, payload }); expect(response.statusCode).toBe(201); return response; };
+
+    await post({ kind: 'income', amountMinor: '10417800', merchant: 'Salary', occurredAt: '2026-11-01T05:30:00.000Z', categoryId: 'cat_salary', accountId: sbi.id }, 'flow-income');
+    await post({ kind: 'expense', amountMinor: '-2322600', merchant: 'EMI', occurredAt: '2026-11-02T05:30:00.000Z', categoryId: 'cat_emi', accountId: sbi.id }, 'flow-emi');
+    // Two transfers out of SBI that say where they landed, and one that does not.
+    await post({ kind: 'transfer', amountMinor: '-2500000', merchant: 'To HDFC', occurredAt: '2026-11-03T05:30:00.000Z', categoryId: 'cat_investment', accountId: sbi.id, counterAccountId: hdfc.id }, 'flow-transfer-1');
+    await post({ kind: 'transfer', amountMinor: '-500000', merchant: 'To HDFC', occurredAt: '2026-11-04T05:30:00.000Z', categoryId: 'cat_investment', accountId: sbi.id, counterAccountId: hdfc.id }, 'flow-transfer-2');
+    await post({ kind: 'transfer', amountMinor: '-130000', merchant: 'Somewhere', occurredAt: '2026-11-05T05:30:00.000Z', categoryId: 'cat_investment', accountId: sbi.id }, 'flow-transfer-3');
+
+    const summary = (await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-11', headers })).json();
+    const of = (id) => summary.byAccount.find((entry) => entry.accountId === id);
+    expect(of(sbi.id)).toMatchObject({ inMinor: '10417800', outMinor: '5452600', netMinor: '4965200' });
+    // The destination gains what the source lost, but only for the two that named it.
+    expect(of(hdfc.id)).toMatchObject({ inMinor: '3000000', outMinor: '0' });
+    expect(summary.flows).toEqual([{ fromAccountId: sbi.id, fromName: 'SBI - Salary', toAccountId: hdfc.id, toName: 'HDFC Saving', amountMinor: '3000000', count: 2 }]);
+
+    // Naming the source as the destination records no movement at all.
+    const same = await app.inject({ method: 'PATCH', url: `/v1/books/book_arjun/transactions/${(await post({ kind: 'transfer', amountMinor: '-100', merchant: 'x', occurredAt: '2026-11-06T05:30:00.000Z', accountId: sbi.id }, 'flow-transfer-4')).json().id}`,
+      headers, payload: { counterAccountId: sbi.id } });
+    expect(same.statusCode).toBe(400);
+    expect(same.json().code).toBe('SAME_ACCOUNT_TRANSFER');
+  });
+
   it('takes both spending and saving out of the balance', async () => {
     const headers = as('user_owner');
     const post = (payload, key) => app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...headers, 'idempotency-key': key }, payload });
