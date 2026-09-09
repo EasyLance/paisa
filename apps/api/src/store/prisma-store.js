@@ -319,7 +319,7 @@ export class PrismaStore {
     // a split can name a category the parent row does not.
     const categories = await this.db.category.findMany({ where: { workspaceId: book?.workspaceId } });
     const byCategory = spendByCategory(txs, categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     const { start, end } = monthRangeUtc(month, book.timezone);

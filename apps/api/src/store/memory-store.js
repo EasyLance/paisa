@@ -356,7 +356,7 @@ export class MemoryStore {
     // `spent` and `saved`, but the breakdown accounts for it.
     const moved = txs.filter((item) => item.kind === 'transfer' && item.amountMinor < 0n).reduce((sum, item) => sum + -item.amountMinor, 0n);
     const byCategory = spendByCategory(txs, this.categories);
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), savedMinor: serializeMoney(income - spent), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
     if (status === 'verified' && this.transactions.some((item) => item.bookId === book.id && item.state === 'pending_review' && isInBookMonth(item.occurredAt, month, book.timezone))) {

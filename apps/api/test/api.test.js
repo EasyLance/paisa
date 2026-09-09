@@ -157,9 +157,9 @@ describe('Paisa API authorization and ledger invariants', () => {
   it('serializes money as integer strings and computes exact summary totals', async () => {
     const response = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-08', headers: as('user_owner') });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ incomeMinor: '58786700', spentMinor: '3809000', savedMinor: '54977700', pendingReview: 1 });
+    expect(response.json()).toMatchObject({ incomeMinor: '58786700', spentMinor: '3809000', movedMinor: '0', balanceMinor: '54977700', pendingReview: 1 });
     const emptyMonth = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-07', headers: as('user_owner') });
-    expect(emptyMonth.json()).toMatchObject({ incomeMinor: '0', spentMinor: '0', savedMinor: '0', pendingReview: 0 });
+    expect(emptyMonth.json()).toMatchObject({ incomeMinor: '0', spentMinor: '0', movedMinor: '0', balanceMinor: '0', pendingReview: 0 });
   });
 
   it('assigns transactions to months using the book timezone', async () => {
@@ -503,6 +503,21 @@ describe('Paisa API authorization and ledger invariants', () => {
     // A reviewer can see the plan but not change it.
     expect((await app.inject({ method: 'GET', url: '/v1/books/book_home/budget-plan', headers: as('user_ca') })).statusCode).toBe(200);
     expect((await app.inject({ method: 'PUT', url: '/v1/books/book_home/budget-plan', headers: as('user_ca'), payload: { allocations: [{ groupName: 'Essentials', percent: 10 }] } })).statusCode).toBe(403);
+  });
+
+  it('takes both spending and saving out of the balance', async () => {
+    const headers = as('user_owner');
+    const post = (payload, key) => app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...headers, 'idempotency-key': key }, payload });
+    await post({ kind: 'income', amountMinor: '10000000', merchant: 'Salary', occurredAt: '2026-10-01T05:30:00.000Z', categoryId: 'cat_salary' }, 'balance-income-1');
+    await post({ kind: 'expense', amountMinor: '-2500000', merchant: 'Rent', occurredAt: '2026-10-02T05:30:00.000Z', categoryId: 'cat_rent' }, 'balance-spend-1');
+    await post({ kind: 'transfer', amountMinor: '-1500000', merchant: 'To my HDFC', occurredAt: '2026-10-03T05:30:00.000Z', categoryId: 'cat_investment' }, 'balance-save-1');
+
+    const summary = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-10', headers });
+    const { incomeMinor, spentMinor, movedMinor, balanceMinor } = summary.json();
+    expect([incomeMinor, spentMinor, movedMinor]).toEqual(['10000000', '2500000', '1500000']);
+    // Balance is what is left, so money set aside is not counted as still available.
+    expect(balanceMinor).toBe('6000000');
+    expect(BigInt(balanceMinor)).toBe(BigInt(incomeMinor) - BigInt(spentMinor) - BigInt(movedMinor));
   });
 
   it('shows an investment moved to your own account under its category', async () => {
