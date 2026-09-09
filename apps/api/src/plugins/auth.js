@@ -61,10 +61,16 @@ async function provisioningBlockedBy(store, email) {
 }
 
 export default fp(async function authPlugin(app, options) {
-  const mode = options.mode ?? process.env.AUTH_MODE ?? 'dev';
+  // Defaults to firebase. Dev mode trusts an x-dev-user-id header with no token
+  // at all, so it has to be asked for explicitly - a missing or misspelt
+  // NODE_ENV must never be the only thing standing between this and an open API.
+  const mode = options.mode ?? process.env.AUTH_MODE ?? 'firebase';
 
-  if (process.env.NODE_ENV === 'production' && mode !== 'firebase') {
+  if (mode !== 'firebase' && process.env.NODE_ENV === 'production') {
     throw new Error('Production refuses to start unless AUTH_MODE=firebase');
+  }
+  if (mode === 'dev') {
+    app.log?.warn('AUTH_MODE=dev: any request can claim any user with an x-dev-user-id header. Never expose this port.');
   }
 
   app.decorateRequest('actor', null);

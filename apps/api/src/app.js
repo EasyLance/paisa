@@ -57,6 +57,8 @@ const budgetPlanInput = z.object({
   if (total > 100) context.addIssue({ code: 'custom', path: ['allocations'], message: `Shares add up to ${total}% — they cannot exceed 100%` });
 });
 
+const MAX_STATEMENT_ROWS = 2000;
+
 const importInput = z.object({
   fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']),
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i),
@@ -235,6 +237,12 @@ export async function buildApp(options = {}) {
       let parsed;
       try { parsed = parseStatementCsv(content); }
       catch (error) { const failure = new Error(error.message); failure.statusCode = 422; failure.code = 'STATEMENT_UNPARSEABLE'; throw failure; }
+      // Each row is its own database transaction, so an unbounded file would tie
+      // up a connection for as long as it takes to write every one of them.
+      if (parsed.rows.length > MAX_STATEMENT_ROWS) {
+        const error = new Error(`This statement has ${parsed.rows.length} rows; ${MAX_STATEMENT_ROWS} is the most that can be imported at once. Split it by month and import each part.`);
+        error.statusCode = 413; error.code = 'STATEMENT_TOO_LARGE'; throw error;
+      }
       let imported = 0; let duplicates = 0;
       for (const [index, row] of parsed.rows.entries()) {
         const event = await app.store.ingest({ ...row, accountId: accountId ?? null, workspaceId: book.workspaceId, bookId: book.id }, request.actor.id, `statement:${meta.sha256}:${index}`);

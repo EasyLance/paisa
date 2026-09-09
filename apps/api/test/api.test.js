@@ -29,6 +29,38 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(await new MemoryStore().getUserByFirebaseUid('firebase-owner')).toMatchObject({ id: 'user_owner' });
   });
 
+  it('will not fall back to header-trusting dev auth when AUTH_MODE is unset', async () => {
+    const saved = process.env.AUTH_MODE;
+    delete process.env.AUTH_MODE;
+    try {
+      // No mode given anywhere: the default must be the one that checks tokens,
+      // not the one where x-dev-user-id is enough to be the owner.
+      const strict = await buildApp({ memory: true });
+      try {
+        const response = await strict.inject({ method: 'GET', url: '/v1/books', headers: { 'x-dev-user-id': 'user_owner' } });
+        expect(response.statusCode).toBe(401);
+        expect(response.json().code).toBe('UNAUTHENTICATED');
+      } finally {
+        await strict.close();
+      }
+    } finally {
+      if (saved === undefined) delete process.env.AUTH_MODE; else process.env.AUTH_MODE = saved;
+    }
+  });
+
+  it('refuses a statement with more rows than one request should write', async () => {
+    const header = 'Date,Details,Ref No/Cheque No,Debit,Credit,Balance\n';
+    const rows = Array.from({ length: 2001 }, (_, index) => `01/09/2026,"Payment ${index}",,1.00,,${100000 - index}.00`).join('\n');
+    const content = `${header}${rows}\n`;
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'huge.csv', contentType: 'text/csv', sizeBytes: content.length, sha256: '9'.repeat(64), content } });
+    expect(response.statusCode).toBe(413);
+    expect(response.json().code).toBe('STATEMENT_TOO_LARGE');
+    // Nothing was written before it gave up.
+    const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+    expect(ledger.json().items.some((item) => String(item.merchant).startsWith('Payment '))).toBe(false);
+  });
+
   it('exposes separate liveness and datastore readiness checks', async () => {
     const live = await app.inject({ method: 'GET', url: '/health' });
     const ready = await app.inject({ method: 'GET', url: '/ready' });

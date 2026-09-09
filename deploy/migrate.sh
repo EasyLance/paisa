@@ -33,6 +33,20 @@ DB_NAME=${DB_NAME%%\?*}
 # Undo percent-encoding commonly needed in the URL.
 DB_PASS=$(printf '%b' "${DB_PASS//%/\\x}")
 
+# The password must not reach the command line: `ps` shows every argument to
+# every other user on this machine, and this box is shared with other sites.
+# A 0600 defaults-file is the only way mysql/mysqldump take one privately.
+DB_CREDENTIALS=$(mktemp)
+chmod 600 "$DB_CREDENTIALS"
+trap 'rm -f "$DB_CREDENTIALS"' EXIT
+cat > "$DB_CREDENTIALS" <<CNF
+[client]
+user=$DB_USER
+password=$DB_PASS
+host=$DB_HOST
+port=$DB_PORT
+CNF
+
 mkdir -p "$BACKUP_DIR"
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-$STAMP.sql.gz"
@@ -41,8 +55,8 @@ echo "==> Pending migrations"
 npx --workspace @paisa/api prisma migrate status || true
 
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
-mysqldump --single-transaction --routines --triggers \
-  -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" | gzip > "$BACKUP_FILE"
+mysqldump --defaults-extra-file="$DB_CREDENTIALS" --single-transaction --routines --triggers \
+  "$DB_NAME" | gzip > "$BACKUP_FILE"
 echo "    $(du -h "$BACKUP_FILE" | cut -f1) written"
 
 # A backup you have never restored is a guess, not a backup. Verify it is a

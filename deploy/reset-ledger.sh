@@ -14,6 +14,10 @@ trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAN
 
 BOOK_ID=${1:-}
 WITH_AUDIT=${2:-}
+if [ -n "$BOOK_ID" ] && ! printf '%s' "$BOOK_ID" | grep -qE '^[A-Za-z0-9_-]{1,64}$'; then
+  echo "Book id must be letters, digits, underscore or hyphen." >&2
+  exit 1
+fi
 if [ -z "$BOOK_ID" ]; then
   echo "Usage: $0 <bookId> [--with-audit]" >&2
   echo "Find the id on the dashboard URL, or list them with:" >&2
@@ -44,7 +48,21 @@ DB_NAME=${location##*/}
 DB_NAME=${DB_NAME%%\?*}
 DB_PASS=$(printf '%b' "${DB_PASS//%/\\x}")
 
-sql() { mysql -N -B -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1"; }
+# The password must not reach the command line: `ps` shows every argument to
+# every other user on this machine, and this box is shared with other sites.
+# A 0600 defaults-file is the only way mysql/mysqldump take one privately.
+DB_CREDENTIALS=$(mktemp)
+chmod 600 "$DB_CREDENTIALS"
+trap 'rm -f "$DB_CREDENTIALS"' EXIT
+cat > "$DB_CREDENTIALS" <<CNF
+[client]
+user=$DB_USER
+password=$DB_PASS
+host=$DB_HOST
+port=$DB_PORT
+CNF
+
+sql() { mysql --defaults-extra-file="$DB_CREDENTIALS" -N -B "$DB_NAME" -e "$1"; }
 
 BOOK_NAME=$(sql "SELECT name FROM Book WHERE id='$BOOK_ID';")
 if [ -z "$BOOK_NAME" ]; then
@@ -67,8 +85,8 @@ echo
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-before-reset-$(date +%Y%m%d-%H%M%S).sql.gz"
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
-mysqldump --single-transaction --routines --triggers \
-  -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" | gzip > "$BACKUP_FILE"
+mysqldump --defaults-extra-file="$DB_CREDENTIALS" --single-transaction --routines --triggers \
+  "$DB_NAME" | gzip > "$BACKUP_FILE"
 echo "    $(du -h "$BACKUP_FILE" | cut -f1) written"
 # A backup you cannot read is not a backup.
 gzip -t "$BACKUP_FILE" || { echo "Backup is corrupt - refusing to delete anything." >&2; exit 1; }

@@ -114,6 +114,20 @@ Categories are **workspace-scoped**, so any new workspace needs its own copies �
 `src/domain/default-categories.js` is the one list, used by the seed, the memory
 store and provisioning.
 
+## Security
+
+- `AUTH_MODE` **defaults to `firebase`**. Dev mode trusts an `x-dev-user-id`
+  header with no token, so it must be asked for explicitly — `npm run serve`
+  sets it. Never let that default drift back.
+- Security headers live in `deploy/paisa-apache.conf`, not in the app: helmet
+  only covers API responses, and the dashboard is served by vinext, which sets
+  none. Apache fronts both.
+- Anything user- or bank-supplied that reaches a CSV export goes through
+  `csvSafe()` — a merchant named `=HYPERLINK(...)` is a formula in Excel, and
+  whoever pays you picks their own UPI display name.
+- Scripts never put a password on the command line; `ps` is readable by every
+  other user on that shared box. Use a 0600 `--defaults-extra-file`.
+
 ## Where things stand
 
 Phases 1 and 2 (dashboard, ledger, statement import, budgets) are live. The

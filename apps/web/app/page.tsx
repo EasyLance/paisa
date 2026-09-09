@@ -93,6 +93,13 @@ const demoSummary:Summary = {incomeMinor:'58786700',spentMinor:'28755000',movedM
   {categoryId:'cat_food',name:'Food delivery',groupName:'Lifestyle',amountMinor:'700000'}, {categoryId:'cat_groceries',name:'Groceries',groupName:'Essentials',amountMinor:'600000'},
 ]};
 
+// Merchant names come from bank narrations, and whoever paid you chose theirs.
+// A cell starting = + - @ or a control character is run as a formula by Excel
+// and Sheets, so it is prefixed with a quote and stays text.
+function csvSafe(cell:unknown) {
+  const text=String(cell).replaceAll('"','""');
+  return /^[=+\-@\t\r]/.test(text)?`'${text}`:text;
+}
 function money(minor:string, signed=false) {
   const value = BigInt(minor || '0'); const absolute = value < 0n ? -value : value;
   const whole=absolute/100n;const fraction=(absolute%100n).toString().padStart(2,'0');const formatted=`₹${new Intl.NumberFormat('en-IN').format(whole)}${fraction==='00'?'':`.${fraction}`}`;
@@ -200,7 +207,7 @@ export default function Home(){
     flash(record.imported===undefined?record.duplicate?'This statement was already imported — no duplicate entries were created':'Statement queued for parsing and reconciliation':record.imported?`${record.imported} entr${record.imported===1?'y':'ies'} imported${record.duplicates?`, ${record.duplicates} already in the ledger`:''}${record.warnings?.length?` · ${record.warnings.length} warning${record.warnings.length===1?'':'s'}`:''}`:'Every entry in this statement is already in the ledger');
     if(record.warnings?.length)console.warn('Statement import warnings',record.warnings);
     setDialog(null);if(dataMode==='live'&&record.imported)await refresh(bookId);}catch(error){reportFailure(error,'Could not import this statement');}finally{setSaving(false);}}
-  function downloadCsv(){const rows=[['Date','Merchant','Type','Category','State','Amount (paise)'],...filteredTransactions.map(tx=>[tx.occurredAt,tx.merchant??'',tx.kind,categoryMap[tx.categoryId??'']??'Uncategorized',tx.state,tx.amountMinor])];const csv=rows.map(row=>row.map(cell=>`"${String(cell).replaceAll('"','""')}"`).join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const link=document.createElement('a');link.href=url;link.download=`paisa-${bookId}-${period.value}.csv`;link.click();URL.revokeObjectURL(url);flash('Visible ledger rows downloaded as CSV');}
+  function downloadCsv(){const rows=[['Date','Merchant','Type','Category','State','Amount (paise)'],...filteredTransactions.map(tx=>[tx.occurredAt,tx.merchant??'',tx.kind,categoryMap[tx.categoryId??'']??'Uncategorized',tx.state,tx.amountMinor])];const csv=rows.map(row=>row.map(cell=>`"${csvSafe(cell)}"`).join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const link=document.createElement('a');link.href=url;link.download=`paisa-${bookId}-${period.value}.csv`;link.click();URL.revokeObjectURL(url);flash('Visible ledger rows downloaded as CSV');}
 
   const stats=[{label:'Income',value:money(summary.incomeMinor),detail:'Received this month',tone:'mint',icon:'↓'},{label:'Spent',value:money(summary.spentMinor),detail:BigInt(summary.incomeMinor||'0')>0n?`${ratio(summary.spentMinor,summary.incomeMinor).toFixed(1)}% of income`:'No income recorded this month',tone:'coral',icon:'↑'},{label:'Saving',value:money(summary.movedMinor??'0'),detail:'Transferred to your own accounts',tone:'slate',icon:'⇄'},
     {label:'Balance',value:money(summary.balanceMinor),detail:BigInt(summary.balanceMinor||'0')<0n?'You spent and saved more than you earned':'Income minus spending and saving',tone:'navy',icon:'◆'}];

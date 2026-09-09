@@ -83,6 +83,22 @@ guesswork until real SMS from Arjun's own banks is flowing.
 - [ ] A provisioned owner cannot be **removed or disabled** from the dashboard —
       `disabledAt` exists on `UserProfile` but nothing sets it.
 
+## Security backlog (the Low findings from the 2026-09-09 audit)
+
+- [ ] **403s name the role** — `Role viewer cannot edit` in `permissions.js`.
+      Minor disclosure; make the client-facing message generic.
+- [ ] **Emails are written to the journal** during provisioning decisions.
+- [ ] **No way to disable a user.** `UserProfile.disabledAt` is checked on every
+      request but nothing ever sets it, so revoking someone means SQL or the
+      Firebase console.
+- [ ] **Nothing prunes expired rows.** `IdempotencyRecord.expiresAt` and
+      `Attachment.expiresAt` are set and never acted on.
+- [ ] **Self-provisioning is rate-limited only by the global 120/min per IP.**
+      Matters once `TENANT_SELF_PROVISION` is on.
+- [ ] **CSP carries `script-src 'unsafe-inline'`** because vinext emits ~16
+      inline scripts with no nonce. If vinext gains nonce support, tighten it —
+      today the CSP is a clickjacking/exfiltration control, not an XSS backstop.
+
 ## Known data quirks in the live book
 
 - `BOAZ M R +₹5,000` is typed `transfer`, so it is excluded from Income. If it
