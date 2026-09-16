@@ -1,4 +1,4 @@
-// Turns a bank's CSV statement export into ingestion-ready rows.
+// Turns a bank statement export - CSV or .xlsx - into ingestion-ready rows.
 //
 // Written against a real State Bank of India savings-account export, which is
 // the awkward case: metadata above the table, a "Details" column that the bank
@@ -7,6 +7,7 @@
 // that use "Narration"/"Withdrawal"/"Deposit" (HDFC, ICICI) also parse.
 
 import { createHash } from 'node:crypto';
+import { readXlsxRows } from './xlsx.js';
 
 export class StatementFormatError extends Error {
   constructor(message) { super(message); this.name = 'StatementFormatError'; }
@@ -89,21 +90,49 @@ const isHeaderRow = (row) => {
   return columns.date !== undefined && columns.debit !== undefined && columns.credit !== undefined;
 };
 
-// UPI narrations pack the payee into slash-delimited fields:
-// "UPI/DR/624417205755/SHOBHA M/FDRL/smohanesh1/Paid".
-const UPI = /UPI\/(DR|CR)\/([A-Za-z0-9]+)\/([^/]*)\/([^/]*)\/([^/]*)/i;
-const ACCOUNT_NUMBER = /account number\s*:\s*([A-Za-z0-9*Xx]+)/i;
-const IFSC = /ifsc code\s*:\s*([A-Za-z0-9]+)/i;
+// SBI packs the payee into slash-delimited fields:
+//   "UPI/DR/624417205755/SHOBHA M/FDRL/smohanesh1/Paid"
+const UPI_SLASH = /UPI\/(DR|CR)\/([A-Za-z0-9]+)\/([^/]*)\/([^/]*)\/([^/]*)/i;
+const ACCOUNT_NUMBER = /account (?:number|no)\s*:\s*([A-Za-z0-9*Xx]+)/i;
+const IFSC = /(?:rtgs\/neft )?ifsc(?: code)?\s*:\s*([A-Za-z0-9]+)/i;
 
 // Everything after "AT <branch code> <branch>" is the bank's own booking
 // location, not the payee, so it only adds noise to the merchant name.
 const stripBranch = (details) => details.replace(/\s+AT\s+\d+\s+.*$/i, '').trim();
 
+const IFSC_CODE = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+// A payee name has real letters in it. Masked card numbers and reference
+// strings do not, however many X's they contain.
+const looksLikeName = (segment) => /[A-Za-z]{3}/.test(segment.replace(/x/gi, '')) && !IFSC_CODE.test(segment.trim());
+
+// HDFC uses hyphens instead: "UPI-ROYAL CITY RESTAURAN-3089@CNRB-CNRB0003909-657908594940-PAID VIA"
+// and "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN216".
+// The payee is the segment just before the VPA; without a VPA it is the first
+// segment that reads like a name rather than a bank or reference code.
+function describeHyphenated(details) {
+  const segments = details.split('-').map((segment) => segment.trim());
+  if (segments.length < 2) return null;
+  const vpaIndex = segments.findIndex((segment) => segment.includes('@'));
+  if (vpaIndex > 0) {
+    const handle = segments[vpaIndex].toLowerCase();
+    // A hyphen inside the VPA splits it, so the segment nearest the @ can be
+    // half of the handle ("NANDUKRISHNAN022-2@OKSBI"). A real payee name
+    // usually has a space in it, so prefer that before falling back.
+    const before = segments.slice(0, vpaIndex).reverse();
+    const payee = before.find((segment) => segment.includes(' ') && looksLikeName(segment)) ?? before.find(looksLikeName);
+    return { merchant: (payee ?? segments[vpaIndex]).replace(/\s+/g, ' ').slice(0, 160), reference: null, handle, bankCode: segments[vpaIndex + 1] || null };
+  }
+  const payee = segments.slice(1).find(looksLikeName);
+  return payee ? { merchant: payee.replace(/\s+/g, ' ').slice(0, 160), reference: null, handle: null, bankCode: null } : null;
+}
+
 function describe(details) {
-  const upi = UPI.exec(details);
-  if (!upi) return { merchant: stripBranch(details).slice(0, 160) || 'Statement entry', reference: null, handle: null, bankCode: null };
-  const [, , reference, payee, bankCode, handle] = upi;
-  return { merchant: (clean(payee) || clean(handle) || 'UPI payment').slice(0, 160), reference, handle: clean(handle) || null, bankCode: clean(bankCode) || null };
+  const slash = UPI_SLASH.exec(details);
+  if (slash) {
+    const [, , reference, payee, bankCode, handle] = slash;
+    return { merchant: (clean(payee) || clean(handle) || 'UPI payment').slice(0, 160), reference, handle: clean(handle) || null, bankCode: clean(bankCode) || null };
+  }
+  return describeHyphenated(details) ?? { merchant: stripBranch(details).slice(0, 160) || 'Statement entry', reference: null, handle: null, bankCode: null };
 }
 
 function readAccount(rows) {
@@ -114,8 +143,11 @@ function readAccount(rows) {
   };
 }
 
-export function parseStatementCsv(text, { offset = '+05:30' } = {}) {
-  const rows = parseCsv(text);
+export function parseStatementCsv(text, options = {}) {
+  return parseStatementRows(parseCsv(text), options);
+}
+
+export function parseStatementRows(rows, { offset = '+05:30' } = {}) {
   const headerIndex = rows.findIndex(isHeaderRow);
   if (headerIndex === -1) throw new StatementFormatError('No transaction table found. The statement needs a header row with Date, Debit and Credit columns.');
   const columns = indexColumns(rows[headerIndex]);
@@ -168,4 +200,10 @@ export function parseStatementCsv(text, { offset = '+05:30' } = {}) {
 
   if (!entries.length) throw new StatementFormatError('Found the transaction table but no dated rows in it.');
   return { account, rows: entries, warnings };
+}
+
+// A spreadsheet export is the same table in a different container, so it goes
+// through the identical column detection, unwrapping and fingerprinting.
+export function parseStatementXlsx(buffer, options = {}) {
+  return parseStatementRows(readXlsxRows(buffer), options);
 }

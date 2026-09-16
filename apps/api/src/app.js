@@ -10,7 +10,7 @@ import authPlugin from './plugins/auth.js';
 import { assertCapability } from './domain/permissions.js';
 import { jsonSafe } from './domain/money.js';
 import { createStore } from './store/index.js';
-import { parseStatementCsv } from './domain/statement-csv.js';
+import { parseStatementCsv, parseStatementXlsx } from './domain/statement.js';
 
 const transactionFields = z.object({
   accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
@@ -58,13 +58,16 @@ const budgetPlanInput = z.object({
 });
 
 const MAX_STATEMENT_ROWS = 2000;
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const PARSEABLE = ['text/csv', XLSX_MIME];
 
 const importInput = z.object({
-  fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf']),
+  fileName: z.string().trim().min(1).max(180), contentType: z.enum(['text/csv', 'application/pdf', XLSX_MIME]),
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/i),
-  accountId: z.string().nullable().optional(), content: z.string().max(2 * 1024 * 1024).optional(),
+  // CSV arrives as text; a spreadsheet is binary, so it arrives base64-encoded.
+  accountId: z.string().nullable().optional(), content: z.string().max(3 * 1024 * 1024).optional(),
 }).superRefine((value, context) => {
-  if (value.content !== undefined && value.contentType !== 'text/csv') context.addIssue({ code: 'custom', path: ['content'], message: 'Only CSV statements can be parsed on upload' });
+  if (value.content !== undefined && !PARSEABLE.includes(value.contentType)) context.addIssue({ code: 'custom', path: ['content'], message: 'PDF statements cannot be read yet — export the statement as CSV or Excel' });
 });
 
 function requireFields(value, context) {
@@ -235,7 +238,7 @@ export async function buildApp(options = {}) {
       // never parsed anything would otherwise be impossible to import.
       if (!content) return reply.code(record.duplicate ? 200 : 201).send(record);
       let parsed;
-      try { parsed = parseStatementCsv(content); }
+      try { parsed = meta.contentType === XLSX_MIME ? parseStatementXlsx(Buffer.from(content, 'base64')) : parseStatementCsv(content); }
       catch (error) { const failure = new Error(error.message); failure.statusCode = 422; failure.code = 'STATEMENT_UNPARSEABLE'; throw failure; }
       // Each row is its own database transaction, so an unbounded file would tie
       // up a connection for as long as it takes to write every one of them.

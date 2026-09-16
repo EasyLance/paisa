@@ -59,6 +59,13 @@ backup. Arjun's book is `book_owner`.
 - **Money is integer paise** as a string over the wire, `BigInt` in the stores.
   Never floats. Expenses are negative, income and refunds positive; kind and
   amount must change together so the sign can't contradict the type.
+- **Statement imports share one pipeline.** `parseStatementRows()` in
+  `domain/statement.js` does column detection, narration parsing and row
+  fingerprinting; CSV and .xlsx are just two readers in front of it. The
+  bank's own running-balance column is used as a checksum on the amounts —
+  0 warnings on a real file means every amount was read correctly.
+  `domain/xlsx.js` is a dependency-free ZIP+XML reader (SheetJS's npm build is
+  stale and advisory-ridden; ExcelJS is a large tree for one shape).
 - **Two stores implement the same interface**: `memory-store.js` (tests, demo)
   and `prisma-store.js` (MariaDB). Any behaviour they must agree on belongs in
   `src/domain/` — they have silently diverged before. See `categorization.js`,

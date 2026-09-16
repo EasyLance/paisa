@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildApp } from '../src/app.js';
 import { MemoryStore } from '../src/store/memory-store.js';
-import { parseStatementCsv } from '../src/domain/statement-csv.js';
+import { parseStatementCsv } from '../src/domain/statement.js';
 import { advance, duePostings } from '../src/domain/recurring.js';
+import { deflateRawSync } from 'node:zlib';
 
 const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
 
@@ -374,6 +375,67 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(rows[0].occurredAt).toBe('2026-08-31T18:30:00.000Z');
     // Re-parsing produces the same identity for each row, so re-imports dedupe.
     expect(parseStatementCsv(sbiStatement).rows.map((row) => row.sourceHash)).toEqual(rows.map((row) => row.sourceHash));
+  });
+
+  // Built here rather than committed: a real bank export is somebody's finances,
+  // and the reader has to survive a genuine ZIP either way.
+  function buildXlsx(rows) {
+    const strings = [...new Set(rows.flat())];
+    const sheet = `<worksheet><sheetData>${rows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((cell, cellIndex) =>
+      `<c r="${String.fromCharCode(65 + cellIndex)}${rowIndex + 1}" t="s"><v>${strings.indexOf(cell)}</v></c>`).join('')}</row>`).join('')}</sheetData></worksheet>`;
+    const shared = `<sst>${strings.map((value) => `<si><t>${value.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</t></si>`).join('')}</sst>`;
+    const members = [['xl/worksheets/sheet1.xml', sheet], ['xl/sharedStrings.xml', shared]];
+    const locals = []; const central = []; let offset = 0;
+    for (const [name, xml] of members) {
+      const body = Buffer.from(xml, 'utf8'); const deflated = deflateRawSync(body);
+      const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8);
+      local.writeUInt32LE(deflated.length, 18); local.writeUInt32LE(body.length, 22); local.writeUInt16LE(name.length, 26);
+      const entry = Buffer.concat([local, Buffer.from(name), deflated]);
+      const directory = Buffer.alloc(46); directory.writeUInt32LE(0x02014b50, 0); directory.writeUInt16LE(8, 10);
+      directory.writeUInt32LE(deflated.length, 20); directory.writeUInt32LE(body.length, 24);
+      directory.writeUInt16LE(name.length, 28); directory.writeUInt32LE(offset, 42);
+      central.push(Buffer.concat([directory, Buffer.from(name)]));
+      locals.push(entry); offset += entry.length;
+    }
+    const directory = Buffer.concat(central);
+    const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(members.length, 8); end.writeUInt16LE(members.length, 10);
+    end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
+    return Buffer.concat([...locals, directory, end]);
+  }
+
+  it('imports an HDFC spreadsheet export, whose columns and narrations differ from SBI', async () => {
+    // HDFC names its columns Narration/Withdrawal/Deposit and hyphenates the
+    // payee instead of using SBI's slashes. Same table, so the same pipeline.
+    const workbook = buildXlsx([
+      ['HDFC BANK Ltd.', '', '', '', '', '', ''],
+      ['Account No :50100441721871   OTHER', '', '', '', '', '', ''],
+      ['Date', 'Narration', 'Chq./Ref.No.', 'Value Dt', 'Withdrawal Amt.', 'Deposit Amt.', 'Closing Balance'],
+      ['01/08/26', 'UPI-ROYAL CITY RESTAURAN-308987587270377A@CNRB-CNRB0003909-657908594940-PAID VIA', '0000657908594940', '01/08/26', '1901', '', '77584.15'],
+      ['01/08/26', 'UPI-NANDU  KRISHNAN-NANDUKRISHNAN022-2@OKSBI-SBIN0070833-622170585125-UPI', '0000622170585125', '01/08/26', '', '650', '78234.15'],
+      ['04/08/26', 'NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN21673958319', '', '04/08/26', '', '118800', '197034.15'],
+    ]);
+    const content = workbook.toString('base64');
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'hdfc.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', sizeBytes: workbook.length, sha256: '7'.repeat(64), content } });
+    expect(response.statusCode).toBe(201);
+    // Every closing balance reconciles, which is the real proof the amounts read right.
+    expect(response.json()).toMatchObject({ imported: 3, duplicates: 0, warnings: [], account: { number: '50100441721871' } });
+
+    const ledger = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions?limit=100', headers: as('user_owner') });
+    const byMerchant = Object.fromEntries(ledger.json().items.map((item) => [item.merchant, item]));
+    expect(byMerchant['ROYAL CITY RESTAURAN']).toMatchObject({ kind: 'expense', amountMinor: '-190100' });
+    // A hyphen inside the VPA must not leave half the handle as the payee name.
+    expect(byMerchant['NANDU KRISHNAN']).toMatchObject({ kind: 'income', amountMinor: '65000' });
+    // No VPA at all: the remitter, not the bank code or the reference.
+    expect(byMerchant['UNTOLD STUDIOS PRIVATE LIMITED']).toMatchObject({ kind: 'income', amountMinor: '11880000' });
+  });
+
+  it('will not pretend to read a PDF statement', async () => {
+    const response = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/imports', headers: as('user_owner'),
+      payload: { fileName: 'statement.pdf', contentType: 'application/pdf', sizeBytes: 1024, sha256: '8'.repeat(64), content: 'JVBERi0xLjQK' } });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.stringify(response.json().details)).toContain('PDF');
   });
 
   it('imports statement rows into the ledger and ignores a second upload of the same file', async () => {

@@ -45,3 +45,23 @@
 .account-flows>div{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:baseline;font-size:10px;color:#54605a}
 .account-flows em{color:#8b958f;font-style:normal}
 .account-flows small{grid-column:1/3;color:#929a95;font-size:9px}
+
+/* Public information pages */
+.info-page{max-width:760px;margin:0 auto;padding:28px 20px 60px;color:var(--ink)}
+.info-top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.info-brand{text-decoration:none;color:inherit}
+.info-top a.text-button{font-size:10px}
+.info-body{padding:30px 0 10px}
+.info-body h1{margin:6px 0 0;font-size:30px;line-height:1.15}
+.info-body h2{margin:26px 0 8px;font-size:15px}
+.info-body p{margin:0 0 10px;font-size:12px;line-height:1.7;color:#4d574f}
+.info-summary{margin-top:12px!important;font-size:13px!important;color:#6f7b74!important}
+.info-footer{margin-top:34px;padding-top:20px;border-top:1px solid var(--line)}
+.info-footer nav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:10px 0 16px}
+.info-footer a{color:#296548;font-size:10px;text-decoration:none}
+.info-footer a:hover{text-decoration:underline}
+.info-footer small{color:#929a95;font-size:9px;line-height:1.5}
+@media(max-width:680px){.info-page{padding:20px 14px 48px}.info-body h1{font-size:24px}}
+.auth-links{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin-top:20px}
+.auth-links a{color:#6f7b74;font-size:9px;text-decoration:none}
+.auth-links a:hover{color:#296548;text-decoration:underline}

@@ -61,8 +61,14 @@ guesswork until real SMS from Arjun's own banks is flowing.
 - [ ] **Refunds are invisible in the tiles.** `saved = income - spent` ignores
       `kind: 'refund'` entirely, so a refund shows up nowhere. Decide whether it
       reduces spend or adds to income before changing it.
-- [ ] **PDF statement import** only fingerprints the file. CSV is parsed and
-      posted; PDF text extraction is a much bigger job.
+- [ ] **PDF statement import.** CSV and .xlsx are parsed and posted; a PDF is
+      still only fingerprinted, and the API now says so instead of accepting it
+      silently. Needs: `pdfjs-dist` for text extraction (it takes a `password`
+      for encrypted files), a password field on the import dialog, and a step
+      that turns positioned text runs back into table rows before handing them
+      to `parseStatementRows`. **Blocked on a real sample** — the row-detection
+      is entirely shaped by one bank's layout, and writing it blind is how you
+      get a parser that works on nothing.
 - [ ] **Per-category rupee budgets are superseded** by the group percentage plan.
       `Budget` table and `/v1/books/:id/budgets` still exist and still work, but
       nothing in the dashboard reads them. Drop them once it's clear no rows
