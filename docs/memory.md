@@ -41,6 +41,8 @@ already paid for, and what would make us change our minds.
 | **CSP with `unsafe-inline`** | vinext emits ~16 nonce-less inline scripts. A strict policy white-screens the dashboard | vinext gains nonce support |
 | **Provisioning skips email verification** | Console-created accounts are never verified, and verification stops nobody who owns their own address | — |
 | **Public pages written honestly** | No invented testimonials, no returns policy for a product that is not sold | It becomes a real product |
+| **One `deploy/lib-db.sh`** | Three scripts each had their own `DATABASE_URL` parsing, so the fix that kept the password off the command line had to be made three times | — |
+| **Rules survive a ledger reset** | They are learned configuration, not data. Re-importing after a wipe should auto-categorise, not start from nothing | — |
 
 ---
 
@@ -84,6 +86,8 @@ already paid for, and what would make us change our minds.
 | Dashboard pinned to the current month | Import an older statement → every tile reads zero |
 | Idempotency keys under 8 characters | Silent 400s that a loose test blamed on the code |
 | `next/link` in vinext | `ee is not a function` at runtime. Use plain `<a>` |
+| `sourceReference` is `manual:<id>` for **every** `createTransaction` | Including recurring postings. To find them, look for the `recurring.posted` audit event — not the source reference |
+| Deleting a recurring posting does not wind back `nextDueAt` | The plan has already advanced, so the entry never reappears. `reset-ledger.sh` warns and lists the affected plans |
 
 ---
 

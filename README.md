@@ -173,6 +173,7 @@ For the dashboard also run `npx tsc --noEmit` inside `apps/web`.
 | `deploy/deploy.sh` | Pull, install, generate, clean build, restart, poll health |
 | `deploy/migrate.sh` | Verified `mysqldump` backup **before** any schema change |
 | `deploy/reset-ledger.sh` | Scoped wipe of one book, backup and typed confirmation first |
+| `deploy/reset-rules.sh` | Pick which categorization rules to clear, one book at a time |
 
 ```bash
 cd /var/www/projects/Financial-App && ./deploy/deploy.sh

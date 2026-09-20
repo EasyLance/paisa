@@ -8,38 +8,8 @@
 # column cannot. This holds real ledger data, so the backup is not optional.
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-# Config lives beside the code: <checkout>/paisa.env (gitignored).
-ENV_FILE=${ENV_FILE:-$APP_DIR/paisa.env}
-BACKUP_DIR=${BACKUP_DIR:-/var/backups/paisa}
-
-cd "$APP_DIR"
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
-
-# Pull credentials out of DATABASE_URL (mysql://user:pass@host:port/dbname).
-proto_stripped=${DATABASE_URL#mysql://}
-credentials=${proto_stripped%%@*}
-location=${proto_stripped#*@}
-DB_USER=${credentials%%:*}
-DB_PASS=${credentials#*:}
-DB_HOST=${location%%:*}
-host_port=${location#*:}
-DB_PORT=${host_port%%/*}
-DB_NAME=${location##*/}
-DB_NAME=${DB_NAME%%\?*}
-# Undo percent-encoding commonly needed in the URL.
-DB_PASS=$(printf '%b' "${DB_PASS//%/\\x}")
-
-# The password must not reach the command line: `ps` shows every argument to
-# every other user on this machine, and this box is shared with other sites.
-# A 0600 defaults-file is the only way mysql/mysqldump take one privately.
-DB_CREDENTIALS=$(mktemp)
-chmod 600 "$DB_CREDENTIALS"
-trap 'rm -f "$DB_CREDENTIALS"' EXIT
-cat > "$DB_CREDENTIALS" <<CNF
+# shellcheck source=deploy/lib-db.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-db.sh"
 [client]
 user=$DB_USER
 password=$DB_PASS
@@ -55,8 +25,7 @@ echo "==> Pending migrations"
 npx --workspace @paisa/api prisma migrate status || true
 
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
-mysqldump --defaults-extra-file="$DB_CREDENTIALS" --single-transaction --routines --triggers \
-  "$DB_NAME" | gzip > "$BACKUP_FILE"
+dump --single-transaction --routines --triggers "$DB_NAME" | gzip > "$BACKUP_FILE"
 echo "    $(du -h "$BACKUP_FILE" | cut -f1) written"
 
 # A backup you have never restored is a guess, not a backup. Verify it is a

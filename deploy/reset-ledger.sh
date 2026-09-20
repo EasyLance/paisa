@@ -5,64 +5,44 @@
 #   ./deploy/reset-ledger.sh book_owner --with-audit
 #
 # This is the one operation in here that destroys real ledger data, so it takes
-# a verified backup first and makes you type the book id back. It removes
-# transactions, their splits/comments/sources, the ingestion events behind them,
-# and the statement-import records. It leaves your setup alone: accounts,
-# categories, rules, recurring plans, budgets, members and invitations stay.
+# a verified backup first and makes you type the book id back.
+#
+# Removed: transactions and everything hanging off them (splits, comments,
+# sources), the ingestion events behind them, statement-import records, and the
+# period verifications - a month signed off against entries that no longer exist
+# is worse than no sign-off at all.
+#
+# Kept: accounts, categories, rules, recurring plans, budget shares, per-category
+# budgets, members and invitations. That is setup, not data.
 set -euo pipefail
 trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAND" >&2; exit $status' ERR
 
-BOOK_ID=${1:-}
-WITH_AUDIT=${2:-}
-if [ -n "$BOOK_ID" ] && ! printf '%s' "$BOOK_ID" | grep -qE '^[A-Za-z0-9_-]{1,64}$'; then
-  echo "Book id must be letters, digits, underscore or hyphen." >&2
-  exit 1
-fi
+BOOK_ID=""
+WITH_AUDIT=no
+# A mistyped flag used to be silently ignored, which on a destructive script
+# means doing something other than what was asked.
+for argument in "$@"; do
+  case "$argument" in
+    --with-audit) WITH_AUDIT=yes ;;
+    -*) echo "Unknown option: $argument" >&2; exit 1 ;;
+    *) [ -z "$BOOK_ID" ] || { echo "Give exactly one book id." >&2; exit 1; }; BOOK_ID=$argument ;;
+  esac
+done
+
 if [ -z "$BOOK_ID" ]; then
   echo "Usage: $0 <bookId> [--with-audit]" >&2
   echo "Find the id on the dashboard URL, or list them with:" >&2
   echo "    SELECT id, name FROM Book;" >&2
   exit 1
 fi
+# The id lands inside SQL, so pin its shape. Book ids are cuids or seed slugs.
+if ! printf '%s' "$BOOK_ID" | grep -qE '^[A-Za-z0-9_-]{1,64}$'; then
+  echo "Book id must be letters, digits, underscore or hyphen." >&2
+  exit 1
+fi
 
-APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-ENV_FILE=${ENV_FILE:-$APP_DIR/paisa.env}
-BACKUP_DIR=${BACKUP_DIR:-/var/backups/paisa}
-
-cd "$APP_DIR"
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
-
-# Pull credentials out of DATABASE_URL (mysql://user:pass@host:port/dbname).
-proto_stripped=${DATABASE_URL#mysql://}
-credentials=${proto_stripped%%@*}
-location=${proto_stripped#*@}
-DB_USER=${credentials%%:*}
-DB_PASS=${credentials#*:}
-DB_HOST=${location%%:*}
-host_port=${location#*:}
-DB_PORT=${host_port%%/*}
-DB_NAME=${location##*/}
-DB_NAME=${DB_NAME%%\?*}
-DB_PASS=$(printf '%b' "${DB_PASS//%/\\x}")
-
-# The password must not reach the command line: `ps` shows every argument to
-# every other user on this machine, and this box is shared with other sites.
-# A 0600 defaults-file is the only way mysql/mysqldump take one privately.
-DB_CREDENTIALS=$(mktemp)
-chmod 600 "$DB_CREDENTIALS"
-trap 'rm -f "$DB_CREDENTIALS"' EXIT
-cat > "$DB_CREDENTIALS" <<CNF
-[client]
-user=$DB_USER
-password=$DB_PASS
-host=$DB_HOST
-port=$DB_PORT
-CNF
-
-sql() { mysql --defaults-extra-file="$DB_CREDENTIALS" -N -B "$DB_NAME" -e "$1"; }
+# shellcheck source=deploy/lib-db.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-db.sh"
 
 BOOK_NAME=$(sql "SELECT name FROM Book WHERE id='$BOOK_ID';")
 if [ -z "$BOOK_NAME" ]; then
@@ -73,20 +53,38 @@ fi
 
 echo "About to clear the ledger of:  $BOOK_NAME  ($BOOK_ID)"
 echo
-sql "SELECT 'transactions', COUNT(*) FROM Transaction WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'ingestion events', COUNT(*) FROM IngestionEvent WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'statement imports', COUNT(*) FROM Attachment WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'audit events', COUNT(*) FROM AuditEvent WHERE bookId='$BOOK_ID';" | sed 's/^/    /'
+counts() {
+  sql "SELECT 'transactions', COUNT(*) FROM Transaction WHERE bookId='$BOOK_ID'
+    UNION ALL SELECT 'ingestion events', COUNT(*) FROM IngestionEvent WHERE bookId='$BOOK_ID'
+    UNION ALL SELECT 'statement imports', COUNT(*) FROM Attachment WHERE bookId='$BOOK_ID'
+    UNION ALL SELECT 'period reviews', COUNT(*) FROM PeriodReview WHERE bookId='$BOOK_ID'
+    UNION ALL SELECT 'audit events', COUNT(*) FROM AuditEvent WHERE bookId='$BOOK_ID';" | sed 's/^/    /'
+}
+counts
 echo
-echo "Kept: accounts, categories, rules, recurring plans, budgets, members."
-[ "$WITH_AUDIT" = "--with-audit" ] && echo "Audit events for this book will ALSO be deleted." || echo "Audit history is kept (pass --with-audit to delete it too)."
+echo "Kept: accounts, categories, rules, recurring plans, budget shares, members."
+[ "$WITH_AUDIT" = yes ] && echo "Audit events for this book will ALSO be deleted." || echo "Audit history is kept (pass --with-audit to delete it too)."
+
+# A recurring plan advances nextDueAt as it posts. Deleting those postings does
+# not wind it back, so they will not reappear on their own - say so rather than
+# letting a month of salary quietly vanish from the ledger.
+POSTED=$(sql "SELECT COUNT(*) FROM AuditEvent
+  WHERE bookId = '$BOOK_ID' AND action = 'recurring.posted'
+    AND entityId IN (SELECT id FROM Transaction WHERE bookId = '$BOOK_ID');")
+if [ "${POSTED:-0}" -gt 0 ]; then
+  echo
+  echo "  !! $POSTED of these were posted by recurring plans. Their plans have already"
+  echo "  !! moved nextDueAt forward, so deleting the entries will NOT bring them back."
+  echo "  !! Edit the dates afterwards in Accounts & rules if you want them re-posted:"
+  sql "SELECT CONCAT('       - ', name, '  next due ', DATE(nextDueAt)) FROM RecurringPlan
+    WHERE bookId = '$BOOK_ID' AND active = 1 ORDER BY nextDueAt;"
+fi
 echo
 
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-before-reset-$(date +%Y%m%d-%H%M%S).sql.gz"
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
-mysqldump --defaults-extra-file="$DB_CREDENTIALS" --single-transaction --routines --triggers \
-  "$DB_NAME" | gzip > "$BACKUP_FILE"
+dump --single-transaction --routines --triggers "$DB_NAME" | gzip > "$BACKUP_FILE"
 echo "    $(du -h "$BACKUP_FILE" | cut -f1) written"
 # A backup you cannot read is not a backup.
 gzip -t "$BACKUP_FILE" || { echo "Backup is corrupt - refusing to delete anything." >&2; exit 1; }
@@ -107,15 +105,13 @@ sql "
   DELETE FROM Transaction WHERE bookId = '$BOOK_ID';
   DELETE FROM IngestionEvent WHERE bookId = '$BOOK_ID';
   DELETE FROM Attachment WHERE bookId = '$BOOK_ID';
+  DELETE FROM PeriodReview WHERE bookId = '$BOOK_ID';
   DELETE FROM IdempotencyRecord WHERE transactionId NOT IN (SELECT id FROM Transaction);
 "
-[ "$WITH_AUDIT" = "--with-audit" ] && sql "DELETE FROM AuditEvent WHERE bookId = '$BOOK_ID';"
+[ "$WITH_AUDIT" = yes ] && sql "DELETE FROM AuditEvent WHERE bookId = '$BOOK_ID';"
 
 echo "==> Remaining in this book"
-sql "SELECT 'transactions', COUNT(*) FROM Transaction WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'ingestion events', COUNT(*) FROM IngestionEvent WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'statement imports', COUNT(*) FROM Attachment WHERE bookId='$BOOK_ID'
-  UNION ALL SELECT 'audit events', COUNT(*) FROM AuditEvent WHERE bookId='$BOOK_ID';" | sed 's/^/    /'
+counts
 
 echo
 echo "Done. Restore everything with:"

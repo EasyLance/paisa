@@ -266,7 +266,9 @@ all the scheduling this needs.
 | API | Honours `HOST=127.0.0.1` — never exposed directly |
 | Deploy | `./deploy/deploy.sh` — pull, install, generate, clean build, restart, poll |
 | Schema | `./deploy/migrate.sh` — verified `mysqldump` backup **before** any change |
-| Reset | `./deploy/reset-ledger.sh <bookId>` — scoped wipe with typed confirmation |
+| Reset | `./deploy/reset-ledger.sh <bookId>` — scoped wipe: transactions, ingestion events, imports and period reviews. Backup and typed confirmation first |
+| Reset rules | `./deploy/reset-rules.sh <bookId>` — pick which categorization rules to drop. Book-scoped, restore file written first |
+| Shared | `deploy/lib-db.sh` — one copy of the `DATABASE_URL` parsing and the 0600 credentials file, sourced by the three scripts that need a database |
 
 > The build **fails loudly** if the Firebase config is missing from the bundle.
 > A stale `dist` once shipped an unauthenticated dashboard while reporting
