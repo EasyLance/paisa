@@ -22,8 +22,9 @@ npm run test     # API tests (vitest) — the only test suite
 npm run lint     # all three JS packages
 ```
 
-Before saying anything is done: `npm run test`, `npm run lint`, and for dashboard
-changes `npx tsc --noEmit` in `apps/web` plus a build.
+Before saying anything is done: `npm run test`, `npm run lint`, for dashboard
+changes `npx tsc --noEmit` in `apps/web` plus a build, **and update the docs the
+change touches** (see below).
 
 **Node 22+ is required.** The shell defaults to 20.16, which fails with
 `does not provide an export named 'glob'` — vinext needs `node:fs/promises`
@@ -53,6 +54,34 @@ commands — give the deploy command.
 
 `deploy/reset-ledger.sh <bookId>` wipes one book's transactions after a verified
 backup. Arjun's book is `book_owner`.
+
+## Keeping the docs current
+
+`docs/` is written to stay true, not to be rewritten later from memory. **A
+change is not finished until the docs that describe it match.** Update them in
+the same turn as the code, not as a follow-up.
+
+| If you changed… | Update |
+|---|---|
+| A requirement's state, or added/dropped a feature | `docs/prd.md` — the ✅/🟡/⛔ tables |
+| Routes, schema, a domain module, deployment, a migration | `docs/architecture.md` |
+| A convention, or hit a bug a rule would have prevented | `docs/rules.md` |
+| Tokens, a component pattern, layout, or user-facing copy | `docs/design.md` |
+| Finished, started or reprioritised work | `docs/tasks.md` **and** `TODO.md` |
+| Made a decision, or paid for a new trap | `docs/memory.md` |
+
+Three habits that keep them honest:
+
+- **Bump `Last reviewed`** on any doc you touch.
+- **Record the reason, not just the change.** `docs/memory.md` carries a "would
+  reverse if" column — a decision without its trigger is folklore.
+- **A trap that cost debugging time goes in `docs/memory.md` §3 immediately.**
+  That table is the highest-value thing in the folder and only grows if written
+  down while it still stings.
+
+`TODO.md` stays the working checklist and wins any disagreement with
+`docs/tasks.md`; `CLAUDE.md` stays the operational source and wins over
+`docs/memory.md`. The `docs/` versions are the readable overview.
 
 ## House rules
 
