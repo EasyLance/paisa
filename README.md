@@ -1,72 +1,235 @@
-# Paisa
+<div align="center">
 
-Paisa is an Android-first household finance platform for India. It combines a Flutter app, a responsive React dashboard, a Fastify REST API, and a MySQL ledger. Financial SMS messages are parsed on-device; only normalized transaction fields are queued for upload.
+# 💰 Paisa
 
-## What is implemented
+**Household finance, built for how money actually moves in India**
 
-- Private owner and spouse books plus an explicitly shared household book.
-- Owner, editor, reviewer/CA, and viewer authorization enforced by the API. Owners can change a member's role, promote a co-owner, remove access, and revoke a pending invitation; a book always keeps at least one owner and nobody can change their own access.
-- Immutable transaction sources, integer-paise money values, categorization, splits, comments, budgets, recurring plans, imports, period verification, and append-only audit events.
-- Idempotent SMS/statement ingestion with workspace-level source hashes.
-- Interactive React dashboard with overview, transaction search/review, budgets, reports, CSV exports, book switching, member roles, invitation acceptance, period verification, and audit history.
-- Dashboard reviewer workflow: split a captured payment across categories, post audited review notes on a transaction, and confirm categories with an optional merchant rule for future payments.
-- Dashboard configuration: financial accounts, workspace categories, merchant/VPA categorization rules, and recurring plans are each editable and removable in place, plus duplicate-safe CSV/PDF statement imports fingerprinted in the browser.
-- Removal preserves history: accounts and categories are archived rather than deleted, recurring plans are stopped, and only rules — which affect nothing already recorded — are deleted outright. Every change is audited.
-- Flutter Android overview, SMS permission onboarding, native financial-message parser, encrypted offline queue, retrying REST upload, and Firebase bootstrap.
-- MySQL Prisma schema, checked-in initial migration, production seed, Redis/BullMQ workers, OpenAPI documentation, and local demo mode.
+UPI · NEFT · ACH · integer paise · Asia-Kolkata · invite-only
 
-The screenshots supplied for planning influenced the seed category names only. Their sample financial amounts are not written to the production database.
+![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)
+![Fastify](https://img.shields.io/badge/Fastify-API-000000?logo=fastify&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-MariaDB-2d3748?logo=prisma&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-Android-02569b?logo=flutter&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-57%20passing-10b981)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Repository
+</div>
 
-```text
-apps/web       React dashboard (Vinext/Vite)
-apps/api       Fastify REST API and Prisma schema
-apps/worker    BullMQ background workers
-apps/mobile    Flutter Android application and Kotlin SMS bridge
+---
+
+Paisa keeps one clear record of what a household earns, spends and sets aside.
+It reads bank statements you import, captures payment messages on your own
+phone, and sorts them into categories you control.
+
+**It never asks for a banking password, a UPI PIN or a card number, and it
+cannot move money.** Accounts are labels on a ledger, nothing more.
+
+> ⚠️ Paisa is a record-keeping tool. It is **not** a bank, and nothing in it is
+> financial advice.
+
+---
+
+## 1. What It Does
+
+| | Feature | Detail |
+|---|---|---|
+| 📄 | **Statement import** | CSV and Excel, read on upload. SBI and HDFC narrations understood. Re-importing is safe — every row is fingerprinted |
+| ⚖️ | **Amounts you can trust** | The bank's own running-balance column is used as a checksum. Zero warnings means every amount parsed correctly |
+| 🏷️ | **Learns your categories** | Confirm once with "apply to future" and the next payment to the same merchant or VPA files itself |
+| 💰 | **Honest money model** | **Spent** = expenses · **Saving** = transfers to your own accounts · **Balance** = income − spent − saving |
+| 🎯 | **Budgets as percentages** | 50 / 30 / 20 across category groups, derived from expected income — so a budget works before payday |
+| 🔁 | **Recurring plans post themselves** | Month-end sticky: 31 Jan → 28 Feb → **31** Mar, no drift |
+| 🔀 | **Account-to-account flows** | See what moved from one of your accounts to another |
+| 📒 | **Nothing is quietly rewritten** | Every change is audited with before/after; an imported entry keeps the bank's figure forever |
+| 🏠 | **Sealed households** | Separate workspaces. No member of one can read another's books |
+| 📱 | **On-device SMS parsing** | Message text never leaves the phone — only amount, date, merchant and reference |
+
+---
+
+## 2. Technology Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React 19 + vinext (Vite) | Dashboard UI, React Server Components |
+| Language | TypeScript (web) · JavaScript ESM (api) | Types where they earn it |
+| Styling | Plain CSS with custom properties | One stylesheet, no framework runtime |
+| Backend | Fastify | REST API, 40 routes |
+| Validation | Zod | Every request boundary |
+| ORM | Prisma | Schema, 5 migrations, typed queries |
+| Database | MariaDB / MySQL | Ledger, audit trail, tenancy |
+| Auth | Firebase Auth + `jose` | Identity; RS256 verified against Google JWKS |
+| Mobile | Flutter + Kotlin | Android SMS capture |
+| Testing | Vitest | 57 API tests |
+| Hosting | DigitalOcean + Apache + systemd | Manual deploy from `main` |
+
+---
+
+## 3. Architecture
+
+```mermaid
+flowchart LR
+    U("👤 User<br/>Web Browser")
+    A("🌐 Apache<br/>TLS · Headers · Proxy")
+    W("⚛️ Dashboard<br/>React + vinext :3000")
+    S("⚙️ API<br/>Fastify :4000")
+    D("🗄️ MariaDB<br/>Ledger + Audit")
+
+    U -->|HTTPS| A
+    A -->|"/"| W
+    A -->|"/v1"| S
+    S --> D
+
+    classDef user fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
+    classDef edge fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    classDef app  fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
+    classDef data fill:#e9d5ff,stroke:#a855f7,stroke-width:2px,color:#4c1d95
+
+    class U user
+    class A edge
+    class W,S app
+    class D data
 ```
 
-## Local start
+The dashboard and the API share one hostname, so the browser never makes a
+cross-origin request. Firebase is identity only — it never sees financial data,
+and the API needs no service-account key.
 
-Requirements: Node.js 22+, Flutter 3.38+, MySQL 8, Redis 7, and Java 17 for Android builds.
+---
 
-1. Copy `.env.example` to `.env` and keep `AUTH_MODE=dev` for the local demo.
-2. Start MySQL and Redis with `docker compose up -d` or equivalent local services.
-3. Install JavaScript packages with `npm install` and Flutter packages with `flutter pub get` inside `apps/mobile`.
-4. Apply the database with `npm run prisma:migrate`, then seed invite-only pilot users with `npm --workspace @paisa/api run seed`.
-5. Run the dashboard with `npm run dev`, the API with `npm run serve`, and the optional background worker with `npm run dev:worker`. The dashboard expects the API on port 4000, so start both in separate terminals.
-6. Run Flutter with `flutter run --dart-define=API_URL=http://10.0.2.2:4000` from `apps/mobile`.
-
-The API automatically uses a seeded in-memory store when `DATABASE_URL` is absent. This makes the dashboard and automated tests runnable without external credentials; production must set `DATABASE_URL`, `AUTH_MODE=firebase`, and `APP_CHECK_MODE=enforce`.
-
-## Firebase and Android release setup
-
-- Create separate Firebase projects for development, staging, and production.
-- Enable the desired invite-only authentication providers and MFA policy.
-- Register the Android application ID `com.paisa.mobile`, add the generated Firebase configuration through the standard FlutterFire flow, and run with `--dart-define=FIREBASE_ENABLED=true`.
-- Configure the production API with the Firebase project ID, project number, and allowed app IDs. ID and App Check tokens are verified against Google's rotating public keys, so no Firebase service-account key is required by the API.
-- Register release signing through a private keystore before producing a Play Store bundle.
-- Complete Google Play's SMS permissions declaration. The application remains usable through manual entry and statement imports if permission is denied.
-
-The exact production connection sequence, required environment variables, migration command, health probes, and launch checks are in [Production setup](docs/PRODUCTION_SETUP.md). No source-code edits are required to connect MySQL or Firebase.
-
-To run this on your own Linux box with Apache and MySQL already installed, follow [VPS deployment](docs/DEPLOY_VPS.md), which uses the systemd units, Apache vhost, and deploy scripts in [`deploy/`](deploy).
-
-## Verification
+## 4. Repository
 
 ```text
-npm test
-npm run lint
-npm run build
-cd apps/mobile && flutter analyze && flutter test
+Financial-App/
+├── apps/
+│   ├── web/       React dashboard — NOT an npm workspace, own lockfile
+│   ├── api/       Fastify REST API, Prisma schema, the only test suite
+│   ├── worker/    BullMQ stubs — no Redis runs, effectively unused
+│   └── mobile/    Flutter Android app + Kotlin SMS bridge
+├── deploy/        bootstrap · deploy · migrate · reset-ledger · systemd · Apache
+└── docs/          prd · architecture · rules · design · tasks · memory
 ```
 
-API documentation is available at `/docs` while the server is running. `/health` is the liveness probe and `/ready` verifies datastore connectivity. Demo requests may use `x-dev-user-id` with `user_owner`, `user_spouse`, or `user_ca`; that mode is refused by the production deployment configuration.
+---
 
-All amounts shown by the credential-free demo are illustrative pilot data. Production seeding creates only users, books, memberships, and editable category suggestions.
+## 5. Getting Started
 
-## Production boundaries
+**Requirements** — Node.js **22+** (the API and dashboard both need it), and
+MariaDB or MySQL if you want persistence. Flutter 3.38+ and Java 17 only for
+Android builds.
 
-Paisa does not initiate payments, store UPI PINs or banking passwords, calculate tax, file taxes, lend money, or execute investments. Account Aggregator connectivity and public billing remain post-pilot work.
+```bash
+# 1 — install (apps/web has its own lockfile)
+npm install
+npm --prefix apps/web install
 
-Known gap: the web sign-in supports email, password, password reset, and invited-account creation, but it cannot yet complete a multi-factor challenge. MFA must stay unenforced in Firebase until that flow is built.
+# 2 — database, optional: without DATABASE_URL the API uses a seeded
+#     in-memory store, which is enough to run the dashboard and the tests
+docker compose up -d
+cp .env.example .env
+npm run prisma:migrate
+npm --workspace @paisa/api run seed
+
+# 3 — run, in two terminals
+npm run serve      # API on :4000  (sets AUTH_MODE=dev for you)
+npm run dev        # dashboard on :3000
+```
+
+> 💡 **No Redis needed.** The worker package is stubs; recurring plans are posted
+> by a `setInterval` inside the API itself.
+
+Android:
+
+```bash
+cd apps/mobile && flutter pub get
+flutter run --dart-define=API_URL=http://10.0.2.2:4000
+```
+
+---
+
+## 6. Verification
+
+```bash
+npm run test     # 57 API tests (vitest)
+npm run lint     # all three JS packages
+npm run build    # dashboard build + API/worker syntax check
+```
+
+For the dashboard also run `npx tsc --noEmit` inside `apps/web`.
+
+| Endpoint | Purpose |
+|---|---|
+| `/health` | Liveness |
+| `/ready` | Datastore connectivity |
+| `/docs` | OpenAPI browser — **not** exposed in production; reach it over an SSH tunnel |
+
+---
+
+## 7. Deployment
+
+| Script | What it does |
+|---|---|
+| `deploy/bootstrap.sh` | First-time host setup — systemd units, packages, preflight `--check` |
+| `deploy/deploy.sh` | Pull, install, generate, clean build, restart, poll health |
+| `deploy/migrate.sh` | Verified `mysqldump` backup **before** any schema change |
+| `deploy/reset-ledger.sh` | Scoped wipe of one book, backup and typed confirmation first |
+
+```bash
+cd /var/www/projects/Financial-App && ./deploy/deploy.sh
+```
+
+A release containing a migration needs `./deploy/migrate.sh` first — `deploy.sh`
+detects pending migrations and stops rather than running new code against an old
+schema. Full walkthroughs: **[VPS deployment](docs/DEPLOY_VPS.md)** ·
+**[Production setup](docs/PRODUCTION_SETUP.md)**.
+
+---
+
+## 8. Security
+
+| Control | Detail |
+|---|---|
+| Credentials | Never requests or stores banking passwords, UPI PINs or card numbers |
+| Identity | Firebase ID tokens, RS256, verified against Google's rotating public keys |
+| Defaults | `AUTH_MODE` defaults to `firebase`; header-trusting dev mode must be asked for |
+| Isolation | Every book route resolves a membership → **404**, so ids cannot be enumerated |
+| Provenance | An imported amount is preserved on `TransactionSource` after any edit |
+| Exports | Bank-supplied text is neutralised before it reaches a CSV cell |
+| Headers | HSTS, CSP, `X-Frame-Options: DENY`, `nosniff` — set at Apache, covering both apps |
+
+A full audit was run on 2026-09-09; every High and Medium finding is fixed. The
+remainder are tracked in [docs/tasks.md](docs/tasks.md#7-security-backlog).
+
+> ⚠️ **Do not enforce MFA in Firebase.** The web sign-in cannot complete a
+> second-factor challenge yet, and turning it on locks everyone out.
+
+---
+
+## 9. Documentation
+
+| Doc | What's in it |
+|---|---|
+| 📋 [Product Requirements](docs/prd.md) | The problem, personas, principles, every requirement and its state |
+| 🏛️ [System Architecture](docs/architecture.md) | Topology, stack, data model, import pipeline, deployment |
+| 📐 [Coding Rules](docs/rules.md) | Conventions, each traced to what breaking it cost |
+| 🎨 [UI/UX Direction](docs/design.md) | Tokens, type scale, components, writing voice |
+| ✅ [Tasks & Progress](docs/tasks.md) | Phase status, owners, backlog |
+| 🧠 [Project Context](docs/memory.md) | Decisions and their reasons, traps already paid for |
+
+---
+
+## 10. Boundaries
+
+Paisa does **not** initiate payments, store banking credentials, calculate or
+file tax, lend money, or execute investments. Account Aggregator connectivity is
+not implemented.
+
+**Known gaps:** PDF statement import is not built (CSV and Excel are); the
+Android app is written but not shipped; refunds are not yet reflected in the
+summary tiles. See [docs/tasks.md](docs/tasks.md).
+
+---
+
+<div align="center">
+<sub>MIT © 2026 Arjun Mohanesh</sub>
+</div>
