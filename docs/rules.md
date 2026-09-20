@@ -1,24 +1,28 @@
-# Paisa — Coding Rules
+# 📐 Coding Rules
 
-> Every rule here exists because breaking it cost us something.
+**Paisa — Household Finance Platform**
+
+The conventions this codebase holds to. Every rule here exists because breaking
+it cost us something specific, and each one names that cost.
+
 > **Last reviewed** 2026-09-20 · Operational rules live in `/CLAUDE.md`
 
 ---
 
-## The short version
+## 1. The Short Version
 
 | # | Rule | Cost of breaking it |
 |---|---|---|
 | 1 | Money is integer paise, never a float | Rounding errors in a ledger |
 | 2 | Shared behaviour goes in `src/domain/` | The two stores silently disagreed |
-| 3 | Every mutation writes an audit event | No way to answer "what did this used to say" |
+| 3 | Every mutation writes an audit event | No answer to "what did this used to say" |
 | 4 | Non-trivial logic leaves one runnable check | A bug ships twice |
 | 5 | Verify before you claim done | Saying "fixed" about something that isn't |
 | 6 | Read the whole flow before the smallest diff | A confident fix in the wrong place |
 
 ---
 
-## 1. Money
+## 2. Money
 
 ```js
 // ✅  paise as a string over the wire, BigInt in the store
@@ -36,12 +40,33 @@
 | Serialise through `jsonSafe()` | `JSON.stringify` throws on `BigInt` |
 | Round float input to 2dp at the edge | Excel gives you `79485.149999999994` |
 
-## 2. The domain layer
+---
 
-> **Two stores implement one interface.** `memory-store.js` backs the tests and
-> demo mode; `prisma-store.js` backs MariaDB. They have diverged before.
+## 3. The Domain Layer
 
-**If both stores need the same answer, the answer lives in `src/domain/`.**
+Two stores implement one interface. **If both need the same answer, the answer
+lives in `src/domain/`.**
+
+```mermaid
+flowchart TD
+    R("🛣️ Routes<br/>app.js")
+    D("🧠 Domain<br/>the shared rules")
+    M("🧪 memory-store<br/>tests · demo")
+    P("🗄️ prisma-store<br/>MariaDB")
+
+    R --> M
+    R --> P
+    M --> D
+    P --> D
+
+    classDef route fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
+    classDef store fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    classDef dom   fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
+
+    class R route
+    class M,P store
+    class D dom
+```
 
 | Question | Module |
 |---|---|
@@ -52,21 +77,25 @@
 | Can this role do that? | `permissions.js` |
 | What do these statement rows mean? | `statement.js` |
 
-Duplicating ten lines across the two stores is not the lazy option. It is two
-places to fix and one you will forget.
+> Duplicating ten lines across the two stores is not the lazy option. It is two
+> places to fix and one you will forget.
 
-## 3. History is not optional
+---
+
+## 4. History Is Not Optional
 
 | Rule | Detail |
 |---|---|
 | Every mutation writes an `AuditEvent` | With `before` **and** `after` |
 | An imported entry keeps the bank's figure | `TransactionSource.importedAmount` survives every edit |
-| Nothing is hard-deleted | Accounts and categories **archive**; entries **void**; only rules — which affect nothing recorded — are deleted |
+| Nothing is hard-deleted | Accounts and categories **archive** · entries **void** · only rules are deleted |
 | Voided entries stay in the ledger | They leave the totals, not the record |
 
-## 4. Tests
+---
 
-- Tests live in **`apps/api/test/api.test.js`**. One file. 57 passing.
+## 5. Tests
+
+- Tests live in **`apps/api/test/api.test.js`**. One file. **57 passing.**
 - Non-trivial logic — a branch, a parser, a money path — leaves **one runnable
   check**. Trivial one-liners do not.
 - **Assert the setup succeeded.** Three imports once returned 400 because an
@@ -76,7 +105,9 @@ places to fix and one you will forget.
   more than any single expected number.
 - Never commit real financial data as a fixture. Build one in the test.
 
-## 5. Validation & errors
+---
+
+## 6. Validation & Errors
 
 | Rule | Example |
 |---|---|
@@ -86,18 +117,22 @@ places to fix and one you will forget.
 | Never return `error.message` on a 500 | Generic `INTERNAL_ERROR` only |
 | Log the operator's reason, tell the client nothing | Auth failures, provisioning refusals |
 
-## 6. Security
+---
+
+## 7. Security
 
 | Rule | Why |
 |---|---|
-| Secure defaults. `AUTH_MODE` defaults to `firebase` | A missing env var must never open the door |
+| Secure defaults — `AUTH_MODE` defaults to `firebase` | A missing env var must never open the door |
 | Untrusted text into a CSV goes through `csvSafe()` | `=HYPERLINK(...)` as a merchant name is a formula |
 | Never a password on a command line | `ps` is readable by every user on a shared box |
 | Never interpolate an argument into SQL | Validate the shape first |
 | Cap unbounded work | 2,000 rows per import; one request is not a job queue |
 | Security headers belong in Apache | helmet only covers API responses |
 
-## 7. Frontend
+---
+
+## 8. Frontend
 
 | Rule | Detail |
 |---|---|
@@ -108,7 +143,9 @@ places to fix and one you will forget.
 | Labels must be literally true | "Available after spending" was a lie; it is "Balance" |
 | Plain `<a>` over `next/link` | vinext's Link prefetch throws at runtime |
 
-## 8. Before you say it is done
+---
+
+## 9. Before You Say It Is Done
 
 ```bash
 npm run test                       # 57 API tests
@@ -117,13 +154,15 @@ cd apps/web && npx tsc --noEmit    # dashboard types
 # and a build, with the Firebase env sourced
 ```
 
-A stale `apps/web/dist` looks like a successful build while serving old code.
-`rm -rf dist .vinext` first, every time.
+> A stale `apps/web/dist` looks like a successful build while serving old code.
+> `rm -rf dist .vinext` first, every time.
 
-## 9. Comments
+---
 
-Comment the **why**, never the what. A comment that explains a line you can read
-is noise; one that explains a decision you would otherwise undo is the point.
+## 10. Comments
+
+Comment the **why**, never the what. A comment explaining a line you can read is
+noise; one explaining a decision you would otherwise undo is the point.
 
 ```js
 // ✅
@@ -137,8 +176,10 @@ is noise; one that explains a decision you would otherwise undo is the point.
 
 Mark a deliberate shortcut with `ponytail:` and name its ceiling.
 
-## 10. Scope
+---
+
+## 11. Scope
 
 Do the task asked. If you find a real problem with it, say so in a sentence and
-keep building. Deliver the whole thing or say plainly what you left out — a
-half-fix reported as complete is worse than no fix.
+keep building. Deliver the whole thing or say plainly what you left out — **a
+half-fix reported as complete is worse than no fix.**
