@@ -34,6 +34,7 @@ cannot move money.** Accounts are labels on a ledger, nothing more.
 
 | | Feature | Detail |
 |---|---|---|
+| 🛡️ | **Master admin console** | Every account in one table: add a user, rename, disable, send a reset, back up their data, clear it, delete it |
 | 🌱 | **A public front door** | Landing page at `/`, sign-in at `/login`, and thirteen information pages behind one shared header and footer |
 | 📄 | **Statement import** | CSV and Excel, read on upload. SBI and HDFC narrations understood. Re-importing is safe — every row is fingerprinted |
 | ⚖️ | **Amounts you can trust** | The bank's own running-balance column is used as a checksum. Zero warnings means every amount parsed correctly |
@@ -196,6 +197,8 @@ schema. Full walkthroughs: **[VPS deployment](docs/DEPLOY_VPS.md)** ·
 | Identity | Firebase ID tokens, RS256, verified against Google's rotating public keys |
 | Defaults | `AUTH_MODE` defaults to `firebase`; header-trusting dev mode must be asked for |
 | Isolation | Every book route resolves a membership → **404**, so ids cannot be enumerated |
+| Master admin | `PLATFORM_ADMINS` is an environment variable, not a row — granting it needs shell access, not database access |
+| Passwords | Never handled, not even by an admin: new accounts set their own, resets are emailed by Firebase |
 | Provenance | An imported amount is preserved on `TransactionSource` after any edit |
 | Exports | Bank-supplied text is neutralised before it reaches a CSV cell |
 | Headers | HSTS, CSP, `X-Frame-Options: DENY`, `nosniff` — set at Apache, covering both apps |

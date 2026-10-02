@@ -59,6 +59,7 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 | 🏠 **Tenancy** | Isolated workspaces · invitations · self-provisioning (flagged off) |
 | 🔒 **Security** | Full-codebase audit; all High and Medium findings fixed |
 | 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset |
+| 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · delete |
 | 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer |
 
 ---
@@ -98,6 +99,8 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 |---|---|
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
 | **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder, and the landing page's **Request access** button points at `/contact-us` |
+| **Install the Firebase service-account key** | 👤 Arjun's step — without it the admin page cannot list, add, rename, disable or reset Firebase accounts |
+| **Prune expired `IdempotencyRecord` rows on a schedule** | A ledger wipe now clears the orphans, but nothing clears the expired ones |
 | **A real illustration for the landing hero** | Three CSS blobs stand in for the leaf illustration in the Figma file |
 | **PDF import** | Blocked on one real sample — row detection is shaped entirely by a bank's layout |
 | **Refunds are invisible** | `kind: 'refund'` appears in no tile. Decide the definition first |

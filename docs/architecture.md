@@ -80,6 +80,8 @@ Financial-App/
 │   │       ├── page.tsx          the entire dashboard, dense single-file style
 │   │       │                      — renders the landing page when signed out
 │   │       ├── landing.tsx       the public landing page + dashboard preview
+│   │       ├── admin/            master admin console — its own route and chrome
+│   │       ├── api-client.ts     one fetch wrapper, shared by both consoles
 │   │       ├── login/            the sign-in route
 │   │       ├── sign-in.tsx       the sign-in card, shared by "/" and /login
 │   │       ├── site-chrome.tsx   header + footer for every public page
@@ -236,6 +238,7 @@ available, and free.
 | App Check | Optional, defaults to **enforce** when configured |
 | Isolation | Every book route resolves a `BookMembership` → **404** without one |
 | New tenants | `TENANT_SELF_PROVISION` (off) creates a workspace on first sign-in |
+| Master admin | `PLATFORM_ADMINS`, a list of emails in the server's environment |
 
 Capabilities are strictly nested:
 
@@ -246,6 +249,33 @@ editor       + create · edit
 book_owner   + manage_book · delete_manual
 admin        + manage_members
 ```
+
+### 8.1 Master Admin
+
+A separate console at `/admin`, backed by `/v1/admin/*`. It is the one role that
+is **not** stored in the database: `PLATFORM_ADMINS` is an environment variable,
+so granting it needs shell access to the host and a restart, not a row.
+
+| | |
+|---|---|
+| **Gate** | Not listed → every `/v1/admin` route **404s**, the same convention the book routes use |
+| **No household needed** | A master admin with no `UserProfile` authenticates with a profile-less actor. It grants no ledger access — book routes still resolve a membership |
+| **Firebase half** | `domain/firebase-admin.js` — list, create, rename, disable, delete, send a reset. Needs a service-account key |
+| **Ledger half** | `exportUserData`, `wipeUserLedger`, `deletePlatformUser`. Needs nothing extra |
+| **Degrades** | No key → the page lists only accounts that have signed in, and says so. It never fails closed on the half that works |
+| **Record** | Admin actions go to the journal, because the workspace an audit row would live in is sometimes the thing being deleted |
+
+Scope is the important part:
+
+- An **export** covers every book the user is a member of — exactly what they can
+  already read, never more.
+- A **ledger wipe** touches only books they **own**, so clearing out a CA cannot
+  empty the household they review.
+- A **delete** removes the profile and any book nobody else is a member of.
+  Shared books survive.
+
+No password is ever handled: a new account is created without one and sent a
+reset link, and a reset is emailed by Firebase rather than returned as a link.
 
 ---
 

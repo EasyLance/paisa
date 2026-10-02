@@ -1,7 +1,8 @@
 'use client';
 
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiAuthHeaders, firebaseEnabled, observeUser, signOutUser } from './firebase-client';
+import { firebaseEnabled, observeUser, signOutUser } from './firebase-client';
+import { api, ApiError } from './api-client';
 import { invitationToken, rememberSignedIn, returning, SignIn } from './sign-in';
 import Landing from './landing';
 
@@ -28,7 +29,6 @@ type ImportResult = ImportRecord&{duplicate?:boolean;imported?:number;duplicates
 type LoadedContext = { actorKey:string; bookId:string };
 type Dialog = 'add' | 'review' | 'budget' | 'transaction' | 'invite' | 'invite-link' | 'profile' | 'split' | 'account' | 'category' | 'rule' | 'recurring' | 'import' | null;
 
-const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
 const demoEnabled = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 const BUDGET_GROUPS=['Essentials','Lifestyle','Saving','Other'] as const;
 const emptySummary:Summary = {incomeMinor:'0',spentMinor:'0',movedMinor:'0',balanceMinor:'0',pendingReview:0,byCategory:[]};
@@ -119,18 +119,6 @@ function dateAt(day:string,timezone='Asia/Kolkata') {
   return new Date(`${day}T00:00:00.000${offset}`).toISOString();
 }
 function rupeesOf(minor:string) { const value=BigInt(minor||'0'); const absolute=value<0n?-value:value; return `${absolute/100n}.${(absolute%100n).toString().padStart(2,'0')}`; }
-function apiBase() { if(configuredApiUrl)return configuredApiUrl; if(typeof window!=='undefined'&&['localhost','127.0.0.1'].includes(window.location.hostname))return 'http://localhost:4000'; return ''; }
-class ApiError extends Error { unreachable:boolean; constructor(message:string,unreachable=false){super(message);this.unreachable=unreachable;} }
-async function api<T>(path:string,options:RequestInit={}):Promise<T> {
-  const base=apiBase(); if(!base)throw new ApiError('The dashboard is not configured with an API address',true);
-  const authHeaders=await apiAuthHeaders();
-  let response:Response;
-  try{ response=await fetch(`${base}${path}`,{...options,signal:options.signal??AbortSignal.timeout(12000),headers:{...(options.body?{'content-type':'application/json'}:{}),...authHeaders,...options.headers}}); }
-  catch(error){ throw new ApiError(error instanceof DOMException&&error.name==='TimeoutError'?`${base} did not respond in time`:`Cannot reach the ledger at ${base}`,true); }
-  if(!response.ok){let message='Request failed';try{message=((await response.json()) as {message?:string}).message??message;}catch{}throw new ApiError(response.status===429?'Too many requests in a short time. Wait a moment and try again.':message);}
-  if(response.status===204)return undefined as T;
-  return response.json() as Promise<T>;
-}
 type Listed<T> = { items:T[]; nextCursor?:string|null };
 function initials(name:string|null|undefined,email='') { return (name||email||'?').split(/\s|@/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase(); }
 function readableAction(action:string){return ({'transaction.reclassified':'Reclassified a transaction','transaction.created':'Added a transaction','transaction.split':'Split a transaction','transaction.commented':'Added a review comment','period.verified':'Verified the monthly books','period.in_review':'Started monthly review','budget.updated':'Updated a budget','membership.role_changed':'Changed member access'} as Record<string,string>)[action]??action.replaceAll('.',' · ').replaceAll('_',' ');}

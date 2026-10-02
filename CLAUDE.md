@@ -150,6 +150,40 @@ Categories are **workspace-scoped**, so any new workspace needs its own copies â
 `src/domain/default-categories.js` is the one list, used by the seed, the memory
 store and provisioning.
 
+## Master admin
+
+A second console at `/admin`, backed by `/v1/admin/*`, for managing accounts
+across every household. Two environment variables in `/etc/paisa/paisa.env`:
+
+```bash
+PLATFORM_ADMINS=arjunm295707@gmail.com          # comma-separated, empty by default
+FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
+```
+
+- **`PLATFORM_ADMINS` is the whole gate.** Not listed â†’ every `/v1/admin` route
+  404s. It is an env var and not a column on purpose: granting it needs shell
+  access and a restart, so nothing that can write the database can grant itself
+  the ability to read and delete every household.
+- A master admin **does not need a household**. With no `UserProfile` they
+  authenticate with a profile-less actor; book routes still resolve a membership
+  and 404, so it grants no ledger access.
+- **Without a service-account key**, the page lists only accounts that have
+  signed in, and backup / clear / delete still work. Listing Firebase accounts,
+  adding, renaming, disabling and password resets need the key. The page says
+  which half is missing rather than failing whole.
+- The key file belongs at `/etc/paisa/firebase-admin.json`, `chown paisa:paisa`,
+  `chmod 600`, **never in the repo**. Give the service account the *Firebase
+  Authentication Admin* role, nothing wider. `ProtectSystem=full` leaves `/etc`
+  readable, so the unit needs no change.
+- **No password is ever handled.** A new account is created without one and sent
+  a link to set their own; a reset is an email Firebase sends, never a link
+  returned to the page.
+- Scope: an **export** covers every book the user is a member of, a **wipe**
+  only books they own, a **delete** only books nobody else is a member of.
+- Admin actions go to the **journal** (`journalctl -u paisa-api`), because
+  `AuditEvent.workspaceId` is required and the workspace is sometimes the thing
+  being deleted.
+
 ## Security
 
 - `AUTH_MODE` **defaults to `firebase`**. Dev mode trusts an `x-dev-user-id`

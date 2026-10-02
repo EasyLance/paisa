@@ -824,4 +824,96 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(accepted.actorId).toBe(user.id);
     expect(await store.getMembership('book_home', user.id)).toMatchObject({ role: 'viewer' });
   });
+  describe('master admin', () => {
+    // PLATFORM_ADMINS is read per request, so it can be set and cleared around
+    // each case rather than needing a second app.
+    const asAdmin = async (fn) => {
+      const saved = process.env.PLATFORM_ADMINS;
+      process.env.PLATFORM_ADMINS = 'arjun@example.com';
+      try { await fn(); } finally { if (saved === undefined) delete process.env.PLATFORM_ADMINS; else process.env.PLATFORM_ADMINS = saved; }
+    };
+
+    it('hides the admin API from everyone who is not listed, with a 404 rather than a 403', async () => {
+      // Nobody is an admin yet: even the owner must not see that it exists.
+      const unlisted = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_owner') });
+      expect(unlisted.statusCode).toBe(404);
+      await asAdmin(async () => {
+        const spouse = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_spouse') });
+        expect(spouse.statusCode).toBe(404);
+        const owner = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_owner') });
+        expect(owner.statusCode).toBe(200);
+      });
+    });
+
+    it('counts only the books a user owns towards their own data', async () => {
+      await asAdmin(async () => {
+        const response = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_owner') });
+        const rows = response.json().items;
+        const ca = rows.find((row) => row.email === 'ca@example.com');
+        // The CA reviews the household book but owns nothing, so wiping them
+        // must never be reported as wiping somebody else's ledger.
+        expect(ca.bookCount).toBe(1);
+        expect(ca.ownedBookCount).toBe(0);
+        expect(ca.transactionCount).toBe(0);
+        expect(rows.find((row) => row.email === 'arjun@example.com').ownedBookCount).toBe(2);
+      });
+    });
+
+    it('refuses a reset whose confirmation does not name the account', async () => {
+      await asAdmin(async () => {
+        const wrong = await app.inject({ method: 'POST', url: '/v1/admin/users/user_spouse/ledger-reset', headers: as('user_owner'), payload: { confirmEmail: 'arjun@example.com' } });
+        expect(wrong.statusCode).toBe(400);
+        expect(wrong.json().code).toBe('CONFIRMATION_MISMATCH');
+      });
+    });
+
+    it('exports a user before wiping them, and wipes only what they own', async () => {
+      await asAdmin(async () => {
+        const exported = await app.inject({ method: 'GET', url: '/v1/admin/users/user_owner/export', headers: as('user_owner') });
+        expect(exported.statusCode).toBe(200);
+        const backup = exported.json();
+        expect(backup.format).toBe('paisa.user-export.v1');
+        const entries = backup.books.flatMap((book) => book.transactions);
+        expect(entries.length).toBeGreaterThan(0);
+
+        const spouseBefore = await app.inject({ method: 'GET', url: '/v1/books/book_priya/transactions', headers: as('user_spouse') });
+        const reset = await app.inject({ method: 'POST', url: '/v1/admin/users/user_owner/ledger-reset', headers: as('user_owner'), payload: { confirmEmail: 'arjun@example.com' } });
+        expect(reset.statusCode).toBe(200);
+        expect(reset.json().transactionsRemoved).toBe(entries.length);
+
+        const after = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions', headers: as('user_owner') });
+        expect(after.json().items).toHaveLength(0);
+        // The spouse's own book is in the same workspace and must be untouched.
+        const spouseAfter = await app.inject({ method: 'GET', url: '/v1/books/book_priya/transactions', headers: as('user_spouse') });
+        expect(spouseAfter.json().items).toEqual(spouseBefore.json().items);
+      });
+    });
+
+    it('will not let an admin delete themselves, and leaves a shared book standing', async () => {
+      await asAdmin(async () => {
+        const self = await app.inject({ method: 'POST', url: '/v1/admin/users/user_owner/delete', headers: as('user_owner'), payload: { confirmEmail: 'arjun@example.com' } });
+        expect(self.statusCode).toBe(409);
+        expect(self.json().code).toBe('SELF_DELETE');
+
+        const removed = await app.inject({ method: 'POST', url: '/v1/admin/users/user_ca/delete', headers: as('user_owner'), payload: { confirmEmail: 'ca@example.com' } });
+        expect(removed.statusCode).toBe(200);
+        // The CA owned nothing, so nothing of the household goes with them.
+        expect(removed.json().booksDeleted).toEqual([]);
+        const household = await app.inject({ method: 'GET', url: '/v1/books/book_home/transactions', headers: as('user_owner') });
+        expect(household.statusCode).toBe(200);
+      });
+    });
+
+    it('says plainly when a Firebase-only action has no service account behind it', async () => {
+      await asAdmin(async () => {
+        const created = await app.inject({ method: 'POST', url: '/v1/admin/users', headers: as('user_owner'), payload: { email: 'new@example.com' } });
+        expect(created.statusCode).toBe(501);
+        expect(created.json().code).toBe('FIREBASE_ADMIN_UNCONFIGURED');
+        // Reading the directory still works — it just says what is missing.
+        const listed = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_owner') });
+        expect(listed.json().firebaseConfigured).toBe(false);
+        expect(listed.json().reason).toMatch(/service account/i);
+      });
+    });
+  });
 });

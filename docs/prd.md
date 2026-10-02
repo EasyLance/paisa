@@ -139,7 +139,9 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | A3 | Invite someone into an existing book by email | ✅ |
 | A4 | A book always keeps one owner; nobody edits their own access | ✅ |
 | A5 | A new identity gets its own isolated household | ✅ *(flagged off)* |
-| A6 | Disable a user from the dashboard | ⛔ |
+| A6 | Disable a user | ✅ *(master admin)* |
+| A7 | A master admin page: every account, add, rename, disable, reset a password | ✅ *(needs a service-account key)* |
+| A8 | Back up one user's data as a file, and clear or delete it | ✅ |
 
 ---
 

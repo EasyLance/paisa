@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { isPlatformAdmin } from '../domain/platform-admin.js';
 import { URL } from 'node:url';
 
 const authKeys = createRemoteJWKSet(
@@ -74,6 +75,7 @@ export default fp(async function authPlugin(app, options) {
   }
 
   app.decorateRequest('actor', null);
+  app.decorateRequest('isPlatformAdmin', false);
   app.decorate('authenticate', async function authenticate(request, reply) {
     if (mode === 'dev') {
       const id = request.headers['x-dev-user-id'] ?? 'user_owner';
@@ -81,6 +83,7 @@ export default fp(async function authPlugin(app, options) {
       if (!request.actor) {
         return reply.code(401).send({ code: 'UNKNOWN_DEV_USER', message: 'Unknown development user' });
       }
+      request.isPlatformAdmin = isPlatformAdmin(request.actor.email);
       return;
     }
 
@@ -120,9 +123,18 @@ export default fp(async function authPlugin(app, options) {
           request.log.info({ email: decoded.email, userId: request.actor.id }, 'Provisioned a new household for a first-time sign-in');
         }
       }
+      // A master admin need not have a household of their own — running the
+      // platform is not the same job as keeping a ledger. Let them through with
+      // a profile-less actor so /v1/admin works. This grants no ledger access:
+      // every book route still resolves a BookMembership and 404s without one,
+      // and this actor has none.
+      if (!request.actor && isPlatformAdmin(decoded.email)) {
+        request.actor = { id: null, firebaseUid: decoded.sub, email: decoded.email, displayName: typeof decoded.name === 'string' ? decoded.name : null, platformOnly: true };
+      }
       if (!request.actor || request.actor.disabledAt) {
         return reply.code(403).send({ code: 'INVITE_REQUIRED', message: 'This account is not active in a workspace' });
       }
+      request.isPlatformAdmin = isPlatformAdmin(request.actor.email);
     } catch (error) {
       // The client is told nothing beyond "invalid", but the operator needs the
       // reason: a wrong FIREBASE_PROJECT_ID, an unreachable JWKS endpoint and a

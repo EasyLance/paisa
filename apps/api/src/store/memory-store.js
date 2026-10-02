@@ -6,6 +6,7 @@ import { DEFAULT_CATEGORIES, categoriesFor } from '../domain/default-categories.
 import { spendByCategory } from '../domain/spending.js';
 import { accountActivity, assertDistinctAccounts } from '../domain/accounts.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
+import { summariseUser } from '../domain/platform-admin.js';
 
 const now = new Date('2026-08-26T15:30:00.000Z');
 
@@ -374,4 +375,109 @@ export class MemoryStore {
   }
   async addAudit(event) { const record = { id: randomUUID(), createdAt: new Date(), ...event }; this.audit.unshift(record); return record; }
   async listAudit(bookId, limit = 50) { return this.audit.filter((event) => event.bookId === bookId).slice(0, limit); }
+
+  // ---- platform administration -------------------------------------
+  // Same scoping as the Prisma store: export what the user can read, wipe only
+  // what they own. The two have silently diverged before, so the row shaping
+  // itself lives in domain/platform-admin.js.
+
+  #booksFor(userId, onlyOwned = false) {
+    return this.memberships
+      .filter((member) => member.userId === userId && (!onlyOwned || member.role === 'book_owner'))
+      .map((member) => ({ ...this.books.find((book) => book.id === member.bookId), role: member.role }))
+      .filter((book) => book.id);
+  }
+
+  async listPlatformUsers() {
+    return this.users.map((user) => summariseUser(user, this.#booksFor(user.id).map((book) => {
+      const entries = this.transactions.filter((transaction) => transaction.bookId === book.id);
+      const latest = entries.map((entry) => new Date(entry.createdAt ?? entry.occurredAt).getTime());
+      return {
+        id: book.id, name: book.name, workspaceId: book.workspaceId, role: book.role,
+        transactionCount: entries.length,
+        lastActivityAt: latest.length ? new Date(Math.max(...latest)).toISOString() : null,
+      };
+    })));
+  }
+
+  async exportUserData(userId) {
+    const user = this.users.find((item) => item.id === userId);
+    if (!user) return null;
+    const books = this.#booksFor(userId);
+    const bookIds = new Set(books.map((book) => book.id));
+    const workspaceIds = new Set(books.map((book) => book.workspaceId));
+    return {
+      exportedAt: new Date().toISOString(),
+      format: 'paisa.user-export.v1',
+      user: { id: user.id, firebaseUid: user.firebaseUid, email: user.email, displayName: user.displayName ?? null, createdAt: user.createdAt ?? null, disabledAt: user.disabledAt ?? null },
+      workspaces: this.workspaces.filter((workspace) => workspaceIds.has(workspace.id)),
+      categories: this.categories.filter((category) => workspaceIds.has(category.workspaceId)),
+      books: books.map((book) => ({
+        ...book,
+        accounts: this.accounts.filter((account) => account.bookId === book.id),
+        rules: this.rules.filter((rule) => rule.bookId === book.id),
+        budgets: this.budgets.filter((budget) => budget.bookId === book.id),
+        budgetPlan: this.budgetPlans.filter((plan) => plan.bookId === book.id),
+        recurringPlans: this.recurring.filter((plan) => plan.bookId === book.id),
+        attachments: this.imports.filter((item) => item.bookId === book.id),
+        periodReviews: this.periodReviews.filter((review) => review.bookId === book.id),
+        transactions: this.transactions.filter((transaction) => transaction.bookId === book.id)
+          .map((transaction) => ({ ...transaction, comments: this.comments.filter((comment) => comment.transactionId === transaction.id) })),
+      })),
+      auditEvents: this.audit.filter((event) => bookIds.has(event.bookId)),
+    };
+  }
+
+  async wipeUserLedger(userId) {
+    const books = this.#booksFor(userId, true);
+    const bookIds = new Set(books.map((book) => book.id));
+    const removed = this.transactions.filter((transaction) => bookIds.has(transaction.bookId));
+    const removedIds = new Set(removed.map((transaction) => transaction.id));
+    this.transactions = this.transactions.filter((transaction) => !bookIds.has(transaction.bookId));
+    this.comments = this.comments.filter((comment) => !removedIds.has(comment.transactionId));
+    this.ingestion = this.ingestion.filter((event) => !bookIds.has(event.bookId));
+    this.imports = this.imports.filter((item) => !bookIds.has(item.bookId));
+    this.periodReviews = this.periodReviews.filter((review) => !bookIds.has(review.bookId));
+    for (const [key, value] of this.idempotency) if (removedIds.has(value?.transactionId)) this.idempotency.delete(key);
+    return { books: books.map(({ id, name }) => ({ id, name })), transactionsRemoved: removed.length };
+  }
+
+  async deletePlatformUser(userId) {
+    const user = this.users.find((item) => item.id === userId);
+    if (!user) return null;
+    const owned = this.#booksFor(userId, true);
+    const soleOwner = owned.filter((book) => !this.memberships.some((member) => member.bookId === book.id && member.userId !== userId));
+    const bookIds = new Set(soleOwner.map((book) => book.id));
+    const orphanedTransactions = new Set(this.transactions.filter((transaction) => bookIds.has(transaction.bookId)).map((transaction) => transaction.id));
+
+    this.transactions = this.transactions.filter((transaction) => !bookIds.has(transaction.bookId));
+    this.comments = this.comments.filter((comment) => comment.authorId !== userId && !orphanedTransactions.has(comment.transactionId));
+    this.ingestion = this.ingestion.filter((event) => !bookIds.has(event.bookId));
+    this.imports = this.imports.filter((item) => !bookIds.has(item.bookId));
+    this.periodReviews = this.periodReviews.filter((review) => !bookIds.has(review.bookId));
+    this.accounts = this.accounts.filter((account) => !bookIds.has(account.bookId));
+    this.rules = this.rules.filter((rule) => !bookIds.has(rule.bookId));
+    this.budgets = this.budgets.filter((budget) => !bookIds.has(budget.bookId));
+    this.budgetPlans = this.budgetPlans.filter((plan) => !bookIds.has(plan.bookId));
+    this.recurring = this.recurring.filter((plan) => !bookIds.has(plan.bookId));
+    this.invitations = this.invitations.filter((invitation) => invitation.invitedById !== userId && !bookIds.has(invitation.bookId));
+    this.books = this.books.filter((book) => !bookIds.has(book.id));
+    this.memberships = this.memberships.filter((member) => member.userId !== userId && !bookIds.has(member.bookId));
+    this.users = this.users.filter((item) => item.id !== userId);
+
+    const emptied = [...new Set(owned.map((book) => book.workspaceId))]
+      .filter((workspaceId) => !this.books.some((book) => book.workspaceId === workspaceId));
+    this.workspaces = this.workspaces.filter((workspace) => !emptied.includes(workspace.id));
+    this.categories = this.categories.filter((category) => !emptied.includes(category.workspaceId));
+    return { userId, email: user.email, booksDeleted: soleOwner.map(({ id, name }) => ({ id, name })), workspacesDeleted: emptied };
+  }
+
+  async setUserIdentity(userId, { email, displayName, disabled }) {
+    const user = this.users.find((item) => item.id === userId);
+    if (!user) return null;
+    if (email !== undefined) user.email = email;
+    if (displayName !== undefined) user.displayName = displayName;
+    if (disabled !== undefined) user.disabledAt = disabled ? new Date() : null;
+    return user;
+  }
 }

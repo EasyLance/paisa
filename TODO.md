@@ -49,6 +49,23 @@ guesswork until real SMS from Arjun's own banks is flowing.
 
 ## Smaller, worth doing
 
+- [ ] **Install the Firebase service-account key.** *Arjun's step.* Without it
+      `/admin` can back up, clear and delete ledger data, but cannot list
+      Firebase accounts, add a user, change an email, disable an account or send
+      a password reset. Firebase console → Project settings → Service accounts →
+      *Generate new private key*, then on the droplet:
+
+      ```bash
+      sudo install -o paisa -g paisa -m 600 ~/paisa-firebase-admin.json /etc/paisa/firebase-admin.json
+      echo 'FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json' | sudo tee -a /etc/paisa/paisa.env
+      echo 'PLATFORM_ADMINS=arjunm295707@gmail.com' | sudo tee -a /etc/paisa/paisa.env
+      sudo systemctl restart paisa-api
+      ```
+
+      Give the service account the **Firebase Authentication Admin** role only.
+      It can mint a token for any user, and the droplet is shared with two other
+      apps — so 0600, owned by `paisa`, and never inside the repo.
+
 - [ ] **Publish a real contact address.** `CONTACT_EMAIL` in
       `apps/web/app/site-pages.ts` is still the placeholder
       `hello@easylancefreelance.com`, and the landing page's **Request access**

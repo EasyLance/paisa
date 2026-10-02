@@ -19,3 +19,10 @@ apps/mobile/lib/firebase_options.dart
 
 # Production env lives in the app directory
 paisa.env
+
+# A Firebase service-account key can mint a token for any user. It belongs in
+# /etc/paisa/, never here — this is the net for the day it is downloaded to the
+# repo root by habit.
+*service-account*.json
+*firebase-admin*.json
+*-adminsdk-*.json

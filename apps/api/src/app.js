@@ -11,6 +11,8 @@ import { assertCapability } from './domain/permissions.js';
 import { jsonSafe } from './domain/money.js';
 import { createStore } from './store/index.js';
 import { parseStatementCsv, parseStatementXlsx } from './domain/statement.js';
+import { mergeDirectory, platformAdmins } from './domain/platform-admin.js';
+import { createFirebaseUser, deleteFirebaseUser, firebaseAdminConfigured, listFirebaseUsers, lookupFirebaseUser, sendFirebasePasswordReset, updateFirebaseUser } from './domain/firebase-admin.js';
 
 const transactionFields = z.object({
   accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
@@ -256,6 +258,159 @@ export async function buildApp(options = {}) {
     api.get('/books/:bookId/audit-events', async (request) => { await access(request); return { items: await app.store.listAudit(request.params.bookId, 50) }; });
     api.post('/books/:bookId/period-reviews', async (request, reply) => { const { book } = await access(request, 'verify'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/), status: z.enum(['in_review', 'verified']), note: z.string().max(2000).optional() }), request.body); return reply.code(201).send(await app.store.reviewPeriod(book, body, request.actor.id)); });
   }, { prefix: '/v1' });
+
+  // ---- master admin ------------------------------------------------
+  // Membership of PLATFORM_ADMINS is the only way in, and these routes 404
+  // rather than 403 for everyone else — the same convention the book routes
+  // use, so their existence is not something you can probe for.
+  app.register(async function admin(api) {
+    api.addHook('preHandler', app.authenticate);
+    api.addHook('preHandler', async (request) => {
+      if (request.isPlatformAdmin) return;
+      request.log.warn({ email: request.actor?.email }, 'Rejected a request to the master admin API');
+      const error = new Error('Not found'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error;
+    });
+
+    // Firebase is the directory; the ledger is what we did with it. The page
+    // needs both, and needs to say which of the two is missing.
+    async function directory() {
+      const profiles = await app.store.listPlatformUsers();
+      if (!firebaseAdminConfigured()) return { firebase: false, users: mergeDirectory(profiles, []), reason: 'No Firebase service account is configured, so this lists only accounts that have signed in at least once.' };
+      try {
+        return { firebase: true, users: mergeDirectory(profiles, await listFirebaseUsers()) };
+      } catch (error) {
+        // A key that has expired or lost its role must not blank the page —
+        // the ledger half is still true and still useful.
+        api.log?.error({ reason: error?.message }, 'Firebase admin call failed');
+        return { firebase: false, users: mergeDirectory(profiles, []), reason: `Firebase could not be reached: ${error.message}` };
+      }
+    }
+
+    // An id may be a ledger profile id or, for an account that has never signed
+    // in, a Firebase uid. Resolve both so the page can pass through whatever it
+    // was given.
+    async function target(id) {
+      const profile = await app.store.getUserById(id) ?? await app.store.getUserByFirebaseUid(id);
+      const firebaseUid = profile?.firebaseUid ?? id;
+      if (!profile && !firebaseAdminConfigured()) { const error = new Error('No such user'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      return { profile, firebaseUid };
+    }
+    function requireFirebase() {
+      if (firebaseAdminConfigured()) return;
+      const error = new Error('This needs a Firebase service account on the server. Set FIREBASE_SERVICE_ACCOUNT_FILE and restart the API.');
+      error.statusCode = 501; error.code = 'FIREBASE_ADMIN_UNCONFIGURED'; throw error;
+    }
+    // Destructive calls repeat the email back. A wrong id in a script is the
+    // likeliest way to wipe the wrong household, and an id is unmemorable.
+    function confirmEmail(body, profile) {
+      const given = parse(z.object({ confirmEmail: z.string().min(3).max(320) }), body).confirmEmail.trim().toLowerCase();
+      if (given !== String(profile.email).trim().toLowerCase()) {
+        const error = new Error('confirmEmail does not match that account'); error.statusCode = 400; error.code = 'CONFIRMATION_MISMATCH'; throw error;
+      }
+    }
+    // Admin actions are not workspace-scoped, and the workspace an audit row
+    // would live in is sometimes the thing being deleted. The journal is the
+    // record that survives.
+    function record(request, action, detail) {
+      request.log.warn({ action, actor: request.actor?.email, ...detail }, 'Master admin action');
+    }
+
+    api.get('/users', async () => {
+      const { firebase, users, reason } = await directory();
+      return { items: users, firebaseConfigured: firebaseAdminConfigured(), firebaseReachable: firebase, reason: reason ?? null, admins: platformAdmins() };
+    });
+
+    api.post('/users', async (request, reply) => {
+      requireFirebase();
+      const body = parse(z.object({
+        email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()),
+        displayName: z.string().trim().min(1).max(120).optional(),
+        provision: z.boolean().default(true),
+      }), request.body);
+      if (await app.store.getUserByEmail(body.email)) { const error = new Error('That email already has a ledger profile'); error.statusCode = 409; error.code = 'EMAIL_IN_USE'; throw error; }
+      const account = await createFirebaseUser(body);
+      // No password is set anywhere. The new user follows the reset link and
+      // chooses their own, so nobody here ever handles it.
+      await sendFirebasePasswordReset(body.email);
+      let provisioned = null;
+      if (body.provision) {
+        provisioned = await app.store.provisionTenant({ firebaseUid: account.uid, email: body.email, displayName: body.displayName ?? null });
+      }
+      record(request, 'admin.user_created', { email: body.email, provisioned: Boolean(provisioned) });
+      return reply.code(201).send({ firebase: account, profile: provisioned, passwordEmailSent: true });
+    });
+
+    api.patch('/users/:id', async (request) => {
+      const { profile, firebaseUid } = await target(request.params.id);
+      const body = parse(z.object({
+        email: z.string().email().max(320).transform((value) => value.trim().toLowerCase()).optional(),
+        displayName: z.string().trim().min(1).max(120).optional(),
+        disabled: z.boolean().optional(),
+      }).superRefine(requireFields), request.body);
+      // Changing the email in only one of the two places leaves an account that
+      // can sign in but resolves to nobody, or an invitation that never matches.
+      if (body.email !== undefined || body.disabled !== undefined) requireFirebase();
+      const clash = body.email ? await app.store.getUserByEmail(body.email) : null;
+      if (clash && clash.id !== profile?.id) { const error = new Error('Another account already uses that email address'); error.statusCode = 409; error.code = 'EMAIL_IN_USE'; throw error; }
+      // A profile outlives its Firebase account if somebody deletes the account
+      // in the console. The name is still ours to change; the email and the
+      // disabled flag are not, and pretending otherwise would report success.
+      const exists = firebaseAdminConfigured() ? await lookupFirebaseUser(firebaseUid) : null;
+      if (!exists && (body.email !== undefined || body.disabled !== undefined)) {
+        const error = new Error('Firebase has no account for this user any more, so only the name can be changed here');
+        error.statusCode = 409; error.code = 'FIREBASE_ACCOUNT_MISSING'; throw error;
+      }
+      const firebase = exists ? await updateFirebaseUser(firebaseUid, body) : null;
+      const updated = profile ? await app.store.setUserIdentity(profile.id, body) : null;
+      record(request, 'admin.user_updated', { target: profile?.email ?? firebaseUid, changed: Object.keys(body) });
+      return { firebase, profile: updated };
+    });
+
+    api.post('/users/:id/password-reset', async (request) => {
+      requireFirebase();
+      const { profile, firebaseUid } = await target(request.params.id);
+      const email = profile?.email ?? (await lookupFirebaseUser(firebaseUid))?.email;
+      if (!email) { const error = new Error('That account has no email address to send a reset to'); error.statusCode = 409; error.code = 'NO_EMAIL'; throw error; }
+      // Firebase sends it. Returning the link instead would hand whoever is on
+      // this page a one-click takeover of somebody else's account.
+      await sendFirebasePasswordReset(email);
+      record(request, 'admin.password_reset_sent', { target: email });
+      return { sent: true, email };
+    });
+
+    api.get('/users/:id/export', async (request) => {
+      const { profile } = await target(request.params.id);
+      if (!profile) { const error = new Error('That account has never signed in, so there is nothing in the ledger to export'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      const data = await app.store.exportUserData(profile.id);
+      record(request, 'admin.user_exported', { target: profile.email });
+      return data;
+    });
+
+    api.post('/users/:id/ledger-reset', async (request) => {
+      const { profile } = await target(request.params.id);
+      if (!profile) { const error = new Error('That account has no ledger to reset'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      confirmEmail(request.body, profile);
+      const result = await app.store.wipeUserLedger(profile.id);
+      // Rules and budgets survive on purpose, exactly as reset-ledger.sh leaves
+      // them: they are learned configuration, not data.
+      for (const book of result.books) {
+        await app.store.addAudit({ workspaceId: (await app.store.getBook(book.id))?.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'admin.ledger_reset', entityType: 'book', entityId: book.id, before: { transactions: result.transactionsRemoved } });
+      }
+      record(request, 'admin.ledger_reset', { target: profile.email, books: result.books.length, transactions: result.transactionsRemoved });
+      return result;
+    });
+
+    api.post('/users/:id/delete', async (request) => {
+      const { profile, firebaseUid } = await target(request.params.id);
+      const body = parse(z.object({ confirmEmail: z.string().min(3).max(320), deleteFirebaseAccount: z.boolean().default(false) }), request.body);
+      if (profile) confirmEmail({ confirmEmail: body.confirmEmail }, profile);
+      if (profile && profile.email === request.actor.email) { const error = new Error('You cannot delete your own account from here'); error.statusCode = 409; error.code = 'SELF_DELETE'; throw error; }
+      const removed = profile ? await app.store.deletePlatformUser(profile.id) : { userId: null, email: body.confirmEmail, booksDeleted: [], workspacesDeleted: [] };
+      if (body.deleteFirebaseAccount) { requireFirebase(); await deleteFirebaseUser(firebaseUid); }
+      record(request, 'admin.user_deleted', { target: removed.email, books: removed.booksDeleted.length, workspaces: removed.workspacesDeleted.length, firebase: body.deleteFirebaseAccount });
+      return { ...removed, firebaseAccountDeleted: body.deleteFirebaseAccount };
+    });
+  }, { prefix: '/v1/admin' });
 
   await app.ready();
   return app;

@@ -103,6 +103,7 @@ flowchart LR
     P("◎ People<br/>roles · invitations")
     S("⚙ Accounts & rules<br/>config")
     I("📄 Public pages<br/>13 documents")
+    M("🛡 Master admin<br/>/admin · accounts & data")
 
     L --> A
     A --> O
@@ -113,18 +114,21 @@ flowchart LR
     O --> S
     L --> I
     A -.-> I
+    A --> M
 
     classDef land fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#14532d
     classDef auth fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
     classDef main fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
     classDef sub  fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
     classDef pub  fill:#e9d5ff,stroke:#a855f7,stroke-width:2px,color:#4c1d95
+    classDef root fill:#fee2e2,stroke:#ef4444,stroke-width:2px,color:#7f1d1d
 
     class L land
     class A auth
     class O main
     class T,B,R,P,S sub
     class I pub
+    class M root
 ```
 
 ---
@@ -190,7 +194,29 @@ The interface talks like a careful colleague, not a brand.
 
 ---
 
-## 10. Public Pages
+## 10. The Master Admin Console
+
+`/admin` is deliberately **not** the dashboard with extra buttons. Everything on
+it is destructive to somebody else's records, so it looks like a different
+product: a near-black top bar, a plain grey canvas, a dense table, and no
+colour that invites a click.
+
+| Rule | Why |
+|---|---|
+| Destructive actions are `danger-link`, never a filled button | They should be the hardest thing on the row to hit by accident |
+| Every destructive dialog asks you to **type the email** | An id is unmemorable; the wrong one wipes the wrong household |
+| The confirm button stays disabled until it matches | And the API checks the same thing again |
+| An unavailable action is disabled with a reason in its tooltip | "Needs a Firebase service account" beats a button that fails |
+| A failed load shows nothing, not zeros | A zeroed table reads as "nobody is signed up" |
+| Status is a pill with a word | `master admin`, `disabled`, `never signed in`, `unverified`, `active` |
+
+> **It never shows a password.** Adding a user sends them a link to set their
+> own; resetting one is an email Firebase sends. Nothing on this page puts
+> somebody else's credentials in front of whoever is running it.
+
+---
+
+## 11. Public Pages
 
 Everything outside the dashboard shares one header and one footer from
 `site-chrome.tsx`: the leaf mark, four nav links, **Login**, **Request access**,

@@ -21,6 +21,7 @@ already paid for, and what would make us change our minds.
 | **Owner** | `arjunm295707@gmail.com` → books `book_owner`, `book_home` |
 | **Second household** | `tptp.jadheer@gmail.com` → own workspace, provisioned on first sign-in |
 | **Deploy** | Manual, `./deploy/deploy.sh`, from `main`. No CI |
+| **Master admin** | `PLATFORM_ADMINS` + a service-account key at `/etc/paisa/firebase-admin.json`. Verified against the live project on 2026-10-02 |
 | **Node** | 22+ required; the shell defaults to 20.16 |
 | **Figma** | [Paisa Landing Page — Editable UI](https://www.figma.com/design/6Nht9mkYayMYdp33qbfKSb) in Arjun's **Private** workspace |
 
@@ -56,6 +57,11 @@ already paid for, and what would make us change our minds.
 | **Provisioning skips email verification** | Console-created accounts are never verified, and verification stops nobody who owns their own address | — |
 | **Public pages written honestly** | No invented testimonials, no returns policy for a product that is not sold | It becomes a real product |
 | **One `deploy/lib-db.sh`** | Three scripts each had their own `DATABASE_URL` parsing, so the fix that kept the password off the command line had to be made three times | — |
+| **Master admin is an env var, not a column** | `PLATFORM_ADMINS`. A column can be set by anything that can write the database — an injection, a restored backup, a mistyped seed. This needs shell access and a restart | Admins ever need to be managed by non-operators |
+| **No `firebase-admin` package** | It pulls google-auth-library, gaxios, Firestore and Storage in for six REST calls the API can make with the `jose` it already has. Same reasoning as the XLSX reader | Google changes the Identity Toolkit API, or we need more than user management |
+| **The service-account key is optional** | A key that can mint a token for any user should not be required to boot. Without one the admin page shows the ledger half and says what is missing | — |
+| **Admin actions are journalled, not audited** | `AuditEvent.workspaceId` is required, and the workspace is sometimes the thing being deleted. The journal is the record that survives | AuditEvent gains a nullable workspace |
+| **An export covers what the user can read; a wipe only what they own** | A CA has a membership in a household, not a ledger. Wiping them must not empty somebody else's books | — |
 | **Rules survive a ledger reset** | They are learned configuration, not data. Re-importing after a wipe should auto-categorise, not start from nothing |
 | **Landing page at `/`, dashboard also at `/`** | `page.tsx` renders the landing page when signed out instead of moving the dashboard to `/app`. Invitation links are `/#people?invite=…` and already in people's inboxes; moving the dashboard would break every one of them | The dashboard needs server rendering or its own metadata |
 | **An invitation link still opens the form** | A signed-out visitor at `/` gets marketing, but one carrying an invite token gets the sign-in card — their link is the only way in | — |
@@ -105,6 +111,12 @@ already paid for, and what would make us change our minds.
 | `next/link` in vinext | `ee is not a function` at runtime. Use plain `<a>` |
 | `sourceReference` is `manual:<id>` for **every** `createTransaction` | Including recurring postings. To find them, look for the `recurring.posted` audit event — not the source reference |
 | Deleting a recurring posting does not wind back `nextDueAt` | The plan has already advanced, so the entry never reappears. `reset-ledger.sh` warns and lists the affected plans |
+| `accounts:update` does not echo `disabled` back | Shaping its response reported every disable as a no-op, although the disable had worked. `updateFirebaseUser` reads the account back with `accounts:lookup` instead of trusting the write |
+| A profile can outlive its Firebase account | Delete the account in the console and the ledger row stays. Email and disabled changes now 409 with `FIREBASE_ACCOUNT_MISSING`; the name is still editable |
+| `node --watch` + a port already held | The restart dies with `EADDRINUSE` and the **old** process keeps serving, so edits appear to do nothing and env changes seem ignored. `lsof -ti:4000 \| xargs kill -9` first |
+| `Comment.author` and `BookInvitation.invitedBy` are `Restrict` | Deleting a `UserProfile` fails until their comments and sent invitations go first |
+| A `Book` delete cascading to `IngestionEvent` | `TransactionSource.ingestionEvent` is `Restrict`, and MariaDB does not order cascades. Delete sources → transactions → events explicitly, the order `reset-ledger.sh` already uses |
+| The API's eslint config lists its globals by hand | `fetch`, `URLSearchParams` and `AbortSignal` were all `no-undef` until added |
 | A bare `nav{}` selector in `globals.css` | It was the dashboard's mobile bottom bar — `repeat(6,1fr)` — and it reshaped the footer of **every** public page into six columns. Scoped to `.sidebar nav`; public styles now live in `landing.css` |
 | An inline `<svg>` with no `width`/`height` | Fills its container. The leaf logo rendered ~300px tall inside the sign-in card |
 | `window.scrollTo` while verifying a page | `html{scroll-behavior:smooth}` animates it, so a screenshot taken straight after catches the page mid-flight and looks blank |

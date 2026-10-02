@@ -4,6 +4,7 @@ import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
 import { monthRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { categoriesFor } from '../domain/default-categories.js';
+import { summariseUser } from '../domain/platform-admin.js';
 import { spendByCategory } from '../domain/spending.js';
 import { accountActivity, assertDistinctAccounts } from '../domain/accounts.js';
 import { duePostings, monthlyIncomeMinor, postingKey } from '../domain/recurring.js';
@@ -340,4 +341,146 @@ export class PrismaStore {
   }
   async addAudit(data) { return this.db.auditEvent.create({ data }); }
   async listAudit(bookId, limit = 50) { return this.db.auditEvent.findMany({ where: { bookId }, orderBy: { createdAt: 'desc' }, take: limit }); }
+
+  // ---- platform administration -------------------------------------
+  // Scope matters here. An export covers every book the user is a member of —
+  // exactly what they can already read, never more. A ledger wipe only touches
+  // books they own, so clearing out a CA cannot empty the household they review.
+
+  async listPlatformUsers() {
+    const [users, perBook] = await Promise.all([
+      this.db.userProfile.findMany({
+        orderBy: { createdAt: 'asc' },
+        include: { memberships: { select: { role: true, book: { select: { id: true, name: true, workspaceId: true } } } } },
+      }),
+      // One grouped query rather than two per user.
+      this.db.transaction.groupBy({ by: ['bookId'], _count: { _all: true }, _max: { createdAt: true } }),
+    ]);
+    const byBook = new Map(perBook.map((row) => [row.bookId, row]));
+    return users.map((user) => summariseUser(user, user.memberships.map(({ role, book }) => ({
+      id: book.id, name: book.name, workspaceId: book.workspaceId, role,
+      transactionCount: byBook.get(book.id)?._count?._all ?? 0,
+      lastActivityAt: byBook.get(book.id)?._max?.createdAt ?? null,
+    }))));
+  }
+
+  async #booksFor(userId, onlyOwned = false) {
+    const memberships = await this.db.bookMembership.findMany({
+      where: { userId, ...(onlyOwned ? { role: 'book_owner' } : {}) },
+      include: { book: { include: { workspace: { select: { id: true, name: true, currency: true, timezone: true } } } } },
+    });
+    return memberships.map(({ book, role }) => ({ ...book, role }));
+  }
+
+  async exportUserData(userId) {
+    const user = await this.db.userProfile.findUnique({ where: { id: userId } });
+    if (!user) return null;
+    const books = await this.#booksFor(userId);
+    const workspaceIds = [...new Set(books.map((book) => book.workspaceId))];
+    const detailed = [];
+    for (const book of books) {
+      const bookId = book.id;
+      const [accounts, rules, budgets, budgetPlan, recurringPlans, attachments, periodReviews, transactions] = await Promise.all([
+        this.db.financialAccount.findMany({ where: { bookId } }),
+        this.db.categorizationRule.findMany({ where: { bookId } }),
+        this.db.budget.findMany({ where: { bookId } }),
+        this.db.budgetPlan.findMany({ where: { bookId } }),
+        this.db.recurringPlan.findMany({ where: { bookId } }),
+        this.db.attachment.findMany({ where: { bookId } }),
+        this.db.periodReview.findMany({ where: { bookId } }),
+        this.db.transaction.findMany({ where: { bookId }, include: { sources: true, splits: true, comments: true }, orderBy: { occurredAt: 'asc' } }),
+      ]);
+      detailed.push({ ...book, accounts, rules, budgets, budgetPlan, recurringPlans, attachments, periodReviews, transactions });
+    }
+    const [categories, auditEvents] = await Promise.all([
+      this.db.category.findMany({ where: { workspaceId: { in: workspaceIds } } }),
+      this.db.auditEvent.findMany({ where: { bookId: { in: books.map((book) => book.id) } }, orderBy: { createdAt: 'asc' } }),
+    ]);
+    return {
+      exportedAt: new Date().toISOString(),
+      format: 'paisa.user-export.v1',
+      user: { id: user.id, firebaseUid: user.firebaseUid, email: user.email, displayName: user.displayName, createdAt: user.createdAt, disabledAt: user.disabledAt },
+      workspaces: [...new Map(books.map((book) => [book.workspaceId, book.workspace])).values()],
+      categories,
+      books: detailed,
+      auditEvents,
+    };
+  }
+
+  // The same order reset-ledger.sh uses, and for the same reason: a source row
+  // still pointing at an ingestion event makes that event's delete fail.
+  async wipeUserLedger(userId) {
+    const books = await this.#booksFor(userId, true);
+    if (!books.length) return { books: [], transactionsRemoved: 0 };
+    const bookIds = books.map((book) => book.id);
+    return this.db.$transaction(async (db) => {
+      const before = await db.transaction.count({ where: { bookId: { in: bookIds } } });
+      await db.transactionSource.deleteMany({ where: { transaction: { bookId: { in: bookIds } } } });
+      await db.transaction.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.ingestionEvent.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.attachment.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.periodReview.deleteMany({ where: { bookId: { in: bookIds } } });
+      // Idempotency records point at transactions by id with no foreign key, so
+      // nothing else would ever clean them up.
+      const live = await db.transaction.findMany({ select: { id: true } });
+      await db.idempotencyRecord.deleteMany({ where: { transactionId: { notIn: live.map((row) => row.id) } } });
+      return { books: books.map(({ id, name }) => ({ id, name })), transactionsRemoved: before };
+    });
+  }
+
+  // Removing the profile is not enough: Comment.author and
+  // BookInvitation.invitedBy are both Restrict, so those rows have to go first,
+  // and a book or workspace left with nobody in it is dead weight.
+  async deletePlatformUser(userId) {
+    const user = await this.db.userProfile.findUnique({ where: { id: userId } });
+    if (!user) return null;
+    const owned = await this.#booksFor(userId, true);
+    return this.db.$transaction(async (db) => {
+      const soleOwner = [];
+      for (const book of owned) {
+        const others = await db.bookMembership.count({ where: { bookId: book.id, userId: { not: userId } } });
+        if (!others) soleOwner.push(book);
+      }
+      const bookIds = soleOwner.map((book) => book.id);
+      if (bookIds.length) {
+        await db.transactionSource.deleteMany({ where: { transaction: { bookId: { in: bookIds } } } });
+        await db.comment.deleteMany({ where: { transaction: { bookId: { in: bookIds } } } });
+        await db.transaction.deleteMany({ where: { bookId: { in: bookIds } } });
+        await db.ingestionEvent.deleteMany({ where: { bookId: { in: bookIds } } });
+        await db.bookInvitation.deleteMany({ where: { bookId: { in: bookIds } } });
+        await db.book.deleteMany({ where: { id: { in: bookIds } } });
+      }
+      await db.comment.deleteMany({ where: { authorId: userId } });
+      await db.bookInvitation.deleteMany({ where: { invitedById: userId } });
+      await db.bookMembership.deleteMany({ where: { userId } });
+      await db.workspaceUser.deleteMany({ where: { userId } });
+      await db.userProfile.delete({ where: { id: userId } });
+
+      const workspaceIds = [...new Set(owned.map((book) => book.workspaceId))];
+      const emptied = [];
+      for (const workspaceId of workspaceIds) {
+        const [books, members] = await Promise.all([
+          db.book.count({ where: { workspaceId } }),
+          db.workspaceUser.count({ where: { workspaceId } }),
+        ]);
+        if (!books && !members) { await db.workspace.delete({ where: { id: workspaceId } }); emptied.push(workspaceId); }
+      }
+      const live = await db.transaction.findMany({ select: { id: true } });
+      await db.idempotencyRecord.deleteMany({ where: { transactionId: { notIn: live.map((row) => row.id) } } });
+      return { userId, email: user.email, booksDeleted: soleOwner.map(({ id, name }) => ({ id, name })), workspacesDeleted: emptied };
+    });
+  }
+
+  async setUserIdentity(userId, { email, displayName, disabled }) {
+    const current = await this.db.userProfile.findUnique({ where: { id: userId } });
+    if (!current) return null;
+    return this.db.userProfile.update({
+      where: { id: userId },
+      data: {
+        ...(email === undefined ? {} : { email }),
+        ...(displayName === undefined ? {} : { displayName }),
+        ...(disabled === undefined ? {} : { disabledAt: disabled ? new Date() : null }),
+      },
+    });
+  }
 }

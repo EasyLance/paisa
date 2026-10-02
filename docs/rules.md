@@ -145,6 +145,8 @@ flowchart TD
 | **No bare element selectors in `globals.css`** | `nav{grid-template-columns:repeat(6,1fr)}` was the dashboard's bottom bar and silently reshaped the footer of every public page. Scope to a class |
 | Public-page CSS lives in `landing.css` | `globals.css` is the dashboard's. Keeping them apart is what makes the rule above enforceable |
 | An inline `<svg>` needs its own size | Without `width`/`height` it fills its container. The leaf logo once rendered 300px tall |
+| **Branch on a status code, never on a message** | `ApiError` carries `status`. `/not found/i.test(message)` breaks the day the wording changes |
+| An error state shows nothing, not zeros | A zeroed admin table beside an error banner reads as "nobody is signed up" |
 
 ---
 
