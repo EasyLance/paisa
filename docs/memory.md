@@ -56,7 +56,10 @@ already paid for, and what would make us change our minds.
 | **Provisioning skips email verification** | Console-created accounts are never verified, and verification stops nobody who owns their own address | — |
 | **Public pages written honestly** | No invented testimonials, no returns policy for a product that is not sold | It becomes a real product |
 | **One `deploy/lib-db.sh`** | Three scripts each had their own `DATABASE_URL` parsing, so the fix that kept the password off the command line had to be made three times | — |
-| **Rules survive a ledger reset** | They are learned configuration, not data. Re-importing after a wipe should auto-categorise, not start from nothing | — |
+| **Rules survive a ledger reset** | They are learned configuration, not data. Re-importing after a wipe should auto-categorise, not start from nothing |
+| **Landing page at `/`, dashboard also at `/`** | `page.tsx` renders the landing page when signed out instead of moving the dashboard to `/app`. Invitation links are `/#people?invite=…` and already in people's inboxes; moving the dashboard would break every one of them | The dashboard needs server rendering or its own metadata |
+| **An invitation link still opens the form** | A signed-out visitor at `/` gets marketing, but one carrying an invite token gets the sign-in card — their link is the only way in | — |
+| **`localStorage` decides the first paint** | Without it the dark loading card flashed in front of the landing page, or the landing page flashed in front of a returning user. It is a rendering hint and grants nothing | — | — |
 
 ---
 
@@ -102,6 +105,10 @@ already paid for, and what would make us change our minds.
 | `next/link` in vinext | `ee is not a function` at runtime. Use plain `<a>` |
 | `sourceReference` is `manual:<id>` for **every** `createTransaction` | Including recurring postings. To find them, look for the `recurring.posted` audit event — not the source reference |
 | Deleting a recurring posting does not wind back `nextDueAt` | The plan has already advanced, so the entry never reappears. `reset-ledger.sh` warns and lists the affected plans |
+| A bare `nav{}` selector in `globals.css` | It was the dashboard's mobile bottom bar — `repeat(6,1fr)` — and it reshaped the footer of **every** public page into six columns. Scoped to `.sidebar nav`; public styles now live in `landing.css` |
+| An inline `<svg>` with no `width`/`height` | Fills its container. The leaf logo rendered ~300px tall inside the sign-in card |
+| `window.scrollTo` while verifying a page | `html{scroll-behavior:smooth}` animates it, so a screenshot taken straight after catches the page mid-flight and looks blank |
+| `node_modules/@cloudflare/workerd-darwin-arm64/bin` empty | `vinext build` fails at **config load** with a confusing "installed on another platform" message naming the same platform twice. `npm install @cloudflare/workerd-darwin-arm64 --no-save` |
 
 ---
 

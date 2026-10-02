@@ -5,7 +5,7 @@
 The conventions this codebase holds to. Every rule here exists because breaking
 it cost us something specific, and each one names that cost.
 
-> **Last reviewed** 2026-09-20 · Operational rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-02 · Operational rules live in `/CLAUDE.md`
 
 ---
 
@@ -142,6 +142,9 @@ flowchart TD
 | Dates anchor via `dateAt()` | Midnight in the **book's** timezone |
 | Labels must be literally true | "Available after spending" was a lie; it is "Balance" |
 | Plain `<a>` over `next/link` | vinext's Link prefetch throws at runtime |
+| **No bare element selectors in `globals.css`** | `nav{grid-template-columns:repeat(6,1fr)}` was the dashboard's bottom bar and silently reshaped the footer of every public page. Scope to a class |
+| Public-page CSS lives in `landing.css` | `globals.css` is the dashboard's. Keeping them apart is what makes the rule above enforceable |
+| An inline `<svg>` needs its own size | Without `width`/`height` it fills its container. The leaf logo once rendered 300px tall |
 
 ---
 

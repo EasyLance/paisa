@@ -1,6 +1,6 @@
 # Paisa — outstanding work
 
-Ordered by what unblocks the most. Last reviewed 2026-09-09.
+Ordered by what unblocks the most. Last reviewed 2026-10-02.
 
 ## Next: get the Android app onto a real phone
 
@@ -48,6 +48,16 @@ guesswork until real SMS from Arjun's own banks is flowing.
       day. Flag for review, never merge automatically.
 
 ## Smaller, worth doing
+
+- [ ] **Publish a real contact address.** `CONTACT_EMAIL` in
+      `apps/web/app/site-pages.ts` is still the placeholder
+      `hello@easylancefreelance.com`, and the landing page's **Request access**
+      button sends every visitor to `/contact-us`, where that address is the
+      only way in. Arjun's step: pick the address you want listed publicly.
+- [ ] **A real illustration for the landing page.** The hero currently uses
+      three soft CSS blobs where the Figma file has a leaf illustration
+      (`design/landing-page/paisa-landing-desktop.png`). Export it as an SVG into
+      `apps/web/public/` and drop it bottom-left behind the trust points.
 
 - [ ] **Speed up deploys.** `npm ci` deletes and rebuilds `node_modules` on every
       deploy, twice (root workspace + `apps/web`'s own lockfile), even for a

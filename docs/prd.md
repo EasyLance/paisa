@@ -5,7 +5,7 @@
 This document defines the problem Paisa solves, who it is for, the principles it
 holds to, and every functional requirement with its current state.
 
-> **Last reviewed** 2026-09-20 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
+> **Last reviewed** 2026-10-02 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
 
 ---
 
@@ -135,10 +135,11 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | ID | Requirement | State |
 |---|---|---|
 | A1 | Firebase email/password sign-in; no public sign-up | ✅ |
-| A2 | Invite someone into an existing book by email | ✅ |
-| A3 | A book always keeps one owner; nobody edits their own access | ✅ |
-| A4 | A new identity gets its own isolated household | ✅ *(flagged off)* |
-| A5 | Disable a user from the dashboard | ⛔ |
+| A2 | A public landing page at `/`, sign-in at `/login` | ✅ |
+| A3 | Invite someone into an existing book by email | ✅ |
+| A4 | A book always keeps one owner; nobody edits their own access | ✅ |
+| A5 | A new identity gets its own isolated household | ✅ *(flagged off)* |
+| A6 | Disable a user from the dashboard | ⛔ |
 
 ---
 

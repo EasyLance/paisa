@@ -34,6 +34,7 @@ cannot move money.** Accounts are labels on a ledger, nothing more.
 
 | | Feature | Detail |
 |---|---|---|
+| 🌱 | **A public front door** | Landing page at `/`, sign-in at `/login`, and thirteen information pages behind one shared header and footer |
 | 📄 | **Statement import** | CSV and Excel, read on upload. SBI and HDFC narrations understood. Re-importing is safe — every row is fingerprinted |
 | ⚖️ | **Amounts you can trust** | The bank's own running-balance column is used as a checksum. Zero warnings means every amount parsed correctly |
 | 🏷️ | **Learns your categories** | Confirm once with "apply to future" and the next payment to the same merchant or VPA files itself |
@@ -106,7 +107,8 @@ Financial-App/
 │   ├── api/       Fastify REST API, Prisma schema, the only test suite
 │   ├── worker/    BullMQ stubs — no Redis runs, effectively unused
 │   └── mobile/    Flutter Android app + Kotlin SMS bridge
-├── deploy/        bootstrap · deploy · migrate · reset-ledger · systemd · Apache
+├── deploy/        bootstrap · deploy · migrate · reset-ledger · reset-rules · systemd · Apache
+├── design/        landing-page previews exported from Figma
 └── docs/          prd · architecture · rules · design · tasks · memory
 ```
 

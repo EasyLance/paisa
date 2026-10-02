@@ -4,7 +4,7 @@
 
 This document tracks what is shipped, what is next, and who owns each step.
 
-> **Last reviewed** 2026-09-20 · `TODO.md` at the repo root is the working
+> **Last reviewed** 2026-10-02 · `TODO.md` at the repo root is the working
 > checklist — if the two disagree, **`TODO.md` wins**
 
 ---
@@ -59,7 +59,7 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 | 🏠 **Tenancy** | Isolated workspaces · invitations · self-provisioning (flagged off) |
 | 🔒 **Security** | Full-codebase audit; all High and Medium findings fixed |
 | 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset |
-| 🌐 **Public** | 13 information pages at `/about-us`, `/help`, … |
+| 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer |
 
 ---
 
@@ -97,6 +97,8 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 | Task | Why it matters |
 |---|---|
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
+| **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder, and the landing page's **Request access** button points at `/contact-us` |
+| **A real illustration for the landing hero** | Three CSS blobs stand in for the leaf illustration in the Figma file |
 | **PDF import** | Blocked on one real sample — row detection is shaped entirely by a bank's layout |
 | **Refunds are invisible** | `kind: 'refund'` appears in no tile. Decide the definition first |
 | **Drop per-category budgets** | Superseded by the group plan; endpoints still exist unread |

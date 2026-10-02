@@ -5,7 +5,8 @@
 This document defines the visual language, layout system, component patterns and
 writing voice of the dashboard.
 
-> **Last reviewed** 2026-09-20 · Tokens live in `apps/web/app/globals.css`
+> **Last reviewed** 2026-10-02 · Dashboard tokens live in
+> `apps/web/app/globals.css`; public pages in `apps/web/app/landing.css`
 
 ---
 
@@ -58,6 +59,7 @@ content comes forward.
 
 | Role | Family | Size | Notes |
 |---|---|---|---|
+| Landing `h1` | Geist | `clamp(38–62px)` / 800 | `-2px` tracking — the one place a display weight is used |
 | `h1` | Georgia, serif | 26px / 500 | `-0.55px` tracking — the editorial note |
 | `h2` | Georgia, serif | 15–17px | Card titles |
 | `.eyebrow` | Geist | 9px / 760 | `0.1em` tracking, uppercase — labels a region |
@@ -92,7 +94,8 @@ with an ellipsis so the Add button is never pushed off.
 
 ```mermaid
 flowchart LR
-    A("🔐 Sign in<br/>Firebase")
+    L("🌱 Landing<br/>/ — public")
+    A("🔐 Sign in<br/>/login · Firebase")
     O("⌂ Overview<br/>tiles · breakdown · budget")
     T("⇄ Transactions<br/>search · review · import")
     B("◌ Budgets<br/>% per group")
@@ -101,19 +104,23 @@ flowchart LR
     S("⚙ Accounts & rules<br/>config")
     I("📄 Public pages<br/>13 documents")
 
+    L --> A
     A --> O
     O --> T
     O --> B
     O --> R
     O --> P
     O --> S
+    L --> I
     A -.-> I
 
+    classDef land fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#14532d
     classDef auth fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
     classDef main fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
     classDef sub  fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
     classDef pub  fill:#e9d5ff,stroke:#a855f7,stroke-width:2px,color:#4c1d95
 
+    class L land
     class A auth
     class O main
     class T,B,R,P,S sub
@@ -185,7 +192,23 @@ The interface talks like a careful colleague, not a brand.
 
 ## 10. Public Pages
 
-The thirteen information pages (`/about-us`, `/help`, …) share one narrow 760px
-column, a serif `h1`, and a footer linking to every other page. They inherit the
-tokens but not the dashboard chrome — they are documents, and should read like
-documents.
+Everything outside the dashboard shares one header and one footer from
+`site-chrome.tsx`: the leaf mark, four nav links, **Login**, **Request access**,
+and a footer listing all thirteen information pages in three columns. One copy,
+so the links cannot drift apart.
+
+| Page | Shape |
+|---|---|
+| `/` landing | Cream canvas, soft green blobs, a display headline with a hand-drawn swoosh, two actions, three trust points, and a static preview of the dashboard beside it |
+| `/login` | The same chrome around the existing sign-in card |
+| `/<slug>` ×13 | One narrow 760px column, serif `h1` — they are documents and should read like documents |
+
+Three rules the landing page follows:
+
+1. **The preview is sample data and says so.** A figure a visitor could mistake
+   for their own is worse than no figure.
+2. **"Request access" is an email, not a form.** Nothing is sold and there is no
+   public sign-up, so the button goes to `/contact-us`.
+3. **The landing page never flashes in front of a returning user.** A
+   `paisa.returning` flag in `localStorage` decides which screen `/` shows while
+   Firebase resolves. It is a rendering hint, never a permission.

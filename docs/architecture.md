@@ -5,7 +5,7 @@
 This document describes the overall system architecture, technology stack, folder
 structure, data flow, and key design decisions for the Paisa application.
 
-> **Last reviewed** 2026-09-20 · **Live** <https://paisa.easylancefreelance.com>
+> **Last reviewed** 2026-10-02 · **Live** <https://paisa.easylancefreelance.com>
 
 ---
 
@@ -78,9 +78,15 @@ Financial-App/
 │   ├── web/              React dashboard — NOT an npm workspace, own lockfile
 │   │   └── app/
 │   │       ├── page.tsx          the entire dashboard, dense single-file style
+│   │       │                      — renders the landing page when signed out
+│   │       ├── landing.tsx       the public landing page + dashboard preview
+│   │       ├── login/            the sign-in route
+│   │       ├── sign-in.tsx       the sign-in card, shared by "/" and /login
+│   │       ├── site-chrome.tsx   header + footer for every public page
 │   │       ├── [slug]/           13 public information pages
 │   │       ├── site-pages.ts     their content
-│   │       └── globals.css       design tokens + every component style
+│   │       ├── landing.css       public-page styles (the dashboard never loads it)
+│   │       └── globals.css       design tokens + every dashboard style
 │   ├── api/              Fastify REST API
 │   │   ├── src/
 │   │   │   ├── app.js            routes, validation, capability checks
