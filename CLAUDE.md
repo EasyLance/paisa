@@ -108,6 +108,12 @@ Three habits that keep them honest:
   asserts `sum(byCategory) === spentMinor + movedMinor`; there is a test.
 - Non-trivial logic leaves one runnable check behind. Tests live in
   `apps/api/test/api.test.js`.
+- **A book's month is its pay cycle, not the calendar.** `Book.periodStartDay`
+  (1–28, default 1) moves the boundary to just before payday, so a month-end
+  salary lands at the start of the period it funds instead of the end of the one
+  before. `domain/period.js` is the only place that knows the rule; the
+  dashboard mirrors the *label* calculation and takes the window itself from the
+  summary response so the two cannot disagree on screen.
 - Timezone is Asia/Kolkata. Dates from a form anchor to midnight in the book's
   timezone via `dateAt()`, so a month-end salary doesn't slip into next month.
 

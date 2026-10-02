@@ -6,6 +6,7 @@ import { MemoryStore } from '../src/store/memory-store.js';
 import { parseStatementCsv } from '../src/domain/statement.js';
 import { advance, duePostings } from '../src/domain/recurring.js';
 import { isPlatformAdmin } from '../src/domain/platform-admin.js';
+import { currentPeriodLabel, normaliseStartDay, periodRangeUtc } from '../src/domain/period.js';
 import { deflateRawSync } from 'node:zlib';
 
 const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
@@ -934,6 +935,68 @@ describe('Paisa API authorization and ledger invariants', () => {
         expect(listed.json().firebaseConfigured).toBe(false);
         expect(listed.json().reason).toMatch(/service account/i);
       });
+    });
+  });
+  describe('pay cycles', () => {
+    // A household paid on the last working day cannot use calendar months: the
+    // salary that funds November lands in October, so the dashboard reads as a
+    // month-long deficit and then leaps on the 30th.
+    it('labels a late-month cycle by the month it pays for', () => {
+      const tz = 'Asia/Kolkata';
+      const iso = (d) => d.toISOString();
+      // Day 26: "2026-11" is 26 Oct -> 26 Nov, because that money buys November.
+      const november = periodRangeUtc('2026-11', tz, 26);
+      expect(iso(november.start)).toBe('2026-10-25T18:30:00.000Z'); // 26 Oct 00:00 IST
+      expect(iso(november.end)).toBe('2026-11-25T18:30:00.000Z');
+      // Day 5 pays for the month it starts in, so no shift.
+      const early = periodRangeUtc('2026-11', tz, 5);
+      expect(iso(early.start)).toBe('2026-11-04T18:30:00.000Z');
+      // Day 1 must stay exactly what it has always been.
+      const calendar = periodRangeUtc('2026-11', tz, 1);
+      expect(iso(calendar.start)).toBe('2026-10-31T18:30:00.000Z');
+      expect(iso(calendar.end)).toBe('2026-11-30T18:30:00.000Z');
+    });
+
+    it('moves the current period on payday, not on the 1st', () => {
+      const tz = 'Asia/Kolkata';
+      const on = (day) => new Date(`2026-10-${day}T12:00:00Z`);
+      expect(currentPeriodLabel(on('02'), tz, 26)).toBe('2026-10'); // still spending Sept's pay
+      expect(currentPeriodLabel(on('25'), tz, 26)).toBe('2026-10');
+      expect(currentPeriodLabel(on('27'), tz, 26)).toBe('2026-11'); // paid, November has begun
+      expect(currentPeriodLabel(on('02'), tz, 5)).toBe('2026-09');
+      expect(currentPeriodLabel(on('06'), tz, 5)).toBe('2026-10');
+      expect(currentPeriodLabel(on('02'), tz, 1)).toBe('2026-10');
+    });
+
+    it('rejects a start day that some month would not have', async () => {
+      const bad = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun', headers: as('user_owner'), payload: { periodStartDay: 31 } });
+      expect(bad.statusCode).toBe(400);
+      expect(normaliseStartDay(31)).toBe(1);
+      expect(normaliseStartDay(0)).toBe(1);
+      expect(normaliseStartDay(2.5)).toBe(1);
+    });
+
+    it('counts a month-end salary into the period it funds', async () => {
+      // Salary on 30 Sept, rent on 2 Oct — one pay cycle, not two months.
+      const salary = { kind: 'income', amountMinor: '50000000', currency: 'INR', merchant: 'Acme', occurredAt: '2026-09-30T05:30:00.000Z', state: 'confirmed' };
+      const rent = { kind: 'expense', amountMinor: '-2000000', currency: 'INR', merchant: 'Landlord', occurredAt: '2026-10-02T05:30:00.000Z', state: 'confirmed' };
+      for (const [index, payload] of [salary, rent].entries()) {
+        const created = await app.inject({ method: 'POST', url: '/v1/books/book_arjun/transactions', headers: { ...as('user_owner'), 'idempotency-key': `cycle-seed-${index}` }, payload });
+        expect(created.statusCode).toBe(201);
+      }
+      const calendar = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-10', headers: as('user_owner') });
+      // On calendar months October sees the rent but not the salary that paid for it.
+      expect(calendar.json().incomeMinor).toBe('0');
+
+      const moved = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun', headers: as('user_owner'), payload: { periodStartDay: 26 } });
+      expect(moved.statusCode).toBe(200);
+      const cycle = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/summary?month=2026-10', headers: as('user_owner') });
+      const body = cycle.json();
+      expect(body.incomeMinor).toBe('50000000');
+      expect(BigInt(body.spentMinor)).toBeGreaterThanOrEqual(2000000n);
+      // The window is reported, so the header can never contradict the figures.
+      expect(body.period).toMatchObject({ month: '2026-10', startDay: 26 });
+      expect(body.period.startsAt).toBe('2026-09-25T18:30:00.000Z');
     });
   });
 });

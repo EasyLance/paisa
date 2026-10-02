@@ -5,7 +5,7 @@
 This document defines the problem Paisa solves, who it is for, the principles it
 holds to, and every functional requirement with its current state.
 
-> **Last reviewed** 2026-10-02 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
+> **Last reviewed** 2026-10-03 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
 
 ---
 
@@ -129,6 +129,7 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | M5 | Recurring plans post themselves when due, month-end sticky | ✅ |
 | M6 | Show movement **between** your own accounts | ✅ |
 | M7 | Refunds counted somewhere | ⛔ |
+| M8 | A book's month follows its **pay cycle**, not the calendar | ✅ |
 
 ### 5.5 Access
 

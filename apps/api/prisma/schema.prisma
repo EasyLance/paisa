@@ -57,12 +57,12 @@ enum InvitationStatus {
 }
 
 model Workspace {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
-  currency    String   @default("INR") @db.Char(3)
-  timezone    String   @default("Asia/Kolkata")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  currency    String             @default("INR") @db.Char(3)
+  timezone    String             @default("Asia/Kolkata")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   books       Book[]
   users       WorkspaceUser[]
   accounts    FinancialAccount[]
@@ -72,17 +72,17 @@ model Workspace {
 }
 
 model UserProfile {
-  id           String   @id @default(cuid())
-  firebaseUid  String   @unique
-  email        String   @unique
-  displayName  String?
-  disabledAt   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  workspaces   WorkspaceUser[]
-  memberships  BookMembership[]
-  comments     Comment[]
-  auditEvents  AuditEvent[] @relation("AuditActor")
+  id              String           @id @default(cuid())
+  firebaseUid     String           @unique
+  email           String           @unique
+  displayName     String?
+  disabledAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  workspaces      WorkspaceUser[]
+  memberships     BookMembership[]
+  comments        Comment[]
+  auditEvents     AuditEvent[]     @relation("AuditActor")
   sentInvitations BookInvitation[] @relation("InvitationSender")
 }
 
@@ -91,34 +91,39 @@ model WorkspaceUser {
   userId      String
   isAdmin     Boolean     @default(false)
   createdAt   DateTime    @default(now())
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([workspaceId, userId])
 }
 
 model Book {
-  id            String          @id @default(cuid())
-  workspaceId   String
-  name          String
-  visibility    BookVisibility  @default(private)
-  currency      String          @default("INR") @db.Char(3)
-  timezone      String          @default("Asia/Kolkata")
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  memberships   BookMembership[]
-  accounts      FinancialAccount[]
-  transactions  Transaction[]
-  ingestion     IngestionEvent[]
-  rules         CategorizationRule[]
-  budgets       Budget[]
-  recurring     RecurringPlan[]
-  reviews       PeriodReview[]
-  attachments   Attachment[]
-  auditEvents   AuditEvent[]
-  invitations   BookInvitation[]
+  id             String               @id @default(cuid())
+  workspaceId    String
+  name           String
+  visibility     BookVisibility       @default(private)
+  currency       String               @default("INR") @db.Char(3)
+  timezone       String               @default("Asia/Kolkata")
+  // The day of the month this book's pay cycle starts. 1 = calendar months.
+  // Capped at 28 in the API so no month is ever missing the day.
+  periodStartDay Int                  @default(1)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships    BookMembership[]
+  accounts       FinancialAccount[]
+  transactions   Transaction[]
+  ingestion      IngestionEvent[]
+  rules          CategorizationRule[]
+  budgets        Budget[]
+  recurring      RecurringPlan[]
+  reviews        PeriodReview[]
+  attachments    Attachment[]
+  auditEvents    AuditEvent[]
+  invitations    BookInvitation[]
+  budgetPlan     BudgetPlan[]
+
   @@index([workspaceId])
-  budgetPlan       BudgetPlan[]
 }
 
 model BookMembership {
@@ -129,6 +134,7 @@ model BookMembership {
   createdAt   DateTime    @default(now())
   book        Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
   user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([bookId, userId])
   @@index([userId])
 }
@@ -149,6 +155,7 @@ model BookInvitation {
   workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   book        Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
   invitedBy   UserProfile      @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
   @@index([bookId, status])
   @@index([email, status])
 }
@@ -163,81 +170,85 @@ model IdempotencyRecord {
   transactionId String
   expiresAt     DateTime
   createdAt     DateTime @default(now())
+
   @@unique([workspaceId, actorId, operation, keyHash])
   @@index([expiresAt])
 }
 
 model FinancialAccount {
-  id               String   @id @default(cuid())
-  workspaceId      String
-  bookId           String
-  name             String
-  institution      String?
-  accountMask      String?
-  accountType      String
-  currency         String   @default("INR") @db.Char(3)
-  openingBalance   BigInt   @default(0)
-  archivedAt       DateTime?
-  createdAt        DateTime @default(now())
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  transactions     Transaction[]     @relation("TransactionAccount")
-  transfersIn      Transaction[]     @relation("TransactionCounterAccount")
-  ingestion        IngestionEvent[]
+  id             String           @id @default(cuid())
+  workspaceId    String
+  bookId         String
+  name           String
+  institution    String?
+  accountMask    String?
+  accountType    String
+  currency       String           @default("INR") @db.Char(3)
+  openingBalance BigInt           @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book           Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]    @relation("TransactionAccount")
+  transfersIn    Transaction[]    @relation("TransactionCounterAccount")
+  ingestion      IngestionEvent[]
+
   @@index([workspaceId, bookId])
 }
 
 model IngestionEvent {
-  id              String         @id @default(cuid())
-  workspaceId     String
-  bookId          String
-  accountId       String?
-  sourceType      TransactionSourceType
-  sourceHash      String
-  externalRef     String?
-  direction       TransactionKind
-  amountMinor     BigInt
-  currency        String         @default("INR") @db.Char(3)
-  merchant        String?
-  occurredAt      DateTime
-  state           IngestionState @default(received)
-  metadata        Json?
-  createdAt       DateTime       @default(now())
-  book            Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  account         FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  source          TransactionSource?
+  id          String                @id @default(cuid())
+  workspaceId String
+  bookId      String
+  accountId   String?
+  sourceType  TransactionSourceType
+  sourceHash  String
+  externalRef String?
+  direction   TransactionKind
+  amountMinor BigInt
+  currency    String                @default("INR") @db.Char(3)
+  merchant    String?
+  occurredAt  DateTime
+  state       IngestionState        @default(received)
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+  book        Book                  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  account     FinancialAccount?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  source      TransactionSource?
+
   @@unique([workspaceId, sourceHash])
   @@index([bookId, occurredAt])
 }
 
 model Transaction {
-  id              String           @id @default(cuid())
-  workspaceId     String
-  bookId          String
-  accountId       String?
+  id               String              @id @default(cuid())
+  workspaceId      String
+  bookId           String
+  accountId        String?
   // Where a transfer landed. Only meaningful when kind is transfer.
   counterAccountId String?
-  categoryId      String?
-  kind            TransactionKind
-  state           TransactionState @default(pending_review)
-  amountMinor     BigInt
-  currency        String           @default("INR") @db.Char(3)
-  merchant        String?
-  note            String?          @db.Text
-  occurredAt      DateTime
-  transferGroupId String?
-  refundOfId      String?
-  createdById     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  book            Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  account         FinancialAccount? @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: SetNull)
-  counterAccount  FinancialAccount? @relation("TransactionCounterAccount", fields: [counterAccountId], references: [id], onDelete: SetNull)
-  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  sources         TransactionSource[]
-  splits          TransactionSplit[]
-  comments        Comment[]
-  attachments     Attachment[]
+  categoryId       String?
+  kind             TransactionKind
+  state            TransactionState    @default(pending_review)
+  amountMinor      BigInt
+  currency         String              @default("INR") @db.Char(3)
+  merchant         String?
+  note             String?             @db.Text
+  occurredAt       DateTime
+  transferGroupId  String?
+  refundOfId       String?
+  createdById      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  book             Book                @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  account          FinancialAccount?   @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: SetNull)
+  counterAccount   FinancialAccount?   @relation("TransactionCounterAccount", fields: [counterAccountId], references: [id], onDelete: SetNull)
+  category         Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sources          TransactionSource[]
+  splits           TransactionSplit[]
+  comments         Comment[]
+  attachments      Attachment[]
+
   @@index([workspaceId, bookId, occurredAt])
   @@index([bookId, state])
 }
@@ -251,7 +262,8 @@ model TransactionSource {
   importedAmount   BigInt
   importedAt       DateTime              @default(now())
   transaction      Transaction           @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  ingestionEvent   IngestionEvent?        @relation(fields: [ingestionEventId], references: [id], onDelete: Restrict)
+  ingestionEvent   IngestionEvent?       @relation(fields: [ingestionEventId], references: [id], onDelete: Restrict)
+
   @@unique([sourceType, sourceReference])
 }
 
@@ -266,19 +278,20 @@ model TransactionSplit {
 }
 
 model Category {
-  id          String   @id @default(cuid())
-  workspaceId String
-  name        String
-  groupName   String
-  color       String
-  archivedAt  DateTime?
-  createdAt   DateTime @default(now())
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id           String               @id @default(cuid())
+  workspaceId  String
+  name         String
+  groupName    String
+  color        String
+  archivedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  workspace    Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   splits       TransactionSplit[]
   budgets      Budget[]
   rules        CategorizationRule[]
   recurring    RecurringPlan[]
+
   @@unique([workspaceId, name])
 }
 
@@ -294,6 +307,7 @@ model CategorizationRule {
   createdAt   DateTime @default(now())
   book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@index([bookId, priority])
 }
 
@@ -306,6 +320,7 @@ model BudgetPlan {
   groupName String
   percent   Int
   book      Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
   @@unique([bookId, groupName])
 }
 
@@ -320,6 +335,7 @@ model Budget {
   updatedAt   DateTime @updatedAt
   book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@unique([bookId, categoryId, month])
 }
 
@@ -339,14 +355,15 @@ model RecurringPlan {
 }
 
 model PeriodReview {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   bookId       String
-  month        DateTime @db.Date
+  month        DateTime  @db.Date
   status       String
   reviewedById String?
   reviewedAt   DateTime?
-  note         String?  @db.Text
-  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  note         String?   @db.Text
+  book         Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
   @@unique([bookId, month])
 }
 
@@ -361,22 +378,23 @@ model Comment {
 }
 
 model Attachment {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   bookId        String
   transactionId String?
-  storageKey    String   @unique
+  storageKey    String       @unique
   contentType   String
   sizeBytes     Int
   sha256        String
   expiresAt     DateTime?
-  createdAt     DateTime @default(now())
-  book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  book          Book         @relation(fields: [bookId], references: [id], onDelete: Cascade)
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
   @@index([bookId])
 }
 
 model AuditEvent {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   workspaceId String
   bookId      String?
   actorId     String?
@@ -386,10 +404,11 @@ model AuditEvent {
   before      Json?
   after       Json?
   ipHash      String?
-  createdAt   DateTime @default(now())
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  book        Book?     @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  book        Book?        @relation(fields: [bookId], references: [id], onDelete: SetNull)
   actor       UserProfile? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
   @@index([workspaceId, createdAt])
   @@index([bookId, createdAt])
 }

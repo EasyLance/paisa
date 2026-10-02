@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
-import { isInBookMonth } from '../domain/period.js';
+import { isInBookPeriod, periodRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { DEFAULT_CATEGORIES, categoriesFor } from '../domain/default-categories.js';
 import { spendByCategory } from '../domain/spending.js';
@@ -33,9 +33,9 @@ function withSeedIdentity(user) {
 const categories = DEFAULT_CATEGORIES.map(([id, name, groupName, color]) => ({ id, workspaceId: 'ws_household', name, groupName, color }));
 
 const books = [
-  { id: 'book_arjun', workspaceId: 'ws_household', name: "Arjun's finances", visibility: 'private', currency: 'INR', timezone: 'Asia/Kolkata' },
-  { id: 'book_priya', workspaceId: 'ws_household', name: "Priya's finances", visibility: 'private', currency: 'INR', timezone: 'Asia/Kolkata' },
-  { id: 'book_home', workspaceId: 'ws_household', name: 'Household', visibility: 'shared', currency: 'INR', timezone: 'Asia/Kolkata' },
+  { id: 'book_arjun', workspaceId: 'ws_household', name: "Arjun's finances", visibility: 'private', currency: 'INR', timezone: 'Asia/Kolkata', periodStartDay: 1 },
+  { id: 'book_priya', workspaceId: 'ws_household', name: "Priya's finances", visibility: 'private', currency: 'INR', timezone: 'Asia/Kolkata', periodStartDay: 1 },
+  { id: 'book_home', workspaceId: 'ws_household', name: 'Household', visibility: 'shared', currency: 'INR', timezone: 'Asia/Kolkata', periodStartDay: 1 },
 ];
 
 const memberships = [
@@ -125,6 +125,12 @@ export class MemoryStore {
     return this.memberships.filter((member) => member.userId === userId).map((member) => ({ ...this.books.find((book) => book.id === member.bookId), role: member.role }));
   }
   async getBook(bookId) { return this.books.find((book) => book.id === bookId) ?? null; }
+  async updateBook(bookId, fields) {
+    const book = this.books.find((item) => item.id === bookId);
+    if (!book) return null;
+    Object.assign(book, fields);
+    return book;
+  }
   async getMembership(bookId, userId) { return this.memberships.find((member) => member.bookId === bookId && member.userId === userId) ?? null; }
   async listMemberships(bookId) {
     return this.memberships.filter((member) => member.bookId === bookId).map((member) => ({ ...member, user: this.users.find((user) => user.id === member.userId) }));
@@ -352,8 +358,12 @@ export class MemoryStore {
     this.imports.push(record); return record;
   }
   async summary(bookId, month) {
-    const timezone = this.books.find((book) => book.id === bookId)?.timezone ?? 'UTC';
-    const txs = this.transactions.filter((item) => item.bookId === bookId && !['excluded', 'voided'].includes(item.state) && (!month || isInBookMonth(item.occurredAt, month, timezone)));
+    const book = this.books.find((item) => item.id === bookId);
+    const timezone = book?.timezone ?? 'UTC';
+    const startDay = book?.periodStartDay ?? 1;
+    const range = month ? periodRangeUtc(month, timezone, startDay) : null;
+    const periodMeta = range ? { month, startDay, startsAt: range.start.toISOString(), endsAt: range.end.toISOString() } : null;
+    const txs = this.transactions.filter((item) => item.bookId === bookId && !['excluded', 'voided'].includes(item.state) && (!month || isInBookPeriod(item.occurredAt, month, timezone, startDay)));
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
     // Money that left for your own accounts. Not spending, so it is kept out of
@@ -361,10 +371,10 @@ export class MemoryStore {
     const moved = txs.filter((item) => item.kind === 'transfer' && item.amountMinor < 0n).reduce((sum, item) => sum + -item.amountMinor, 0n);
     const byCategory = spendByCategory(txs, this.categories);
     const { byAccount, flows } = accountActivity(txs, await this.listAccounts(bookId));
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory , period: periodMeta };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
-    if (status === 'verified' && this.transactions.some((item) => item.bookId === book.id && item.state === 'pending_review' && isInBookMonth(item.occurredAt, month, book.timezone))) {
+    if (status === 'verified' && this.transactions.some((item) => item.bookId === book.id && item.state === 'pending_review' && isInBookPeriod(item.occurredAt, month, book.timezone, book.periodStartDay ?? 1))) {
       const error = new Error('Resolve pending transactions before verifying this period'); error.statusCode = 409; error.code = 'PERIOD_HAS_PENDING_TRANSACTIONS'; throw error;
     }
     let review = this.periodReviews.find((item) => item.bookId === book.id && item.month === month);

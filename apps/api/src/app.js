@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import authPlugin from './plugins/auth.js';
 import { assertCapability } from './domain/permissions.js';
 import { jsonSafe } from './domain/money.js';
+import { MAX_PERIOD_START_DAY, MIN_PERIOD_START_DAY } from './domain/period.js';
 import { createStore } from './store/index.js';
 import { parseStatementCsv, parseStatementXlsx } from './domain/statement.js';
 import { mergeDirectory, platformAdmins } from './domain/platform-admin.js';
@@ -134,6 +135,20 @@ export async function buildApp(options = {}) {
     });
     api.get('/workspaces', async (request) => ({ items: await app.store.listWorkspaces(request.actor.id) }));
     api.get('/books', async (request) => ({ items: await app.store.listBooks(request.actor.id) }));
+    api.patch('/books/:bookId', async (request) => {
+      const { book } = await access(request, 'manage_book');
+      // 1 is a calendar month. Anything else moves the boundary to just before
+      // payday, so a salary always lands at the start of the period it funds.
+      // 28 is the ceiling: no month is missing that day.
+      const body = parse(z.object({
+        name: z.string().trim().min(1).max(120).optional(),
+        periodStartDay: z.number().int().min(MIN_PERIOD_START_DAY).max(MAX_PERIOD_START_DAY).optional(),
+      }).superRefine(requireFields), request.body);
+      const updated = await app.store.updateBook(book.id, body);
+      if (!updated) { const error = new Error('Book not found'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      await app.store.addAudit({ workspaceId: book.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'book.updated', entityType: 'book', entityId: book.id, before: { name: book.name, periodStartDay: book.periodStartDay ?? 1 }, after: body });
+      return updated;
+    });
     api.get('/books/:bookId/memberships', async (request) => { await access(request, 'manage_book'); return { items: await app.store.listMemberships(request.params.bookId) }; });
     async function assertNotLastOwner(book, userId, actorId) {
       if (userId === actorId) { const error = new Error('You cannot change or remove your own access to this book'); error.statusCode = 409; error.code = 'SELF_ACCESS_CHANGE'; throw error; }

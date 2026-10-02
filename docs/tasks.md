@@ -4,7 +4,7 @@
 
 This document tracks what is shipped, what is next, and who owns each step.
 
-> **Last reviewed** 2026-10-02 · `TODO.md` at the repo root is the working
+> **Last reviewed** 2026-10-03 · `TODO.md` at the repo root is the working
 > checklist — if the two disagree, **`TODO.md` wins**
 
 ---
@@ -53,6 +53,7 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 |---|---|
 | 📒 **Ledger** | Full edit of any entry · void · split · comments · pagination beyond 100 · month navigation |
 | 📄 **Import** | CSV and `.xlsx` on one pipeline · SBI and HDFC narrations · balance checksum · per-row dedupe · 2,000-row cap |
+| 📅 **Pay cycles** | A book's month follows payday, not the calendar · per-book start day 1–28 · window shown beside the month name |
 | 💰 **Money model** | Spent / Saving / Balance · breakdown covering uncategorized, splits and transfers · account-to-account flows |
 | 🎯 **Budgets** | Percentage of expected income per group · 50/30/20 preset · expected income from recurring plans |
 | 🔁 **Recurring** | Self-posting when due · month-end sticky · catch-up after downtime · idempotent |
@@ -106,7 +107,7 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 | **Refunds are invisible** | `kind: 'refund'` appears in no tile. Decide the definition first |
 | **Drop per-category budgets** | Superseded by the group plan; endpoints still exist unread |
 | `GET /transactions/:id` | Reading one entry means listing and filtering client-side |
-| Recurring "last working day" | Month-end is sticky and correct, but holidays need a calendar |
+| Recurring "last working day" | Month-end is sticky and correct, but holidays need a calendar. Less pressing now — pay cycles no longer depend on predicting the exact date |
 
 ---
 

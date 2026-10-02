@@ -5,7 +5,7 @@
 This document defines the visual language, layout system, component patterns and
 writing voice of the dashboard.
 
-> **Last reviewed** 2026-10-02 · Dashboard tokens live in
+> **Last reviewed** 2026-10-03 · Dashboard tokens live in
 > `apps/web/app/globals.css`; public pages in `apps/web/app/landing.css`
 
 ---
@@ -213,6 +213,7 @@ colour that invites a click.
 | The confirm button stays disabled until it matches | And the API checks the same thing again |
 | An unavailable action is disabled with a reason in its tooltip | "Needs a Firebase service account" beats a button that fails |
 | A failed load shows nothing, not zeros | A zeroed table reads as "nobody is signed up" |
+| Pay cycle shown beside the month | `OCTOBER 2026  26 Sept – 25 Oct` whenever a book is off calendar months — the month name alone is ambiguous |
 | Status is a pill with a word | `master admin`, `disabled`, `never signed in`, `unverified`, `active` |
 | Metadata sits at **9px**, not 8 | 8px is below the floor in §3, and this is the table where irreversible decisions are made |
 

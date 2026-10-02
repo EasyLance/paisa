@@ -11,7 +11,7 @@ UPI · NEFT · ACH · integer paise · Asia-Kolkata · invite-only
 ![Fastify](https://img.shields.io/badge/Fastify-API-000000?logo=fastify&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-MariaDB-2d3748?logo=prisma&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-Android-02569b?logo=flutter&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-57%20passing-10b981)
+![Tests](https://img.shields.io/badge/tests-68%20passing-10b981)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
@@ -40,6 +40,7 @@ cannot move money.** Accounts are labels on a ledger, nothing more.
 | ⚖️ | **Amounts you can trust** | The bank's own running-balance column is used as a checksum. Zero warnings means every amount parsed correctly |
 | 🏷️ | **Learns your categories** | Confirm once with "apply to future" and the next payment to the same merchant or VPA files itself |
 | 💰 | **Honest money model** | **Spent** = expenses · **Saving** = transfers to your own accounts · **Balance** = income − spent − saving |
+| 📅 | **Months that follow your payday** | Paid on the last working day? Set the cycle to start on the 26th and your salary lands at the start of the month it funds |
 | 🎯 | **Budgets as percentages** | 50 / 30 / 20 across category groups, derived from expected income — so a budget works before payday |
 | 🔁 | **Recurring plans post themselves** | Month-end sticky: 31 Jan → 28 Feb → **31** Mar, no drift |
 | 🔀 | **Account-to-account flows** | See what moved from one of your accounts to another |
@@ -56,13 +57,13 @@ cannot move money.** Accounts are labels on a ledger, nothing more.
 | Frontend | React 19 + vinext (Vite) | Dashboard UI, React Server Components |
 | Language | TypeScript (web) · JavaScript ESM (api) | Types where they earn it |
 | Styling | Plain CSS with custom properties | One stylesheet, no framework runtime |
-| Backend | Fastify | REST API, 40 routes |
+| Backend | Fastify | REST API, 48 routes |
 | Validation | Zod | Every request boundary |
-| ORM | Prisma | Schema, 5 migrations, typed queries |
+| ORM | Prisma | Schema, 6 migrations, typed queries |
 | Database | MariaDB / MySQL | Ledger, audit trail, tenancy |
 | Auth | Firebase Auth + `jose` | Identity; RS256 verified against Google JWKS |
 | Mobile | Flutter + Kotlin | Android SMS capture |
-| Testing | Vitest | 57 API tests |
+| Testing | Vitest | 68 API tests |
 | Hosting | DigitalOcean + Apache + systemd | Manual deploy from `main` |
 
 ---
@@ -153,7 +154,7 @@ flutter run --dart-define=API_URL=http://10.0.2.2:4000
 ## 6. Verification
 
 ```bash
-npm run test     # 57 API tests (vitest)
+npm run test     # 68 API tests (vitest)
 npm run lint     # all three JS packages
 npm run build    # dashboard build + API/worker syntax check
 ```

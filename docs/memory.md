@@ -5,7 +5,7 @@
 The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds.
 
-> **Last reviewed** 2026-10-02 · Working rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-03 · Working rules live in `/CLAUDE.md`
 
 ---
 
@@ -64,6 +64,10 @@ already paid for, and what would make us change our minds.
 | **The service-account key is optional** | A key that can mint a token for any user should not be required to boot. Without one the admin page shows the ledger half and says what is missing | — |
 | **Admin actions are journalled, not audited** | `AuditEvent.workspaceId` is required, and the workspace is sometimes the thing being deleted. The journal is the record that survives | AuditEvent gains a nullable workspace |
 | **An export covers what the user can read; a wipe only what they own** | A CA has a membership in a household, not a ledger. Wiping them must not empty somebody else's books | — |
+| **A book's month is its pay cycle** | Paid on the last working day, a calendar month puts the salary that funds November into October: a month-long deficit that leaps on the 30th. `Book.periodStartDay` moves the boundary to just before payday | — |
+| **A plain day number, not a working-day calendar** | Payday moves between the 28th and the 31st, but all of those sit inside a cycle starting on the 26th. Predicting payday needs a calendar; bucketing it does not | Someone is paid mid-month and the drift crosses the boundary |
+| **Start day capped at 28** | No month is missing the 28th, so February never needs a special case | — |
+| **A cycle past mid-month is labelled by the month after** | 26 Oct – 25 Nov is "November", because that is the money that buys November | — |
 | **Rules survive a ledger reset** | They are learned configuration, not data. Re-importing after a wipe should auto-categorise, not start from nothing |
 | **Landing page at `/`, dashboard also at `/`** | `page.tsx` renders the landing page when signed out instead of moving the dashboard to `/app`. Invitation links are `/#people?invite=…` and already in people's inboxes; moving the dashboard would break every one of them | The dashboard needs server rendering or its own metadata |
 | **An invitation link still opens the form** | A signed-out visitor at `/` gets marketing, but one carrying an invite token gets the sign-in card — their link is the only way in | — |
@@ -113,6 +117,7 @@ already paid for, and what would make us change our minds.
 | `next/link` in vinext | `ee is not a function` at runtime. Use plain `<a>` |
 | `sourceReference` is `manual:<id>` for **every** `createTransaction` | Including recurring postings. To find them, look for the `recurring.posted` audit event — not the source reference |
 | Deleting a recurring posting does not wind back `nextDueAt` | The plan has already advanced, so the entry never reappears. `reset-ledger.sh` warns and lists the affected plans |
+| The dashboard mirrors `currentPeriodLabel` in TypeScript | `apps/web` cannot import from `apps/api`. Only the *label* is duplicated; the window printed under it comes from the summary response, so the header cannot contradict the figures |
 | `UserProfile.email` is a **copy**, and it drifts | The live owner row was seeded as `arjunm295707`, no domain — so the master-admin check against it failed while `PLATFORM_ADMINS` was correct. Anything deciding *who someone is* compares the **signed token** email (`request.identityEmail`), never the row |
 | `accounts:update` does not echo `disabled` back | Shaping its response reported every disable as a no-op, although the disable had worked. `updateFirebaseUser` reads the account back with `accounts:lookup` instead of trusting the write |
 | A profile can outlive its Firebase account | Delete the account in the console and the ledger row stays. Email and disabled changes now 409 with `FIREBASE_ACCOUNT_MISSING`; the name is still editable |

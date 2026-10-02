@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { jsonSafe, parseMinor, serializeMoney } from '../domain/money.js';
-import { monthRangeUtc } from '../domain/period.js';
+import { periodRangeUtc } from '../domain/period.js';
 import { matchCategoryRule } from '../domain/categorization.js';
 import { categoriesFor } from '../domain/default-categories.js';
 import { summariseUser } from '../domain/platform-admin.js';
@@ -58,6 +58,11 @@ export class PrismaStore {
     return rows.map(({ book, role }) => ({ ...book, role }));
   }
   async getBook(id) { return this.db.book.findUnique({ where: { id } }); }
+  async updateBook(bookId, fields) {
+    const current = await this.db.book.findUnique({ where: { id: bookId } });
+    if (!current) return null;
+    return this.db.book.update({ where: { id: bookId }, data: fields });
+  }
   async getMembership(bookId, userId) { return this.db.bookMembership.findUnique({ where: { bookId_userId: { bookId, userId } } }); }
   async listMemberships(bookId) { return this.db.bookMembership.findMany({ where: { bookId }, include: { user: true } }); }
   async updateMembershipRole(bookId, userId, role) {
@@ -311,8 +316,12 @@ export class PrismaStore {
     return { ...record, duplicate: false, status: 'upload_pending' };
   }
   async summary(bookId, month) {
-    const book = await this.db.book.findUnique({ where: { id: bookId }, select: { timezone: true, workspaceId: true } });
-    const range = month ? monthRangeUtc(month, book?.timezone ?? 'UTC') : null; const period = range ? { gte: range.start, lt: range.end } : undefined;
+    const book = await this.db.book.findUnique({ where: { id: bookId }, select: { timezone: true, workspaceId: true, periodStartDay: true } });
+    const startDay = book?.periodStartDay ?? 1;
+    const range = month ? periodRangeUtc(month, book?.timezone ?? 'UTC', startDay) : null; const period = range ? { gte: range.start, lt: range.end } : undefined;
+    // What the dashboard prints under the month name. Reporting the window the
+    // query actually used means the header can never disagree with the figures.
+    const periodMeta = range ? { month, startDay, startsAt: range.start.toISOString(), endsAt: range.end.toISOString() } : null;
     const txs = await this.db.transaction.findMany({ where: { bookId, state: { notIn: ['excluded', 'voided'] }, ...(period ? { occurredAt: period } : {}) }, select: { kind: true, amountMinor: true, categoryId: true, state: true, accountId: true, counterAccountId: true, splits: { select: { categoryId: true, amountMinor: true } } } });
     const income = txs.filter((item) => item.kind === 'income').reduce((sum, item) => sum + item.amountMinor, 0n);
     const spent = txs.filter((item) => item.kind === 'expense').reduce((sum, item) => sum + -item.amountMinor, 0n);
@@ -324,10 +333,10 @@ export class PrismaStore {
     const categories = await this.db.category.findMany({ where: { workspaceId: book?.workspaceId } });
     const byCategory = spendByCategory(txs, categories);
     const { byAccount, flows } = accountActivity(txs, await this.listAccounts(bookId));
-    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory };
+    return { incomeMinor: serializeMoney(income), spentMinor: serializeMoney(spent), movedMinor: serializeMoney(moved), byAccount, flows, balanceMinor: serializeMoney(income - spent - moved), pendingReview: txs.filter((item) => item.state === 'pending_review').length, byCategory , period: periodMeta };
   }
   async reviewPeriod(book, { month, status, note }, actorId) {
-    const { start, end } = monthRangeUtc(month, book.timezone);
+    const { start, end } = periodRangeUtc(month, book.timezone, book.periodStartDay ?? 1);
     return this.db.$transaction(async (db) => {
       if (status === 'verified') {
         const pending = await db.transaction.count({ where: { bookId: book.id, state: 'pending_review', occurredAt: { gte: start, lt: end } } });

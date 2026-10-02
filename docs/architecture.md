@@ -5,7 +5,7 @@
 This document describes the overall system architecture, technology stack, folder
 structure, data flow, and key design decisions for the Paisa application.
 
-> **Last reviewed** 2026-10-02 · **Live** <https://paisa.easylancefreelance.com>
+> **Last reviewed** 2026-10-03 · **Live** <https://paisa.easylancefreelance.com>
 
 ---
 
@@ -56,13 +56,13 @@ Technologies used in the project and their purpose.
 | Frontend | React 19 + vinext (Vite) | Dashboard UI, React Server Components |
 | Language | TypeScript (web) · JavaScript ESM (api) | Types where they earn it |
 | Styling | Plain CSS with custom properties | One stylesheet, no framework runtime |
-| Backend | Fastify | REST API, 40 routes |
+| Backend | Fastify | REST API, 48 routes |
 | Validation | Zod | Every request boundary |
 | ORM | Prisma | Schema, migrations, typed queries |
 | Database | MariaDB | Ledger, audit trail, tenancy |
 | Auth | Firebase Auth + `jose` | Identity; RS256 verified against JWKS |
 | Mobile | Flutter + Kotlin | Android SMS capture |
-| Testing | Vitest | 57 API tests |
+| Testing | Vitest | 68 API tests |
 | Hosting | DigitalOcean droplet + Apache | Shared with two other sites |
 | Process | systemd | `paisa-api`, `paisa-web` |
 
@@ -96,7 +96,7 @@ Financial-App/
 │   │   │   ├── plugins/auth.js   Firebase tokens, App Check, provisioning
 │   │   │   ├── domain/           ← shared rules, see §5
 │   │   │   └── store/            memory-store.js + prisma-store.js
-│   │   ├── prisma/               schema, 5 migrations, seed
+│   │   ├── prisma/               schema, 6 migrations, seed
 │   │   └── test/api.test.js      the only test suite
 │   ├── worker/           BullMQ stubs — no Redis runs, effectively dead
 │   └── mobile/           Flutter + Kotlin SMS bridge — written, not shipped
