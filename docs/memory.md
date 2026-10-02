@@ -111,6 +111,7 @@ already paid for, and what would make us change our minds.
 | `next/link` in vinext | `ee is not a function` at runtime. Use plain `<a>` |
 | `sourceReference` is `manual:<id>` for **every** `createTransaction` | Including recurring postings. To find them, look for the `recurring.posted` audit event — not the source reference |
 | Deleting a recurring posting does not wind back `nextDueAt` | The plan has already advanced, so the entry never reappears. `reset-ledger.sh` warns and lists the affected plans |
+| `UserProfile.email` is a **copy**, and it drifts | The live owner row was seeded as `arjunm295707`, no domain — so the master-admin check against it failed while `PLATFORM_ADMINS` was correct. Anything deciding *who someone is* compares the **signed token** email (`request.identityEmail`), never the row |
 | `accounts:update` does not echo `disabled` back | Shaping its response reported every disable as a no-op, although the disable had worked. `updateFirebaseUser` reads the account back with `accounts:lookup` instead of trusting the write |
 | A profile can outlive its Firebase account | Delete the account in the console and the ledger row stays. Email and disabled changes now 409 with `FIREBASE_ACCOUNT_MISSING`; the name is still editable |
 | `node --watch` + a port already held | The restart dies with `EADDRINUSE` and the **old** process keeps serving, so edits appear to do nothing and env changes seem ignored. `lsof -ti:4000 \| xargs kill -9` first |

@@ -267,7 +267,7 @@ export async function buildApp(options = {}) {
     api.addHook('preHandler', app.authenticate);
     api.addHook('preHandler', async (request) => {
       if (request.isPlatformAdmin) return;
-      request.log.warn({ email: request.actor?.email }, 'Rejected a request to the master admin API');
+      request.log.warn({ identity: request.identityEmail, profile: request.actor?.email }, 'Rejected a request to the master admin API');
       const error = new Error('Not found'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error;
     });
 

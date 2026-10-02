@@ -76,6 +76,7 @@ export default fp(async function authPlugin(app, options) {
 
   app.decorateRequest('actor', null);
   app.decorateRequest('isPlatformAdmin', false);
+  app.decorateRequest('identityEmail', null);
   app.decorate('authenticate', async function authenticate(request, reply) {
     if (mode === 'dev') {
       const id = request.headers['x-dev-user-id'] ?? 'user_owner';
@@ -83,7 +84,8 @@ export default fp(async function authPlugin(app, options) {
       if (!request.actor) {
         return reply.code(401).send({ code: 'UNKNOWN_DEV_USER', message: 'Unknown development user' });
       }
-      request.isPlatformAdmin = isPlatformAdmin(request.actor.email);
+      request.identityEmail = request.actor.email ?? null;
+      request.isPlatformAdmin = isPlatformAdmin(request.identityEmail);
       return;
     }
 
@@ -134,7 +136,12 @@ export default fp(async function authPlugin(app, options) {
       if (!request.actor || request.actor.disabledAt) {
         return reply.code(403).send({ code: 'INVITE_REQUIRED', message: 'This account is not active in a workspace' });
       }
-      request.isPlatformAdmin = isPlatformAdmin(request.actor.email);
+      // Compare against the email in the **token**, not the one on the profile
+      // row. Google signs the token; the row is a copy written at sign-up and
+      // it drifts — ours was seeded as `arjunm295707` with the domain missing,
+      // which silently locked the owner out of their own admin page.
+      request.identityEmail = (typeof decoded.email === 'string' && decoded.email) || request.actor.email || null;
+      request.isPlatformAdmin = isPlatformAdmin(request.identityEmail);
     } catch (error) {
       // The client is told nothing beyond "invalid", but the operator needs the
       // reason: a wrong FIREBASE_PROJECT_ID, an unreachable JWKS endpoint and a

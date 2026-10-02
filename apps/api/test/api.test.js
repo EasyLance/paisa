@@ -5,6 +5,7 @@ import { buildApp } from '../src/app.js';
 import { MemoryStore } from '../src/store/memory-store.js';
 import { parseStatementCsv } from '../src/domain/statement.js';
 import { advance, duePostings } from '../src/domain/recurring.js';
+import { isPlatformAdmin } from '../src/domain/platform-admin.js';
 import { deflateRawSync } from 'node:zlib';
 
 const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
@@ -832,6 +833,25 @@ describe('Paisa API authorization and ledger invariants', () => {
       process.env.PLATFORM_ADMINS = 'arjun@example.com';
       try { await fn(); } finally { if (saved === undefined) delete process.env.PLATFORM_ADMINS; else process.env.PLATFORM_ADMINS = saved; }
     };
+
+    it('matches an admin on the whole address, never a bare local part', async () => {
+      // The live deployment seeded a profile as `arjunm295707` with the domain
+      // missing, which locked the owner out of their own admin page. A partial
+      // match must stay a non-match — the fix was to compare against the signed
+      // token email, not to loosen this.
+      const saved = process.env.PLATFORM_ADMINS;
+      process.env.PLATFORM_ADMINS = ' ArjunM295707@Gmail.com ';
+      try {
+        expect(isPlatformAdmin('arjunm295707@gmail.com')).toBe(true);
+        expect(isPlatformAdmin('  ARJUNM295707@GMAIL.COM ')).toBe(true);
+        expect(isPlatformAdmin('arjunm295707')).toBe(false);
+        expect(isPlatformAdmin('arjunm295707@gmail.com.evil.test')).toBe(false);
+        expect(isPlatformAdmin('')).toBe(false);
+        expect(isPlatformAdmin(null)).toBe(false);
+      } finally {
+        if (saved === undefined) delete process.env.PLATFORM_ADMINS; else process.env.PLATFORM_ADMINS = saved;
+      }
+    });
 
     it('hides the admin API from everyone who is not listed, with a 404 rather than a 403', async () => {
       // Nobody is an admin yet: even the owner must not see that it exists.

@@ -160,6 +160,10 @@ PLATFORM_ADMINS=arjunm295707@gmail.com          # comma-separated, empty by defa
 FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
 ```
 
+- **Matching is on the signed token email** (`request.identityEmail`), not
+  `UserProfile.email`. That row is a copy written at sign-up and it drifts — the
+  live owner was seeded as `arjunm295707` with no domain, which locked them out
+  of their own admin page while the variable was perfectly correct.
 - **`PLATFORM_ADMINS` is the whole gate.** Not listed → every `/v1/admin` route
   404s. It is an env var and not a column on purpose: granting it needs shell
   access and a restart, so nothing that can write the database can grant itself
