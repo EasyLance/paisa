@@ -21,7 +21,9 @@ already paid for, and what would make us change our minds.
 | **Owner** | `arjunm295707@gmail.com` → books `book_owner`, `book_home` |
 | **Second household** | `tptp.jadheer@gmail.com` → own workspace, provisioned on first sign-in |
 | **Deploy** | Manual, `./deploy/deploy.sh`, from `main`. No CI |
-| **Master admin** | `PLATFORM_ADMINS` + a service-account key at `/etc/paisa/firebase-admin.json`. Verified against the live project on 2026-10-02 |
+| **Service user** | `elance` (uid 1000) — *not* `paisa` as `deploy/` assumes |
+| **Env file** | `/var/www/projects/Financial-App/paisa.env` — *not* `/etc/paisa/paisa.env` |
+| **Master admin** | `arjunm295707@gmail.com`, via `PLATFORM_ADMINS` + a key at `/etc/paisa/firebase-admin.json` (`600 elance:elance`). Verified against the live project 2026-10-02 |
 | **Node** | 22+ required; the shell defaults to 20.16 |
 | **Figma** | [Paisa Landing Page — Editable UI](https://www.figma.com/design/6Nht9mkYayMYdp33qbfKSb) in Arjun's **Private** workspace |
 

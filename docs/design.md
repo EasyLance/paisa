@@ -40,6 +40,11 @@ that stands out.**
 The sidebar is `#153e31` — darker than any token, so navigation recedes and
 content comes forward.
 
+The **leaf** is the product mark on every surface — landing, login, information
+pages, dashboard sidebar and admin console. On the dark sidebar both halves are
+lightened (`#cfe39a` / `#8fb86f`), because the darker half of the mark
+disappears against `#153e31`.
+
 **Category group swatches**, in spend order:
 
 | Group | Swatch |
@@ -209,6 +214,7 @@ colour that invites a click.
 | An unavailable action is disabled with a reason in its tooltip | "Needs a Firebase service account" beats a button that fails |
 | A failed load shows nothing, not zeros | A zeroed table reads as "nobody is signed up" |
 | Status is a pill with a word | `master admin`, `disabled`, `never signed in`, `unverified`, `active` |
+| Metadata sits at **9px**, not 8 | 8px is below the floor in §3, and this is the table where irreversible decisions are made |
 
 > **It never shows a password.** Adding a user sends them a link to set their
 > own; resetting one is an email Firebase sends. Nothing on this page puts

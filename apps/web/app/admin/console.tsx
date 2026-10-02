@@ -15,7 +15,7 @@ import '../admin.css';
 type FirebaseAccount = { uid:string; email:string|null; displayName:string|null; emailVerified:boolean; disabled:boolean; createdAt:string|null; lastSignInAt:string|null };
 type AdminUser = {
   id:string|null; firebaseUid:string; email:string; displayName:string|null; disabledAt:string|null; createdAt:string|null;
-  isPlatformAdmin:boolean; workspaceCount:number; bookCount:number; ownedBookCount:number; transactionCount:number;
+  isPlatformAdmin:boolean; workspaceIds:string[]; workspaceCount:number; bookCount:number; ownedBookCount:number; transactionCount:number;
   lastActivityAt:string|null; books:{id:string;name:string;role:string}[]; firebase:FirebaseAccount|null;
 };
 type Directory = { items:AdminUser[]; firebaseConfigured:boolean; firebaseReachable:boolean; reason:string|null; admins:string[] };
@@ -120,7 +120,9 @@ export default function AdminConsole() {
     { label:'Accounts', value:directory.items.length, note:directory.firebaseReachable ? 'in Firebase' : 'known to the ledger' },
     { label:'Active', value:signedIn, note:'have signed in at least once' },
     { label:'Never signed in', value:directory.items.length - signedIn, note:'created but unused' },
-    { label:'Households', value:new Set(directory.items.flatMap((user) => user.books.map((book) => book.id))).size, note:'books across all workspaces' },
+    // Distinct workspaces, not books. The label has to be literally true.
+    { label:'Households', value:new Set(directory.items.flatMap((user) => user.workspaceIds)).size, note:'separate, fully isolated workspaces' },
+    { label:'Books', value:new Set(directory.items.flatMap((user) => user.books.map((book) => book.id))).size, note:'ledgers across all households' },
   ];
 
   return (

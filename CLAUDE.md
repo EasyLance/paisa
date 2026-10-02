@@ -153,7 +153,9 @@ store and provisioning.
 ## Master admin
 
 A second console at `/admin`, backed by `/v1/admin/*`, for managing accounts
-across every household. Two environment variables in `/etc/paisa/paisa.env`:
+across every household. Two environment variables — in
+`/var/www/projects/Financial-App/paisa.env` on the live droplet, **not**
+`/etc/paisa/paisa.env` as `deploy/` assumes (see *Live host drift* below):
 
 ```bash
 PLATFORM_ADMINS=arjunm295707@gmail.com          # comma-separated, empty by default
@@ -175,10 +177,13 @@ FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
   signed in, and backup / clear / delete still work. Listing Firebase accounts,
   adding, renaming, disabling and password resets need the key. The page says
   which half is missing rather than failing whole.
-- The key file belongs at `/etc/paisa/firebase-admin.json`, `chown paisa:paisa`,
-  `chmod 600`, **never in the repo**. Give the service account the *Firebase
-  Authentication Admin* role, nothing wider. `ProtectSystem=full` leaves `/etc`
-  readable, so the unit needs no change.
+- The key file lives at `/etc/paisa/firebase-admin.json`, mode `600`, owned by
+  **the service user** — `elance` on the live droplet, not `paisa`. Never in the
+  repo: the app directory is readable by the other two apps on that box, and
+  `.gitignore` only started covering `*-adminsdk-*.json` on 2026-10-02. Give the
+  service account the *Firebase Authentication Admin* role, nothing wider.
+- Work the owner out rather than assuming it:
+  `SVC=$(systemctl show paisa-api -p User --value); SVC=${SVC:-root}`.
 - **No password is ever handled.** A new account is created without one and sent
   a link to set their own; a reset is an email Firebase sends, never a link
   returned to the page.
@@ -187,6 +192,25 @@ FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
 - Admin actions go to the **journal** (`journalctl -u paisa-api`), because
   `AuditEvent.workspaceId` is required and the workspace is sometimes the thing
   being deleted.
+
+## Live host drift
+
+`deploy/*.service` and `deploy/bootstrap.sh` describe a host that does not
+exist. The droplet was set up by hand, and differs:
+
+| `deploy/` assumes | The droplet actually has |
+|---|---|
+| service user `paisa` | **`elance`** (uid 1000) |
+| `EnvironmentFile=/etc/paisa/paisa.env` | **`/var/www/projects/Financial-App/paisa.env`** |
+| `/etc/paisa/` created by bootstrap | Did not exist until 2026-10-02 |
+
+So **`bootstrap.sh` would not reproduce this server**, and any instruction that
+hardcodes `paisa` or `/etc/paisa/paisa.env` fails on it. Read the running unit
+instead of trusting the repo:
+
+```bash
+systemctl show paisa-api -p User -p EnvironmentFiles --value
+```
 
 ## Security
 

@@ -87,7 +87,8 @@ Financial-App/
 │   │       ├── site-chrome.tsx   header + footer for every public page
 │   │       ├── [slug]/           13 public information pages
 │   │       ├── site-pages.ts     their content
-│   │       ├── landing.css       public-page styles (the dashboard never loads it)
+│   │       ├── landing.css       public-page styles — also reaches the dashboard
+│   │       │                      bundle, since page.tsx imports Landing
 │   │       └── globals.css       design tokens + every dashboard style
 │   ├── api/              Fastify REST API
 │   │   ├── src/

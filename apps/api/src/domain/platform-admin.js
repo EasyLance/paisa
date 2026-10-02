@@ -34,6 +34,9 @@ export function summariseUser(user, books) {
     disabledAt: user.disabledAt ? new Date(user.disabledAt).toISOString() : null,
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : null,
     isPlatformAdmin: isPlatformAdmin(user.email),
+    // The ids, not just the count: the admin page needs to count households
+    // across all users, and summing per-user counts double-counts a shared one.
+    workspaceIds: [...new Set(books.map((book) => book.workspaceId))],
     workspaceCount: new Set(books.map((book) => book.workspaceId)).size,
     bookCount: books.length,
     // Only books they own count towards "their" data: a CA reviewing a
@@ -65,7 +68,7 @@ export function mergeDirectory(profiles, firebaseUsers) {
     rows.push({
       id: null, firebaseUid: account.uid, email: account.email, displayName: account.displayName,
       disabledAt: null, createdAt: account.createdAt, isPlatformAdmin: isPlatformAdmin(account.email),
-      workspaceCount: 0, bookCount: 0, ownedBookCount: 0, transactionCount: 0, lastActivityAt: null,
+      workspaceIds: [], workspaceCount: 0, bookCount: 0, ownedBookCount: 0, transactionCount: 0, lastActivityAt: null,
       books: [], firebase: account,
     });
   }

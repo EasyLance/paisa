@@ -55,16 +55,21 @@ guesswork until real SMS from Arjun's own banks is flowing.
       a password reset. Firebase console → Project settings → Service accounts →
       *Generate new private key*, then on the droplet:
 
-      ```bash
-      sudo install -o paisa -g paisa -m 600 ~/paisa-firebase-admin.json /etc/paisa/firebase-admin.json
-      echo 'FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json' | sudo tee -a /etc/paisa/paisa.env
-      echo 'PLATFORM_ADMINS=arjunm295707@gmail.com' | sudo tee -a /etc/paisa/paisa.env
-      sudo systemctl restart paisa-api
-      ```
+      **Done 2026-10-02** — key at `/etc/paisa/firebase-admin.json`, `600
+      elance:elance`; `PLATFORM_ADMINS` and `FIREBASE_SERVICE_ACCOUNT_FILE` in
+      `/var/www/projects/Financial-App/paisa.env`. Verified against the live
+      project: list, create, rename, disable, delete and reset all work.
 
-      Give the service account the **Firebase Authentication Admin** role only.
-      It can mint a token for any user, and the droplet is shared with two other
-      apps — so 0600, owned by `paisa`, and never inside the repo.
+- [ ] **Rotate that service-account key.** It was pasted into a chat transcript
+      on 2026-10-02 (`~/.claude/projects/-Users-arjunmohanesh-Desktop-Financial-App/`),
+      so it exists in plaintext in a log file. Generate a replacement in the
+      Firebase console, repeat the install, then delete key `6bc84ba7…` under
+      **Project settings → Service accounts → Manage keys**.
+- [ ] **Reconcile `deploy/` with the live droplet.** The units and
+      `bootstrap.sh` name a `paisa` service user and `/etc/paisa/paisa.env`;
+      the host runs as `elance` with the env file in the app directory. As it
+      stands `bootstrap.sh` cannot rebuild this server. See *Live host drift*
+      in `CLAUDE.md`.
 
 - [ ] **Publish a real contact address.** `CONTACT_EMAIL` in
       `apps/web/app/site-pages.ts` is still the placeholder
