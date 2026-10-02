@@ -5,7 +5,7 @@
 The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds.
 
-> **Last reviewed** 2026-09-20 · Working rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-02 · Working rules live in `/CLAUDE.md`
 
 ---
 
@@ -22,6 +22,20 @@ already paid for, and what would make us change our minds.
 | **Second household** | `tptp.jadheer@gmail.com` → own workspace, provisioned on first sign-in |
 | **Deploy** | Manual, `./deploy/deploy.sh`, from `main`. No CI |
 | **Node** | 22+ required; the shell defaults to 20.16 |
+| **Figma** | [Paisa Landing Page — Editable UI](https://www.figma.com/design/6Nht9mkYayMYdp33qbfKSb) in Arjun's **Private** workspace |
+
+### 1.1 Landing-page design source
+
+- Figma file key: `6Nht9mkYayMYdp33qbfKSb`.
+- `01 Components & Tokens` contains the local design system; `02 Landing Screens`
+  contains the desktop and mobile landing pages.
+- The design uses editable Figma layers rather than flattened screenshots.
+- Reusable assets include the Paisa logo, primary/outline/text button variants,
+  trust points, transaction rows and category rows.
+- The file includes colour and spacing variables, nine Geist text styles and two
+  shared shadow effects.
+- Source previews are stored in `design/landing-page/paisa-landing-desktop.png`
+  and `design/landing-page/paisa-landing-mobile.png`.
 
 ---
 
