@@ -193,6 +193,13 @@ erDiagram
 `initial` → `book_invitations` → `idempotency_records` → `budget_plan` →
 `transfer_destination` → `period_start_day` → `access_requests`
 
+`deploy.sh` refuses to restart unless it can **prove** the schema is current.
+`deploy/lib-migrate.sh` classifies `prisma migrate status` into `pending`,
+`current` or `unknown`; `unknown` is an error, not a pass. Prisma exits
+non-zero both when migrations are pending and when it cannot reach the
+database, so only the text can tell them apart — and a guard that greps for the
+bad state alone treats its own failure as all-clear.
+
 ---
 
 ## 7. Statement Import Pipeline

@@ -129,6 +129,7 @@ flowchart TD
 | Never interpolate an argument into SQL | Validate the shape first |
 | Cap unbounded work | 2,000 rows per import; one request is not a job queue |
 | Security headers belong in Apache | helmet only covers API responses |
+| **A guard classifies; it does not grep for the bad state** | Grepping only for "broken" means every failure of the check itself reads as "fine". Name the good state too, and treat anything else as a stop |
 | An unauthenticated route gets its **own** rate limit | `POST /v1/access-requests` is the only one. 5 per 10 minutes, not the global 120 a minute — it is the one write anybody on the internet can reach |
 
 ---

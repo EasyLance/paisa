@@ -49,7 +49,10 @@ cd /var/www/projects/Financial-App && ./deploy/deploy.sh
 
 `deploy.sh` pulls, installs, rebuilds and restarts. **A release with a migration
 needs `./deploy/migrate.sh` first** (it backs up before touching the schema);
-`deploy.sh` detects pending migrations and stops. Do not offer `git push`
+`deploy.sh` detects pending migrations and stops — and now also stops when it
+cannot tell, because the old grep-for-pending guard read its own failure as
+"nothing to do" and shipped the `AccessRequest` code against a schema without
+the table. Do not offer `git push`
 commands — give the deploy command.
 
 `deploy/reset-ledger.sh <bookId>` wipes one book's transactions after a verified

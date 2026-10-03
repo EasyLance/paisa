@@ -11,6 +11,9 @@ set -euo pipefail
 # deploy looks like "nothing happened".
 trap 'status=$?; echo; echo "FAILED at line $LINENO (exit $status): $BASH_COMMAND" >&2; echo "Nothing was restarted. Fix the above and re-run." >&2; exit $status' ERR
 
+# shellcheck source=deploy/lib-migrate.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-migrate.sh"
+
 # Resolve the checkout from this script's own location, so it works from anywhere.
 APP_DIR=${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 # Prefer an env file inside the checkout, fall back to the system one.
@@ -83,15 +86,36 @@ if [ "${NEXT_PUBLIC_AUTH_MODE:-}" = "firebase" ] && ! grep -rq "${NEXT_PUBLIC_FI
 fi
 
 echo "==> Checking for pending migrations"
-if npx --workspace @paisa/api prisma migrate status 2>&1 | grep -qi "not yet been applied"; then
-  echo
-  echo "  !! This release contains migrations that have NOT been applied."
-  echo "  !! The new code is about to run against the old schema."
-  echo "  !! Stop now and run ./deploy/migrate.sh, then re-run this script."
-  echo
-  read -r -p "  Continue anyway? [y/N] " reply
-  [ "$reply" = "y" ] || exit 1
-fi
+# `npm --workspace ... exec --`, not `npx --workspace`, which is the same fix
+# migrate.sh already carries.
+#
+# `prisma migrate status` exits non-zero BOTH when migrations are pending and
+# when it cannot reach the database, so the exit code cannot tell them apart —
+# only the text can. Anything that is neither answer means the check itself
+# broke, and that must stop the deploy. Reading "could not tell" as "nothing to
+# do" is exactly how the AccessRequest table came to be missing on 2026-10-03
+# while the code that queries it was already live and returning 500s.
+migration_status=$(npm --workspace @paisa/api exec -- prisma migrate status 2>&1 || true)
+case "$(migration_verdict "$migration_status")" in
+  pending)
+    echo
+    echo "  !! This release contains migrations that have NOT been applied."
+    echo "  !! The new code is about to run against the old schema."
+    echo "  !! Stop now and run ./deploy/migrate.sh, then re-run this script."
+    echo
+    read -r -p "  Continue anyway? [y/N] " reply
+    [ "$reply" = "y" ] || exit 1
+    ;;
+  unknown)
+    echo
+    echo "$migration_status" >&2
+    echo
+    echo "  !! Could not tell whether the schema is current (output above)." >&2
+    echo "  !! Refusing to restart against a schema this script cannot verify." >&2
+    echo "  !! Run ./deploy/migrate.sh — it checks the same thing and backs up first." >&2
+    exit 1
+    ;;
+esac
 
 echo "==> Restarting services"
 if [ ! -f /etc/systemd/system/paisa-api.service ]; then
