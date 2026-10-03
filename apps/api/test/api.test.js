@@ -6,6 +6,7 @@ import { MemoryStore } from '../src/store/memory-store.js';
 import { parseStatementCsv } from '../src/domain/statement.js';
 import { advance, duePostings } from '../src/domain/recurring.js';
 import { isPlatformAdmin } from '../src/domain/platform-admin.js';
+import { DEFAULT_CATEGORIES } from '../src/domain/default-categories.js';
 import { currentPeriodLabel, normaliseStartDay, periodRangeUtc } from '../src/domain/period.js';
 import { deflateRawSync } from 'node:zlib';
 
@@ -907,6 +908,48 @@ describe('Paisa API authorization and ledger invariants', () => {
         // The spouse's own book is in the same workspace and must be untouched.
         const spouseAfter = await app.inject({ method: 'GET', url: '/v1/books/book_priya/transactions', headers: as('user_spouse') });
         expect(spouseAfter.json().items).toEqual(spouseBefore.json().items);
+      });
+    });
+
+    it('resets a household to new without reaching into a book it does not own', async () => {
+      await asAdmin(async () => {
+        // A rule and a split in the spouse's book, which the owner does not own.
+        const rule = await app.inject({ method: 'POST', url: '/v1/books/book_priya/categorization-rules', headers: as('user_spouse'), payload: { categoryId: 'cat_food', matchType: 'merchant_contains', matchValue: 'Swiggy', priority: 10 } });
+        expect(rule.statusCode).toBe(201);
+
+        const before = await app.inject({ method: 'GET', url: '/v1/admin/users', headers: as('user_owner') });
+        expect(before.json().items.find((row) => row.email === 'arjun@example.com').transactionCount).toBeGreaterThan(0);
+
+        const reset = await app.inject({ method: 'POST', url: '/v1/admin/users/user_owner/factory-reset', headers: as('user_owner'), payload: { confirmEmail: 'arjun@example.com' } });
+        expect(reset.statusCode).toBe(200);
+        const result = reset.json();
+        expect(result.transactionsRemoved).toBeGreaterThan(0);
+
+        // The ledger and everything learned on top of it is gone.
+        for (const path of ['transactions', 'accounts', 'categorization-rules', 'recurring-plans', 'imports']) {
+          const left = await app.inject({ method: 'GET', url: `/v1/books/book_arjun/${path}`, headers: as('user_owner') });
+          expect({ path, items: left.json().items }).toEqual({ path, items: [] });
+        }
+
+        // The old audit trail is gone, and the reset itself is the first entry
+        // of the new one — a wipe that leaves no trace is not acceptable.
+        const audit = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/audit-events', headers: as('user_owner') });
+        expect(audit.json().items.map((event) => event.action)).toEqual(['admin.factory_reset']);
+
+        // But the books, the membership and the login are untouched...
+        const books = await app.inject({ method: 'GET', url: '/v1/books', headers: as('user_owner') });
+        expect(books.json().items.map((book) => book.id).sort()).toEqual(['book_arjun', 'book_home']);
+
+        // ...the starter categories are back, so the book still works...
+        const categories = await app.inject({ method: 'GET', url: '/v1/books/book_arjun/categories', headers: as('user_owner') });
+        expect(categories.json().items.length).toBe(DEFAULT_CATEGORIES.length);
+        expect(result.categoriesRestored).toBeGreaterThan(0);
+
+        // ...and the spouse's own rule survived, with the category it points at.
+        const spouseRules = await app.inject({ method: 'GET', url: '/v1/books/book_priya/categorization-rules', headers: as('user_spouse') });
+        expect(spouseRules.json().items).toHaveLength(1);
+        const spouseCategories = await app.inject({ method: 'GET', url: '/v1/books/book_priya/categories', headers: as('user_spouse') });
+        expect(spouseCategories.json().items.some((category) => category.id === spouseRules.json().items[0].categoryId)).toBe(true);
       });
     });
 

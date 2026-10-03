@@ -437,6 +437,57 @@ export class PrismaStore {
     });
   }
 
+  // Everything wipeUserLedger does, plus the configuration learned on top of
+  // it, leaving the household looking new while the login, the books and who
+  // can see them survive. The starter categories are put back, because a book
+  // with no categories cannot file anything.
+  async factoryResetUser(userId) {
+    const books = await this.#booksFor(userId, true);
+    if (!books.length) return { books: [], transactionsRemoved: 0, categoriesRemoved: 0, categoriesRestored: 0 };
+    const bookIds = books.map((book) => book.id);
+    const workspaceIds = [...new Set(books.map((book) => book.workspaceId))];
+    return this.db.$transaction(async (db) => {
+      const before = await db.transaction.count({ where: { bookId: { in: bookIds } } });
+      // Ledger first, in the order reset-ledger.sh uses.
+      await db.transactionSource.deleteMany({ where: { transaction: { bookId: { in: bookIds } } } });
+      await db.transaction.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.ingestionEvent.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.attachment.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.periodReview.deleteMany({ where: { bookId: { in: bookIds } } });
+      // Then the configuration.
+      await db.categorizationRule.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.budget.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.budgetPlan.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.recurringPlan.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.financialAccount.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.bookInvitation.deleteMany({ where: { bookId: { in: bookIds } } });
+      await db.auditEvent.deleteMany({ where: { bookId: { in: bookIds } } });
+
+      // Categories belong to the workspace, which can hold books this reset
+      // does not touch. Drop only the ones nothing outside the reset still
+      // points at: a split elsewhere is a Restrict that would abort
+      // everything, and a recurring plan would be silently un-categorised.
+      const elsewhere = { bookId: { notIn: bookIds } };
+      const inUse = new Set();
+      const collect = (rows) => { for (const row of rows) if (row.categoryId) inUse.add(row.categoryId); };
+      collect(await db.transactionSplit.findMany({ where: { transaction: elsewhere }, select: { categoryId: true } }));
+      collect(await db.transaction.findMany({ where: elsewhere, select: { categoryId: true } }));
+      collect(await db.budget.findMany({ where: elsewhere, select: { categoryId: true } }));
+      collect(await db.categorizationRule.findMany({ where: elsewhere, select: { categoryId: true } }));
+      collect(await db.recurringPlan.findMany({ where: elsewhere, select: { categoryId: true } }));
+      const removable = await db.category.findMany({ where: { workspaceId: { in: workspaceIds }, id: { notIn: [...inUse] } }, select: { id: true } });
+      if (removable.length) await db.category.deleteMany({ where: { id: { in: removable.map((row) => row.id) } } });
+
+      let restored = 0;
+      for (const workspaceId of workspaceIds) {
+        const kept = new Set((await db.category.findMany({ where: { workspaceId }, select: { name: true } })).map((row) => row.name));
+        const missing = categoriesFor(workspaceId).filter((category) => !kept.has(category.name));
+        if (missing.length) { await db.category.createMany({ data: missing }); restored += missing.length; }
+      }
+      return { books: books.map(({ id, name }) => ({ id, name })), transactionsRemoved: before, categoriesRemoved: removable.length, categoriesRestored: restored };
+    });
+  }
+
   // Removing the profile is not enough: Comment.author and
   // BookInvitation.invitedBy are both Restrict, so those rows have to go first,
   // and a book or workspace left with nobody in it is dead weight.

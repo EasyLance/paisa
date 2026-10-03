@@ -452,6 +452,53 @@ export class MemoryStore {
     return { books: books.map(({ id, name }) => ({ id, name })), transactionsRemoved: removed.length };
   }
 
+  async factoryResetUser(userId) {
+    const books = this.#booksFor(userId, true);
+    if (!books.length) return { books: [], transactionsRemoved: 0, categoriesRemoved: 0, categoriesRestored: 0 };
+    const bookIds = new Set(books.map((book) => book.id));
+    const workspaceIds = [...new Set(books.map((book) => book.workspaceId))];
+    const mine = (item) => bookIds.has(item.bookId);
+
+    const removed = this.transactions.filter(mine);
+    const removedIds = new Set(removed.map((transaction) => transaction.id));
+    this.transactions = this.transactions.filter((item) => !mine(item));
+    this.comments = this.comments.filter((comment) => !removedIds.has(comment.transactionId));
+    this.ingestion = this.ingestion.filter((item) => !mine(item));
+    this.imports = this.imports.filter((item) => !mine(item));
+    this.periodReviews = this.periodReviews.filter((item) => !mine(item));
+    this.rules = this.rules.filter((item) => !mine(item));
+    this.budgets = this.budgets.filter((item) => !mine(item));
+    this.budgetPlans = this.budgetPlans.filter((item) => !mine(item));
+    this.recurring = this.recurring.filter((item) => !mine(item));
+    this.accounts = this.accounts.filter((item) => !mine(item));
+    this.invitations = this.invitations.filter((item) => !mine(item));
+    this.audit = this.audit.filter((event) => !bookIds.has(event.bookId));
+    for (const [key, value] of this.idempotency) if (removedIds.has(value?.transactionId)) this.idempotency.delete(key);
+
+    // Same rule as the Prisma store: a category still referenced by a book
+    // this reset does not own has to stay.
+    const inUse = new Set();
+    for (const transaction of this.transactions) {
+      if (transaction.categoryId) inUse.add(transaction.categoryId);
+      for (const split of transaction.splits ?? []) if (split.categoryId) inUse.add(split.categoryId);
+    }
+    for (const list of [this.budgets, this.rules, this.recurring]) for (const item of list) if (item.categoryId) inUse.add(item.categoryId);
+    const before = this.categories.length;
+    this.categories = this.categories.filter((category) => !workspaceIds.includes(category.workspaceId) || inUse.has(category.id));
+    const categoriesRemoved = before - this.categories.length;
+
+    let categoriesRestored = 0;
+    for (const workspaceId of workspaceIds) {
+      const kept = new Set(this.categories.filter((category) => category.workspaceId === workspaceId).map((category) => category.name));
+      for (const category of categoriesFor(workspaceId)) {
+        if (kept.has(category.name)) continue;
+        this.categories.push({ id: randomUUID(), ...category });
+        categoriesRestored += 1;
+      }
+    }
+    return { books: books.map(({ id, name }) => ({ id, name })), transactionsRemoved: removed.length, categoriesRemoved, categoriesRestored };
+  }
+
   async deletePlatformUser(userId) {
     const user = this.users.find((item) => item.id === userId);
     if (!user) return null;

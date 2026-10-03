@@ -143,6 +143,7 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | A6 | Disable a user | ✅ *(master admin)* |
 | A7 | A master admin page: every account, add, rename, disable, reset a password | ✅ *(needs a service-account key)* |
 | A8 | Back up one user's data as a file, and clear or delete it | ✅ |
+| A9 | Reset a household to new — ledger **and** configuration — keeping the login | ✅ |
 
 ---
 

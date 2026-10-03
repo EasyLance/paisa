@@ -415,6 +415,20 @@ export async function buildApp(options = {}) {
       return result;
     });
 
+    api.post('/users/:id/factory-reset', async (request) => {
+      const { profile } = await target(request.params.id);
+      if (!profile) { const error = new Error('That account has no household to reset'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      confirmEmail(request.body, profile);
+      const result = await app.store.factoryResetUser(profile.id);
+      // The audit trail for these books was part of what was cleared, so this
+      // row is the first entry in the new one.
+      for (const book of result.books) {
+        await app.store.addAudit({ workspaceId: (await app.store.getBook(book.id))?.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'admin.factory_reset', entityType: 'book', entityId: book.id, before: { transactions: result.transactionsRemoved, categoriesRemoved: result.categoriesRemoved } });
+      }
+      record(request, 'admin.factory_reset', { target: profile.email, books: result.books.length, transactions: result.transactionsRemoved, categoriesRestored: result.categoriesRestored });
+      return result;
+    });
+
     api.post('/users/:id/delete', async (request) => {
       const { profile, firebaseUid } = await target(request.params.id);
       const body = parse(z.object({ confirmEmail: z.string().min(3).max(320), deleteFirebaseAccount: z.boolean().default(false) }), request.body);

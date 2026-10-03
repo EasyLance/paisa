@@ -275,6 +275,17 @@ Scope is the important part:
   empty the household they review.
 - A **delete** removes the profile and any book nobody else is a member of.
   Shared books survive.
+- A **factory reset** clears the ledger *and* the configuration learned on top
+  of it — accounts, rules, budgets, the percentage plan, recurring plans,
+  pending invitations, the audit trail — then re-seeds `DEFAULT_CATEGORIES`,
+  because a book with no categories cannot file anything. The login, the books
+  and the memberships survive.
+
+Categories are **workspace-scoped**, so a factory reset only removes the ones
+nothing outside the reset books still references. `TransactionSplit.category` is
+`Restrict`: a split in a book the reset does not own would abort the whole
+transaction. `RecurringPlan.category` is `SetNull`, which would silently
+un-categorise someone else's plan, so it is counted as a reference too.
 
 No password is ever handled: a new account is created without one and sent a
 reset link, and a reset is emailed by Firebase rather than returned as a link.

@@ -195,6 +195,12 @@ FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
   returned to the page.
 - Scope: an **export** covers every book the user is a member of, a **wipe**
   only books they own, a **delete** only books nobody else is a member of.
+- **Reset to new** is the third level: ledger *and* configuration (accounts,
+  rules, budgets, the % plan, recurring plans, invitations, audit trail), then
+  `DEFAULT_CATEGORIES` is re-seeded so the books still work. The login, books
+  and memberships survive. Categories are workspace-scoped, so it keeps any
+  still referenced by a book the reset does not own — `TransactionSplit.category`
+  is `Restrict` and would abort the transaction.
 - Admin actions go to the **journal** (`journalctl -u paisa-api`), because
   `AuditEvent.workspaceId` is required and the workspace is sometimes the thing
   being deleted.

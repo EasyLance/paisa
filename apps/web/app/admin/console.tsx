@@ -19,7 +19,7 @@ type AdminUser = {
   lastActivityAt:string|null; books:{id:string;name:string;role:string}[]; firebase:FirebaseAccount|null;
 };
 type Directory = { items:AdminUser[]; firebaseConfigured:boolean; firebaseReachable:boolean; reason:string|null; admins:string[] };
-type Dialog = { kind:'add' }|{ kind:'edit'|'reset-ledger'|'delete'; user:AdminUser }|null;
+type Dialog = { kind:'add' }|{ kind:'edit'|'reset-ledger'|'factory-reset'|'delete'; user:AdminUser }|null;
 
 const empty:Directory = { items:[], firebaseConfigured:false, firebaseReachable:false, reason:null, admins:[] };
 const roleLabels:Record<string,string> = { book_owner:'owner', editor:'editor', reviewer:'reviewer', viewer:'viewer' };
@@ -197,6 +197,7 @@ export default function AdminConsole() {
                       <button className="text-button" disabled={busy || !directory.firebaseReachable || !user.firebase} onClick={() => void resetPassword(user)} title={directory.firebaseReachable && !user.firebase ? 'No Firebase account for this profile' : undefined}>Reset password</button>
                       <button className="text-button" disabled={busy} onClick={() => setDialog({ kind:'edit', user })}>Edit</button>
                       <button className="text-button danger-link" disabled={busy || !user.id} onClick={() => setDialog({ kind:'reset-ledger', user })}>Clear data</button>
+                      <button className="text-button danger-link" disabled={busy || !user.id} onClick={() => setDialog({ kind:'factory-reset', user })}>Reset to new</button>
                       <button className="text-button danger-link" disabled={busy || user.email === email} onClick={() => setDialog({ kind:'delete', user })}>Delete</button>
                     </td>
                   </tr>
@@ -294,29 +295,37 @@ function Dialogs({ dialog, busy, error, onClose, run }:{
   }
 
   const wiping = dialog.kind === 'reset-ledger';
+  const factory = dialog.kind === 'factory-reset';
+  const books = <><strong>{user.ownedBookCount}</strong> book{user.ownedBookCount === 1 ? '' : 's'} <strong>{user.email}</strong> owns</>;
   const matches = confirm.trim().toLowerCase() === user.email.toLowerCase();
+  const title = wiping ? 'Clear this user’s data' : factory ? 'Reset this household to new' : 'Delete this user';
   return (
-    <Modal title={wiping ? 'Clear this user’s data' : 'Delete this user'} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <p className="modal-copy">
         {wiping
-          ? <>Every transaction, import and monthly review in the <strong>{user.ownedBookCount}</strong> book{user.ownedBookCount === 1 ? '' : 's'} <strong>{user.email}</strong> owns will be deleted. Their categories, rules and budgets stay, so a re-import files itself.</>
-          : <>Removes <strong>{user.email}</strong> from the ledger, along with any book nobody else is a member of. Books shared with someone else survive.</>}
+          ? <>Every transaction, import and monthly review in the {books} will be deleted. Their accounts, categories, rules and budgets stay, so a re-import files itself.</>
+          : factory
+            ? <>Everything inside the {books}: transactions, imports, accounts, categorization rules, budgets, the percentage plan, recurring plans, pending invitations and the audit trail. The starter categories are put back, so the books still work.</>
+            : <>Removes <strong>{user.email}</strong> from the ledger, along with any book nobody else is a member of. Books shared with someone else survive.</>}
       </p>
+      {factory ? <p className="quiet">They keep their login, their books and everyone who can see them. Signing in afterwards looks like a brand-new account.</p> : null}
+      {wiping ? <p className="quiet">Recurring plans survive, but a posting this removes will not come back — the plan has already advanced past it.</p> : null}
       <p className="admin-warning">This cannot be undone. Take a backup first — the button is on their row.</p>
       <form onSubmit={(event:FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         void run(async () => {
-          const path = wiping ? 'ledger-reset' : 'delete';
-          await api<unknown>(`/v1/admin/users/${targetOf(user)}/${path}`, { method:'POST', body:JSON.stringify({ confirmEmail:user.email, ...(wiping ? {} : { deleteFirebaseAccount:alsoFirebase }) }) });
-          return wiping ? `Cleared the ledger for ${user.email}` : `${user.email} deleted`;
+          const path = wiping ? 'ledger-reset' : factory ? 'factory-reset' : 'delete';
+          await api<unknown>(`/v1/admin/users/${targetOf(user)}/${path}`, { method:'POST', body:JSON.stringify({ confirmEmail:user.email, ...(wiping || factory ? {} : { deleteFirebaseAccount:alsoFirebase }) }) });
+          if (wiping) return `Cleared the ledger for ${user.email}`;
+          return factory ? `${user.email} reset to a new household` : `${user.email} deleted`;
         });
       }}>
         <label><span>Type <code>{user.email}</code> to confirm</span><input value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="off" /></label>
-        {wiping ? null : (
+        {wiping || factory ? null : (
           <label className="checkbox"><input type="checkbox" checked={alsoFirebase} onChange={(event) => setAlsoFirebase(event.target.checked)} /> Also delete the Firebase account, so they cannot sign in again</label>
         )}
         {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <button className="danger-button submit" disabled={busy || !matches}>{busy ? 'Working…' : wiping ? 'Clear the data' : 'Delete the user'}</button>
+        <button className="danger-button submit" disabled={busy || !matches}>{busy ? 'Working…' : wiping ? 'Clear the data' : factory ? 'Reset to new' : 'Delete the user'}</button>
       </form>
     </Modal>
   );

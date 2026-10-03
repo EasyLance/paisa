@@ -60,7 +60,7 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 | 🏠 **Tenancy** | Isolated workspaces · invitations · self-provisioning (flagged off) |
 | 🔒 **Security** | Full-codebase audit; all High and Medium findings fixed |
 | 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset |
-| 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · delete |
+| 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · **reset to new** · delete |
 | 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer |
 
 ---

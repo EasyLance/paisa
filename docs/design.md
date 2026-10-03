@@ -209,7 +209,9 @@ colour that invites a click.
 | Rule | Why |
 |---|---|
 | Destructive actions are `danger-link`, never a filled button | They should be the hardest thing on the row to hit by accident |
+| Three destructive actions, named for their blast radius | **Clear data** (ledger) · **Reset to new** (ledger + configuration) · **Delete** (the account) |
 | Every destructive dialog asks you to **type the email** | An id is unmemorable; the wrong one wipes the wrong household |
+| Each dialog says what *survives*, not only what goes | "Clear data" keeps rules so a re-import files itself; "Reset to new" keeps the login and books |
 | The confirm button stays disabled until it matches | And the API checks the same thing again |
 | An unavailable action is disabled with a reason in its tooltip | "Needs a Firebase service account" beats a button that fails |
 | A failed load shows nothing, not zeros | A zeroed table reads as "nobody is signed up" |
