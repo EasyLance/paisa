@@ -57,6 +57,18 @@ host=$DB_HOST
 port=$DB_PORT
 CNF
 
+# /var/backups is root-owned on a stock Debian, so a service user cannot create
+# anything inside it. Failing with a bare "Permission denied" sends you reading
+# the script; name the fix instead.
+ensure_backup_dir() {
+  if mkdir -p "$BACKUP_DIR" 2>/dev/null && [ -w "$BACKUP_DIR" ]; then return 0; fi
+  echo "Cannot write backups to $BACKUP_DIR (running as $(id -un))." >&2
+  echo >&2
+  echo "  Create it once:  sudo install -d -o $(id -un) -g $(id -gn) -m 750 $BACKUP_DIR" >&2
+  echo "  Or redirect it:  BACKUP_DIR=\$HOME/paisa-backups $0" >&2
+  exit 1
+}
+
 # Tab-separated, no column headers — meant to be read by the script.
 sql() { mysql --defaults-extra-file="$DB_CREDENTIALS" -N -B "$DB_NAME" -e "$1"; }
 # Same, with headers, for output a person reads.

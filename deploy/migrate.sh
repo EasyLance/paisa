@@ -10,19 +10,13 @@ set -euo pipefail
 
 # shellcheck source=deploy/lib-db.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-db.sh"
-[client]
-user=$DB_USER
-password=$DB_PASS
-host=$DB_HOST
-port=$DB_PORT
-CNF
 
-mkdir -p "$BACKUP_DIR"
+ensure_backup_dir
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-$STAMP.sql.gz"
 
 echo "==> Pending migrations"
-npx --workspace @paisa/api prisma migrate status || true
+npm --workspace @paisa/api exec -- prisma migrate status || true
 
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
 dump --single-transaction --routines --triggers "$DB_NAME" | gzip > "$BACKUP_FILE"

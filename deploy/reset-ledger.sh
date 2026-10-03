@@ -81,7 +81,7 @@ if [ "${POSTED:-0}" -gt 0 ]; then
 fi
 echo
 
-mkdir -p "$BACKUP_DIR"
+ensure_backup_dir
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-before-reset-$(date +%Y%m%d-%H%M%S).sql.gz"
 echo "==> Backing up $DB_NAME to $BACKUP_FILE"
 dump --single-transaction --routines --triggers "$DB_NAME" | gzip > "$BACKUP_FILE"

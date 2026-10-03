@@ -135,7 +135,7 @@ echo "Entries already in the ledger keep the categories they have — a rule onl
 echo "ever affected payments captured after it was written."
 echo
 
-mkdir -p "$BACKUP_DIR"
+ensure_backup_dir
 RESTORE_FILE="$BACKUP_DIR/$DB_NAME-rules-$BOOK_ID-$(date +%Y%m%d-%H%M%S).sql"
 # Just these rows, as INSERTs, so a mistake is one command away from undone.
 dump --no-create-info --skip-add-drop-table --complete-insert --skip-extended-insert \

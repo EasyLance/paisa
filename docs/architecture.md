@@ -100,7 +100,8 @@ Financial-App/
 │   │   └── test/api.test.js      the only test suite
 │   ├── worker/           BullMQ stubs — no Redis runs, effectively dead
 │   └── mobile/           Flutter + Kotlin SMS bridge — written, not shipped
-├── deploy/               bootstrap · deploy · migrate · reset-ledger · systemd · Apache
+├── deploy/               bootstrap · deploy · migrate · reset-ledger · reset-rules
+│                         lib-db.sh + lib-db.test.sh · systemd · Apache
 └── docs/                 prd · architecture · rules · design · tasks · memory
 ```
 

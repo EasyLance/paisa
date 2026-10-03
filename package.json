@@ -12,7 +12,7 @@
     "serve": "npm --workspace @paisa/api run dev",
     "dev:worker": "npm --workspace @paisa/worker run dev",
     "build": "npm --prefix apps/web run build && npm --workspace @paisa/api run check && npm --workspace @paisa/worker run check",
-    "test": "npm --workspace @paisa/api test",
+    "test": "npm --workspace @paisa/api test && ./deploy/lib-db.test.sh",
     "lint": "npm --prefix apps/web run lint && npm --workspace @paisa/api run lint && npm --workspace @paisa/worker run lint",
     "build:schema-sql": "node scripts/build-schema-sql.mjs",
     "prisma:generate": "npm --workspace @paisa/api run prisma:generate",
