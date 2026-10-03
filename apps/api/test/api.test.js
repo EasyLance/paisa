@@ -980,6 +980,76 @@ describe('Paisa API authorization and ledger invariants', () => {
       });
     });
   });
+  describe('access requests', () => {
+    const asAdmin = async (fn) => {
+      const saved = process.env.PLATFORM_ADMINS;
+      process.env.PLATFORM_ADMINS = 'arjun@example.com';
+      try { await fn(); } finally { if (saved === undefined) delete process.env.PLATFORM_ADMINS; else process.env.PLATFORM_ADMINS = saved; }
+    };
+    const ask = (payload) => app.inject({ method: 'POST', url: '/v1/access-requests', payload });
+
+    it('takes a request from a stranger with no token at all', async () => {
+      // The only unauthenticated write on the API. If this ever starts needing
+      // a token, the landing page's button silently stops working.
+      const first = await ask({ name: 'Priya', email: ' Priya@Example.com ' });
+      expect(first.statusCode).toBe(201);
+      expect(first.json().status).toBe('received');
+      await asAdmin(async () => {
+        const listed = await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_owner') });
+        expect(listed.json().items).toMatchObject([{ email: 'priya@example.com', name: 'Priya', approvedAt: null }]);
+      });
+    });
+
+    it('tells a second submission to wait rather than filing it twice', async () => {
+      await ask({ name: 'Priya', email: 'priya@example.com' });
+      const again = await ask({ name: 'Priya again', email: 'PRIYA@example.com' });
+      expect(again.statusCode).toBe(200);
+      expect(again.json().status).toBe('pending');
+      await asAdmin(async () => {
+        const listed = await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_owner') });
+        expect(listed.json().items).toHaveLength(1);
+      });
+    });
+
+    it('tells someone already let in to sign in, not to wait their turn', async () => {
+      await ask({ name: 'Priya', email: 'priya@example.com' });
+      // What approving does to the row; the approval route itself needs a
+      // Firebase service account, which no test has.
+      await app.store.grantAccessRequest({ email: 'priya@example.com', name: 'Priya' });
+      expect((await ask({ name: 'Priya', email: 'priya@example.com' })).json().status).toBe('granted');
+    });
+
+    it('rejects a blank name or a non-address', async () => {
+      expect((await ask({ name: '  ', email: 'priya@example.com' })).statusCode).toBe(400);
+      expect((await ask({ name: 'Priya', email: 'not-an-email' })).statusCode).toBe(400);
+    });
+
+    it('lets a deleted user ask again instead of being told they still have access', async () => {
+      await app.store.grantAccessRequest({ email: 'ca@example.com', name: 'The CA' });
+      await asAdmin(async () => {
+        const removed = await app.inject({ method: 'POST', url: '/v1/admin/users/user_ca/delete', headers: as('user_owner'), payload: { confirmEmail: 'ca@example.com' } });
+        expect(removed.statusCode).toBe(200);
+      });
+      expect((await ask({ name: 'The CA', email: 'ca@example.com' })).json().status).toBe('received');
+    });
+
+    it('keeps the requests list away from everyone who is not a master admin', async () => {
+      const outsider = await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_spouse') });
+      expect(outsider.statusCode).toBe(404);
+    });
+
+    it('removes a request the admin does not want', async () => {
+      await ask({ name: 'Spam', email: 'spam@example.com' });
+      await asAdmin(async () => {
+        const { items } = (await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_owner') })).json();
+        const gone = await app.inject({ method: 'POST', url: `/v1/admin/access-requests/${items[0].id}/delete`, headers: as('user_owner'), payload: {} });
+        expect(gone.statusCode).toBe(200);
+        const after = await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_owner') });
+        expect(after.json().items).toEqual([]);
+      });
+    });
+  });
+
   describe('pay cycles', () => {
     // A household paid on the last working day cannot use calendar months: the
     // salary that funds November lands in October, so the dashboard reads as a

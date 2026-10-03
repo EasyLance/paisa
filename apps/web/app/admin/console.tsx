@@ -19,6 +19,7 @@ type AdminUser = {
   lastActivityAt:string|null; books:{id:string;name:string;role:string}[]; firebase:FirebaseAccount|null;
 };
 type Directory = { items:AdminUser[]; firebaseConfigured:boolean; firebaseReachable:boolean; reason:string|null; admins:string[] };
+type AccessRequest = { id:string; email:string; name:string; createdAt:string; approvedAt:string|null };
 type Dialog = { kind:'add' }|{ kind:'edit'|'reset-ledger'|'factory-reset'|'delete'; user:AdminUser }|null;
 
 const empty:Directory = { items:[], firebaseConfigured:false, firebaseReachable:false, reason:null, admins:[] };
@@ -48,6 +49,7 @@ export default function AdminConsole() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
 
   useEffect(() => { if (!firebaseEnabled) return; return observeUser((user) => { setEmail(user?.email ?? ''); setAuthState(user ? 'in' : 'out'); }); }, []);
   useEffect(() => { if (authState === 'out') window.location.replace('/login'); }, [authState]);
@@ -56,7 +58,12 @@ export default function AdminConsole() {
 
   const load = useCallback(async () => {
     try {
-      setDirectory(await api<Directory>('/v1/admin/users'));
+      const [users, access] = await Promise.all([
+        api<Directory>('/v1/admin/users'),
+        api<{ items:AccessRequest[] }>('/v1/admin/access-requests'),
+      ]);
+      setDirectory(users);
+      setRequests(access.items);
       setState('ready');
     } catch (failure) {
       // The API 404s this route for anyone not in PLATFORM_ADMINS, so a 404 is
@@ -82,6 +89,17 @@ export default function AdminConsole() {
     const data = await api<unknown>(`/v1/admin/users/${targetOf(user)}/export`);
     download(`paisa-backup-${user.email.replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0, 10)}.json`, data);
     return `Backup of ${user.email} downloaded`;
+  });
+  // Approving is the whole grant: it creates the Firebase account, emails the
+  // link that lets them choose a password, gives them a household and ticks
+  // the row — so the form stops telling them to wait.
+  const approve = (row:AccessRequest) => run(async () => {
+    await api<unknown>(`/v1/admin/access-requests/${row.id}/approve`, { method:'POST', body:JSON.stringify({}) });
+    return `${row.email} approved — they have been sent a link to set a password`;
+  });
+  const dismiss = (row:AccessRequest) => run(async () => {
+    await api<unknown>(`/v1/admin/access-requests/${row.id}/delete`, { method:'POST', body:JSON.stringify({}) });
+    return `Removed the request from ${row.email}`;
   });
   const resetPassword = (user:AdminUser) => run(async () => {
     await api<void>(`/v1/admin/users/${targetOf(user)}/password-reset`, { method:'POST', body:JSON.stringify({}) });
@@ -114,6 +132,7 @@ export default function AdminConsole() {
     );
   }
 
+  const pending = requests.filter((row) => !row.approvedAt);
   const users = directory.items.filter((user) => !query || `${user.email} ${user.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()));
   const signedIn = directory.items.filter((user) => user.id).length;
   const tiles = [
@@ -123,6 +142,7 @@ export default function AdminConsole() {
     // Distinct workspaces, not books. The label has to be literally true.
     { label:'Households', value:new Set(directory.items.flatMap((user) => user.workspaceIds)).size, note:'separate, fully isolated workspaces' },
     { label:'Books', value:new Set(directory.items.flatMap((user) => user.books.map((book) => book.id))).size, note:'ledgers across all households' },
+    { label:'Waiting', value:pending.length, note:'asked for access, not yet approved' },
   ];
 
   return (
@@ -156,6 +176,43 @@ export default function AdminConsole() {
               <small>{tile.note}</small>
             </article>
           ))}
+        </section>
+
+        <section className="admin-card">
+          <div className="admin-card-head">
+            <div>
+              <h2>Access requests</h2>
+              <p className="quiet">People who filled in the form on the landing page. Approving one creates their account and emails them a link to set a password.</p>
+            </div>
+          </div>
+          <div className="admin-table-scroll">
+            <table className="admin-table requests">
+              <thead><tr><th>Who</th><th>Asked</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {requests.map((row) => (
+                  <tr key={row.id}>
+                    <td><strong>{row.email}</strong><small>{row.name}</small></td>
+                    <td>{when(row.createdAt)}</td>
+                    <td className="admin-pills">
+                      {row.approvedAt
+                        ? <span className="pill ok">approved {when(row.approvedAt)}</span>
+                        : <span className="pill warn">waiting</span>}
+                    </td>
+                    <td className="admin-actions">
+                      <button
+                        className="text-button"
+                        disabled={busy || Boolean(row.approvedAt) || !directory.firebaseReachable}
+                        title={directory.firebaseReachable ? undefined : 'Needs a Firebase service account'}
+                        onClick={() => void approve(row)}
+                      >Approve</button>
+                      <button className="text-button danger-link" disabled={busy} onClick={() => void dismiss(row)}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+                {requests.length ? null : <tr><td colSpan={4} className="quiet">Nobody has asked for access yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="admin-card">

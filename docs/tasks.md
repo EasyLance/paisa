@@ -60,8 +60,8 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 | 🏠 **Tenancy** | Isolated workspaces · invitations · self-provisioning (flagged off) |
 | 🔒 **Security** | Full-codebase audit; all High and Medium findings fixed |
 | 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset |
-| 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · **reset to new** · delete |
-| 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer |
+| 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · **reset to new** · delete · the **access-request waiting list** |
+| 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer · **Request access** popup that files a row instead of opening an email |
 
 ---
 
@@ -99,7 +99,8 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 | Task | Why it matters |
 |---|---|
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
-| **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder, and the landing page's **Request access** button points at `/contact-us` |
+| **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder on the contact page. **Request access** no longer needs it — it is a form now |
+| **Click Approve once on the live site** | 👤 Arjun's step — the Firebase half of approving a request has no service account on the dev machine, so only the new email lookup could be verified against the live project |
 | **Install the Firebase service-account key** | 👤 Arjun's step — without it the admin page cannot list, add, rename, disable or reset Firebase accounts |
 | **Prune expired `IdempotencyRecord` rows on a schedule** | A ledger wipe now clears the orphans, but nothing clears the expired ones |
 | **A real illustration for the landing hero** | Three CSS blobs stand in for the leaf illustration in the Figma file |

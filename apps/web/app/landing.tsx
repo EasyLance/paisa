@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- see site-chrome.tsx */
-import { REQUEST_ACCESS_HREF, SiteFooter, SiteHeader, Leaf } from './site-chrome';
+import { SiteFooter, SiteHeader, Leaf } from './site-chrome';
+import { RequestAccess } from './request-access';
 
 // The public front door. Everything on it is static: no fetch, no state, no
 // auth. The figures inside the product preview are sample data and say so.
@@ -125,7 +126,7 @@ export default function Landing() {
           </p>
           <div className="hero-actions">
             <a className="pill-button outline" href="/login">Login</a>
-            <a className="pill-button" href={REQUEST_ACCESS_HREF}>Request access</a>
+            <RequestAccess />
           </div>
           <ul className="hero-trust">
             {trustPoints.map((point) => (

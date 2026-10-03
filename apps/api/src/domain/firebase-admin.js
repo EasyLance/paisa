@@ -148,6 +148,14 @@ export async function lookupFirebaseUser(uid) {
   return found.users?.length ? shape(found.users[0]) : null;
 }
 
+// The same lookup keyed on the address. Approving an access request has an
+// email and needs to know whether that account already exists, because
+// creating it a second time is an error rather than a no-op.
+export async function findFirebaseUserByEmail(email) {
+  const found = await call('/accounts:lookup', { body: { email: [email] } });
+  return found.users?.length ? shape(found.users[0]) : null;
+}
+
 export async function updateFirebaseUser(uid, { email, displayName, disabled }) {
   await call('/accounts:update', {
     body: {

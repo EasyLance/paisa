@@ -13,7 +13,7 @@ import { MAX_PERIOD_START_DAY, MIN_PERIOD_START_DAY } from './domain/period.js';
 import { createStore } from './store/index.js';
 import { parseStatementCsv, parseStatementXlsx } from './domain/statement.js';
 import { mergeDirectory, platformAdmins } from './domain/platform-admin.js';
-import { createFirebaseUser, deleteFirebaseUser, firebaseAdminConfigured, listFirebaseUsers, lookupFirebaseUser, sendFirebasePasswordReset, updateFirebaseUser } from './domain/firebase-admin.js';
+import { createFirebaseUser, deleteFirebaseUser, findFirebaseUserByEmail, firebaseAdminConfigured, listFirebaseUsers, lookupFirebaseUser, sendFirebasePasswordReset, updateFirebaseUser } from './domain/firebase-admin.js';
 
 const transactionFields = z.object({
   accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
@@ -121,6 +121,28 @@ export async function buildApp(options = {}) {
     const membership = await app.store.getMembership(book.id, request.actor.id); if (!membership) { const error = new Error('Book not found'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
     assertCapability(membership.role, capability); return { book, membership };
   }
+
+  // The one route anybody can call without a token: the "Request access" form
+  // on the landing page. Invite-only means there is no sign-up, so this is the
+  // only way a stranger reaches the admin at all. Tighter rate limit than the
+  // rest of the API because it is the only unauthenticated write.
+  app.post('/v1/access-requests', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (request, reply) => {
+    const body = parse(z.object({
+      name: z.string().trim().min(1).max(120),
+      // Trimmed before it is validated, not after: a pasted address with a
+      // trailing space is a typo, not an invalid address.
+      email: z.string().trim().email().max(320).transform((value) => value.toLowerCase()),
+    }), request.body);
+    // The unique email means a second submission cannot become a second row.
+    // Saying which of the two it is was asked for: someone who has already been
+    // let in should be told to go and sign in, not told to wait.
+    const existing = await app.store.getAccessRequest(body.email);
+    if (existing?.approvedAt) return { status: 'granted' };
+    if (existing) return { status: 'pending' };
+    await app.store.createAccessRequest(body);
+    request.log.warn({ email: body.email, name: body.name }, 'Access request');
+    return reply.code(201).send({ status: 'received' });
+  });
 
   app.register(async function v1(api) {
     api.addHook('preHandler', app.authenticate);
@@ -335,6 +357,26 @@ export async function buildApp(options = {}) {
       return { items: users, firebaseConfigured: firebaseAdminConfigured(), firebaseReachable: firebase, reason: reason ?? null, admins: platformAdmins() };
     });
 
+    // Adding a user and approving a request are the same act of letting
+    // somebody in, so they go through one function. The Firebase account is
+    // only created if it is not there already: the two consoles drift, and an
+    // approval has to be safe to click twice.
+    async function grantAccess({ email, displayName, provision }) {
+      requireFirebase();
+      const existingAccount = await findFirebaseUserByEmail(email);
+      const account = existingAccount ?? await createFirebaseUser({ email, displayName });
+      // No password is set anywhere. The new user follows the reset link and
+      // chooses their own, so nobody here ever handles it.
+      await sendFirebasePasswordReset(email);
+      const profile = provision && !(await app.store.getUserByEmail(email))
+        ? await app.store.provisionTenant({ firebaseUid: account.uid, email, displayName: displayName ?? null })
+        : null;
+      // Ticked whether or not they ever filled the form, so that someone the
+      // admin added outright is told "access granted" rather than "wait".
+      const accessRequest = await app.store.grantAccessRequest({ email, name: displayName || email.split('@')[0] });
+      return { firebase: account, profile, accessRequest, reusedExistingAccount: Boolean(existingAccount), passwordEmailSent: true };
+    }
+
     api.post('/users', async (request, reply) => {
       requireFirebase();
       const body = parse(z.object({
@@ -343,16 +385,32 @@ export async function buildApp(options = {}) {
         provision: z.boolean().default(true),
       }), request.body);
       if (await app.store.getUserByEmail(body.email)) { const error = new Error('That email already has a ledger profile'); error.statusCode = 409; error.code = 'EMAIL_IN_USE'; throw error; }
-      const account = await createFirebaseUser(body);
-      // No password is set anywhere. The new user follows the reset link and
-      // chooses their own, so nobody here ever handles it.
-      await sendFirebasePasswordReset(body.email);
-      let provisioned = null;
-      if (body.provision) {
-        provisioned = await app.store.provisionTenant({ firebaseUid: account.uid, email: body.email, displayName: body.displayName ?? null });
-      }
-      record(request, 'admin.user_created', { email: body.email, provisioned: Boolean(provisioned) });
-      return reply.code(201).send({ firebase: account, profile: provisioned, passwordEmailSent: true });
+      const granted = await grantAccess(body);
+      record(request, 'admin.user_created', { email: body.email, provisioned: Boolean(granted.profile) });
+      return reply.code(201).send(granted);
+    });
+
+    // ---- access requests --------------------------------------------
+    api.get('/access-requests', async () => ({ items: await app.store.listAccessRequests() }));
+
+    api.post('/access-requests/:id/approve', async (request) => {
+      // Household-sized table; one scan beats carrying a second lookup method
+      // through both stores.
+      const entry = (await app.store.listAccessRequests()).find((row) => row.id === request.params.id);
+      if (!entry) { const error = new Error('No such access request'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      if (entry.approvedAt) return { accessRequest: entry, alreadyApproved: true };
+      const granted = await grantAccess({ email: entry.email, displayName: entry.name, provision: true });
+      record(request, 'admin.access_granted', { email: entry.email, provisioned: Boolean(granted.profile) });
+      return granted;
+    });
+
+    // POST rather than DELETE: a DELETE with a content-type and no body is a
+    // 400 at parse, the same reason the destructive user routes are POSTs.
+    api.post('/access-requests/:id/delete', async (request) => {
+      const removed = await app.store.deleteAccessRequest(request.params.id);
+      if (!removed) { const error = new Error('No such access request'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
+      record(request, 'admin.access_request_deleted', { email: removed.email, approved: Boolean(removed.approvedAt) });
+      return removed;
     });
 
     api.patch('/users/:id', async (request) => {

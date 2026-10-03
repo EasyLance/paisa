@@ -2,6 +2,7 @@
    next/link prefetch throws "ee is not a function" at runtime. Full navigation
    is correct for these static pages anyway. */
 import { siteNav, sitePages } from './site-pages';
+import { RequestAccess } from './request-access';
 import './landing.css';
 
 // Shared header and footer for everything outside the dashboard: the landing
@@ -21,10 +22,6 @@ export function Leaf() {
 // lists all thirteen.
 const headerNav = ['about-us', 'why-use-us', 'help', 'contact-us'];
 
-// Nothing is sold and there is no public sign-up, so "request access" is an
-// email, not a form.
-export const REQUEST_ACCESS_HREF = '/contact-us';
-
 export function SiteHeader({ compact = false }: { compact?: boolean }) {
   return (
     <header className="site-header">
@@ -36,7 +33,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
       )}
       <div className="site-actions">
         <a className="ghost-link" href="/login">Login</a>
-        <a className="pill-button" href={REQUEST_ACCESS_HREF}>Request access</a>
+        <RequestAccess />
       </div>
     </header>
   );
@@ -55,7 +52,7 @@ export function SiteFooter({ current }: { current?: string }) {
         <div className="site-footer-brand">
           <a className="site-brand" href="/"><Leaf /><span>Paisa</span></a>
           <p>Household finance for India. Invite-only, in rupees, on Asia/Kolkata time.</p>
-          <a className="pill-button small" href={REQUEST_ACCESS_HREF}>Request access</a>
+          <RequestAccess className="pill-button small" />
         </div>
         {columns.map((column) => (
           <nav key={column.heading}>

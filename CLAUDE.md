@@ -204,6 +204,13 @@ FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
 - Admin actions go to the **journal** (`journalctl -u paisa-api`), because
   `AuditEvent.workspaceId` is required and the workspace is sometimes the thing
   being deleted.
+- **Access requests** are the waiting list. `POST /v1/access-requests` is the
+  **only unauthenticated write on the API** — the landing page's "Request
+  access" popup — rate-limited to 5 per 10 minutes per IP. The unique email is
+  the duplicate guard, and the reply says which of three states the sender is
+  in: `received`, `pending`, `granted`. Approving and adding a user outright
+  both go through one `grantAccess()`, so somebody the admin created without a
+  request is still told "access granted" rather than "wait your turn".
 
 ## Live host drift
 

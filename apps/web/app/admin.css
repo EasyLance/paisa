@@ -72,3 +72,13 @@
 }
 
 .admin-modal label span{line-height:1.6}
+
+/* Four columns, not six: the users table's min-width would force a scrollbar
+   on a table that fits. */
+.admin-table.requests{min-width:520px}
+/* `display:flex` on a <td> stops it being a table-cell: two adjacent ones get
+   wrapped into a single anonymous cell and stack on top of each other. The
+   users table only escapes this because three ordinary cells sit between its
+   status and actions columns — here they are neighbours. */
+.admin-table.requests .admin-pills,.admin-table.requests .admin-actions{display:table-cell;min-width:0}
+.admin-table.requests .admin-actions .text-button+.text-button{margin-left:14px}

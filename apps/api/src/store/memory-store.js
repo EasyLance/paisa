@@ -83,6 +83,7 @@ export class MemoryStore {
     this.periodReviews = [];
     this.idempotency = new Map();
     this.ingestion = [];
+    this.accessRequests = [];
   }
 
   async hasPendingInvitation(email) {
@@ -398,6 +399,30 @@ export class MemoryStore {
       .filter((book) => book.id);
   }
 
+  // ---- access requests ---------------------------------------------
+  // Keyed on the address, because that is what both the public form and the
+  // admin page have. `approvedAt` is the tick: null means still waiting.
+  async listAccessRequests() { return [...this.accessRequests].sort((a, b) => b.createdAt - a.createdAt); }
+  async getAccessRequest(email) { return this.accessRequests.find((row) => row.email === String(email).trim().toLowerCase()) ?? null; }
+  async createAccessRequest({ email, name }) {
+    const row = { id: randomUUID(), email: String(email).trim().toLowerCase(), name, createdAt: new Date(), approvedAt: null };
+    this.accessRequests.push(row);
+    return row;
+  }
+  // Upsert, not update: an account the admin added outright never had a
+  // request to approve, and the public form still has to be told it is in.
+  async grantAccessRequest({ email, name }) {
+    const existing = await this.getAccessRequest(email);
+    const row = existing ?? await this.createAccessRequest({ email, name });
+    row.approvedAt = new Date();
+    return row;
+  }
+  async deleteAccessRequest(id) {
+    const row = this.accessRequests.find((item) => item.id === id);
+    this.accessRequests = this.accessRequests.filter((item) => item.id !== id);
+    return row ?? null;
+  }
+
   async listPlatformUsers() {
     return this.users.map((user) => summariseUser(user, this.#booksFor(user.id).map((book) => {
       const entries = this.transactions.filter((transaction) => transaction.bookId === book.id);
@@ -518,6 +543,8 @@ export class MemoryStore {
     this.budgetPlans = this.budgetPlans.filter((plan) => !bookIds.has(plan.bookId));
     this.recurring = this.recurring.filter((plan) => !bookIds.has(plan.bookId));
     this.invitations = this.invitations.filter((invitation) => invitation.invitedById !== userId && !bookIds.has(invitation.bookId));
+    // Otherwise they re-request and are told access was already granted.
+    this.accessRequests = this.accessRequests.filter((row) => row.email !== user.email);
     this.books = this.books.filter((book) => !bookIds.has(book.id));
     this.memberships = this.memberships.filter((member) => member.userId !== userId && !bookIds.has(member.bookId));
     this.users = this.users.filter((item) => item.id !== userId);

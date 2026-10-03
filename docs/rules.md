@@ -5,7 +5,7 @@
 The conventions this codebase holds to. Every rule here exists because breaking
 it cost us something specific, and each one names that cost.
 
-> **Last reviewed** 2026-10-02 · Operational rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-03 · Operational rules live in `/CLAUDE.md`
 
 ---
 
@@ -129,6 +129,7 @@ flowchart TD
 | Never interpolate an argument into SQL | Validate the shape first |
 | Cap unbounded work | 2,000 rows per import; one request is not a job queue |
 | Security headers belong in Apache | helmet only covers API responses |
+| An unauthenticated route gets its **own** rate limit | `POST /v1/access-requests` is the only one. 5 per 10 minutes, not the global 120 a minute — it is the one write anybody on the internet can reach |
 
 ---
 
@@ -147,6 +148,8 @@ flowchart TD
 | An inline `<svg>` needs its own size | Without `width`/`height` it fills its container. The leaf logo once rendered 300px tall |
 | **Branch on a status code, never on a message** | `ApiError` carries `status`. `/not found/i.test(message)` breaks the day the wording changes |
 | An error state shows nothing, not zeros | A zeroed admin table beside an error banner reads as "nobody is signed up" |
+| **A modal goes in a portal to `<body>`** | Rendered inside the header or footer it is clipped by `.landing`'s `overflow:hidden` and painted under the hero — both are stacking contexts |
+| Never `display:flex` on a `<td>` | It stops being a table-cell; two adjacent ones merge into a single anonymous cell and stack |
 
 ---
 

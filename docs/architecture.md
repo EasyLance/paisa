@@ -187,9 +187,11 @@ erDiagram
 | **Provenance** | `TransactionSource.importedAmount` | What the bank said, kept after any edit |
 | **Idempotency** | `IngestionEvent.sourceHash` | Unique per workspace — the duplicate guard |
 | **History** | `AuditEvent` | Append-only, `before` / `after` JSON |
+| **Waiting list** | `AccessRequest` | Name and email of somebody with no account yet. Unique email; `approvedAt` is the tick |
 
 **Migrations** (all checked in):
-`initial` → `book_invitations` → `idempotency_records` → `budget_plan` → `transfer_destination`
+`initial` → `book_invitations` → `idempotency_records` → `budget_plan` →
+`transfer_destination` → `period_start_day` → `access_requests`
 
 ---
 
@@ -289,6 +291,30 @@ un-categorise someone else's plan, so it is counted as a reference too.
 
 No password is ever handled: a new account is created without one and sent a
 reset link, and a reset is emailed by Firebase rather than returned as a link.
+
+#### Access requests
+
+`POST /v1/access-requests` is the **only unauthenticated write on the API** —
+the "Request access" popup on the landing page, which is the one way in from
+outside an invite-only app. It stores a name and an email, nothing else, and is
+rate-limited to **5 per 10 minutes per IP** rather than the global 120 a minute.
+
+The reply tells the sender which of three situations they are in, because being
+told to wait when you have already been let in sends you back a third time:
+
+| Reply | Means |
+|---|---|
+| `received` | Filed. The admin can see it |
+| `pending` | Already asked, still waiting. The unique email means a second submission cannot become a second row |
+| `granted` | Already approved — go and sign in |
+
+Approving is one act, not two: `POST /v1/admin/access-requests/:id/approve`
+creates the Firebase account (reusing one that already exists, so it is safe to
+click twice), sends the link that lets them choose their own password,
+provisions a household, and stamps `approvedAt`. **Adding a user outright goes
+through the same function**, so somebody the admin created without a request is
+still told "access granted" rather than "wait your turn" if they later fill in
+the form. Deleting a user drops their row, so they can ask again.
 
 ---
 

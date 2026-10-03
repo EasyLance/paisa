@@ -242,8 +242,14 @@ Three rules the landing page follows:
 
 1. **The preview is sample data and says so.** A figure a visitor could mistake
    for their own is worse than no figure.
-2. **"Request access" is an email, not a form.** Nothing is sold and there is no
-   public sign-up, so the button goes to `/contact-us`.
+2. **"Request access" is a popup, in all three places it appears.** The header,
+   the footer and the hero all render the same `RequestAccess` component: a
+   two-field modal — name and email — that writes a row the master admin
+   approves. It is **portalled to `<body>`**, because `.landing` has
+   `overflow:hidden` and both the header and the footer are stacking contexts,
+   so a backdrop rendered in place is clipped and painted under the hero card.
+   The three replies it can show are set by the server, not guessed from the
+   form (see *architecture* §8.1).
 3. **The landing page never flashes in front of a returning user.** A
    `paisa.returning` flag in `localStorage` decides which screen `/` shows while
    Firebase resolves. It is a rendering hint, never a permission.

@@ -144,6 +144,8 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | A7 | A master admin page: every account, add, rename, disable, reset a password | ✅ *(needs a service-account key)* |
 | A8 | Back up one user's data as a file, and clear or delete it | ✅ |
 | A9 | Reset a household to new — ledger **and** configuration — keeping the login | ✅ |
+| A10 | A stranger can ask for access from the landing page, once, and is told where they stand | ✅ |
+| A11 | The master admin sees who is waiting and grants access in one click | ✅ *(needs a service-account key)* |
 
 ---
 

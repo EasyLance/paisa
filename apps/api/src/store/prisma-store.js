@@ -356,6 +356,21 @@ export class PrismaStore {
   // exactly what they can already read, never more. A ledger wipe only touches
   // books they own, so clearing out a CA cannot empty the household they review.
 
+  // ---- access requests ---------------------------------------------
+  // Keyed on the address, because that is what both the public form and the
+  // admin page have. `approvedAt` is the tick: null means still waiting, and
+  // the unique email is what stops a second submission becoming a second row.
+  async listAccessRequests() { return this.db.accessRequest.findMany({ orderBy: { createdAt: 'desc' } }); }
+  async getAccessRequest(email) { return this.db.accessRequest.findUnique({ where: { email: String(email).trim().toLowerCase() } }); }
+  async createAccessRequest({ email, name }) { return this.db.accessRequest.create({ data: { email: String(email).trim().toLowerCase(), name } }); }
+  // Upsert, not update: an account the admin added outright never had a
+  // request to approve, and the public form still has to be told it is in.
+  async grantAccessRequest({ email, name }) {
+    const address = String(email).trim().toLowerCase();
+    return this.db.accessRequest.upsert({ where: { email: address }, update: { approvedAt: new Date() }, create: { email: address, name, approvedAt: new Date() } });
+  }
+  async deleteAccessRequest(id) { return this.db.accessRequest.delete({ where: { id } }).catch(() => null); }
+
   async listPlatformUsers() {
     const [users, perBook] = await Promise.all([
       this.db.userProfile.findMany({
@@ -515,6 +530,8 @@ export class PrismaStore {
       await db.bookMembership.deleteMany({ where: { userId } });
       await db.workspaceUser.deleteMany({ where: { userId } });
       await db.userProfile.delete({ where: { id: userId } });
+      // Otherwise they re-request and are told access was already granted.
+      await db.accessRequest.deleteMany({ where: { email: user.email } });
 
       const workspaceIds = [...new Set(owned.map((book) => book.workspaceId))];
       const emptied = [];

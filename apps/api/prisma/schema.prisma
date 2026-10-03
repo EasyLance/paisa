@@ -412,3 +412,15 @@ model AuditEvent {
   @@index([workspaceId, createdAt])
   @@index([bookId, createdAt])
 }
+
+// Someone asking to be let in. The landing page writes it, the master admin
+// console reads it. No relation to UserProfile: the whole point is that there
+// is no account yet, and the unique email is what stops a second submission
+// turning into a second row.
+model AccessRequest {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  name       String
+  createdAt  DateTime  @default(now())
+  approvedAt DateTime?
+}

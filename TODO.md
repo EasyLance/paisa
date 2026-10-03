@@ -1,6 +1,6 @@
 # Paisa — outstanding work
 
-Ordered by what unblocks the most. Last reviewed 2026-10-02.
+Ordered by what unblocks the most. Last reviewed 2026-10-03.
 
 ## Next: get the Android app onto a real phone
 
@@ -48,6 +48,17 @@ guesswork until real SMS from Arjun's own banks is flowing.
       day. Flag for review, never merge automatically.
 
 ## Smaller, worth doing
+
+- [ ] **Deploy the access-request waiting list.** *Arjun's step.* Built
+      2026-10-03: the landing page's "Request access" button is now a popup that
+      files a row, and `/admin` shows who is waiting with an **Approve** button
+      that creates the account and emails the password link. Needs
+      `./deploy/migrate.sh` first — it adds the `AccessRequest` table. The
+      Approve button's Firebase half could not be exercised locally (no service
+      account on this machine); the new `findFirebaseUserByEmail` call was
+      verified read-only against the live project, and everything else in that
+      path is already in production use. **Click it once on the live site and
+      confirm the account appears in Firebase.**
 
 - [ ] **Install the Firebase service-account key.** *Arjun's step.* Without it
       `/admin` can back up, clear and delete ledger data, but cannot list
