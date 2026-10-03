@@ -47,6 +47,34 @@ guesswork until real SMS from Arjun's own banks is flowing.
 - [ ] **Flag look-alike duplicate payments** — same merchant, same amount, same
       day. Flag for review, never merge automatically.
 
+## From the pre-mobile audit (2026-10-03)
+
+Nine bugs found and fixed in the same pass — see `docs/memory.md` §3. These
+four are left because they are your call or they are the host, not the code:
+
+- [ ] **The live Apache is not the one in `deploy/paisa-apache.conf`.** The repo
+      sets six security headers; the droplet sends **two**
+      (`X-Content-Type-Options`, `Referrer-Policy`). Missing on every dashboard
+      response: `Content-Security-Policy`, `X-Frame-Options`/`frame-ancestors`,
+      `Strict-Transport-Security`, `Permissions-Policy`. The API looks covered
+      only because helmet sets its own. Concretely: the signed-in dashboard can
+      be framed by any site. Same class of drift as the systemd units.
+- [ ] **Seven mutations write no audit event** — accounts, categories,
+      categorization rules, recurring plans, ingestion events, imports and
+      `PATCH /me`. Both stores agree, so it is a gap, not drift. It matters most
+      for ingestion: **every SMS the Android app uploads will be invisible in the
+      audit trail**. Decide whether `IngestionEvent` + `TransactionSource` is
+      provenance enough, or add the rows, before the phone starts posting.
+- [ ] **An unknown path returns HTTP 200.** `/anything` renders the "That page
+      does not exist" body with a 200, because the `[slug]` route never sets a
+      status. Search engines will index junk URLs and uptime checks cannot tell
+      a dead link from a live page.
+- [ ] **`Idempotency-Key` is required but its value is ignored in production.**
+      Only the memory store reads it; `prisma-store` dedupes on the unique
+      `(workspaceId, sourceHash)`. Harmless today — `sourceHash` is the right
+      key for SMS — but the header is theatre, so either use it or stop
+      demanding it.
+
 ## Smaller, worth doing
 
 - [ ] **Deploy the access-request waiting list.** *Arjun's step.* Built

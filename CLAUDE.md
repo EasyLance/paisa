@@ -105,7 +105,12 @@ Three habits that keep them honest:
 - **Every mutation writes an audit event** with before/after. That is what
   replaced row immutability: a transaction can now be fully edited, but an
   imported row keeps the bank's figure in `TransactionSource.importedAmount`
-  forever.
+  forever. **Seven routes do not meet this yet** and both stores agree, so it
+  is a gap rather than drift: `POST` of an account, a category, a
+  categorization rule, a recurring plan, an ingestion event (unless a rule
+  fires), an import, and `PATCH /me`. An SMS the phone uploads therefore leaves
+  no audit row — its provenance is the `IngestionEvent` and `TransactionSource`
+  instead. Decide per route whether that is enough before relying on the trail.
 - **`spendByCategory` must account for everything that left the account** —
   uncategorized payments, split parts, and outgoing transfers. The dashboard
   asserts `sum(byCategory) === spentMinor + movedMinor`; there is a test.
@@ -137,6 +142,17 @@ Three habits that keep them honest:
 - The API takes ~3s to bind. Health checks must poll, not curl once.
 - `DELETE` with a `content-type` header and no body is a 400 at parse; a 204
   response has no JSON to read.
+- **Zod runs every check on a field even after one fails.** A `BigInt()` inside
+  a `refine`/`superRefine` sees the raw string and throws out of `safeParse`,
+  turning a 400 into a 500. Guard the conversion. `parse()` catches it as
+  `VALIDATOR_THREW` — that code in the journal is a bug report, not a bad
+  request.
+- Timestamps accept `Z` **or** an offset (`+05:30`); a naked local time does not.
+- `Idempotency-Key` is required on `POST` of a transaction, an ingestion event
+  and an import, but **only the memory store uses its value**. In production the
+  real duplicate guard is the unique `(workspaceId, sourceHash)` on
+  `IngestionEvent`, so a retry with the same `sourceHash` is what is actually
+  safe.
 
 ## Tenancy
 

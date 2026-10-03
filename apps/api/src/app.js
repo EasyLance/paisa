@@ -15,12 +15,22 @@ import { parseStatementCsv, parseStatementXlsx } from './domain/statement.js';
 import { mergeDirectory, platformAdmins } from './domain/platform-admin.js';
 import { createFirebaseUser, deleteFirebaseUser, findFirebaseUserByEmail, firebaseAdminConfigured, listFirebaseUsers, lookupFirebaseUser, sendFirebasePasswordReset, updateFirebaseUser } from './domain/firebase-admin.js';
 
+// `{ offset: true }` on every timestamp: an Indian client naturally sends
+// `2026-10-01T14:45:00+05:30`, and rejecting that is a 400 nobody can read.
+// A naked local time with no zone at all is still rejected — that one really
+// is ambiguous, and `dateAt()` exists for dates that mean "midnight here".
 const transactionFields = z.object({
   accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(), categoryId: z.string().nullable().optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']),
   amountMinor: z.string().regex(/^-?\d+$/), currency: z.string().length(3).default('INR'), merchant: z.string().max(160).nullable().optional(),
-  note: z.string().max(2000).nullable().optional(), occurredAt: z.string().datetime(), state: z.enum(['pending_review', 'confirmed']).optional(),
+  note: z.string().max(2000).nullable().optional(), occurredAt: z.string().datetime({ offset: true }), state: z.enum(['pending_review', 'confirmed']).optional(),
 });
 function validateAmountSign(value, context) {
+  // Zod v4 runs `superRefine` even when a field's own check has already
+  // failed, so this is handed whatever arrived — "10.5", "1e5", "abc".
+  // `BigInt()` throws a SyntaxError straight out of `safeParse`, which turns a
+  // 400 into a 500 on all four money-writing routes. The regex on the field
+  // has already recorded the real complaint; there is nothing to add.
+  if (!/^-?\d+$/.test(String(value.amountMinor ?? ''))) return;
   const amount = BigInt(value.amountMinor);
   if (amount === 0n) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Amount cannot be zero' });
   if (value.kind === 'expense' && amount >= 0n) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Expense amounts must be negative' });
@@ -29,11 +39,11 @@ function validateAmountSign(value, context) {
 const transactionInput = transactionFields.superRefine(validateAmountSign);
 
 const ingestionInput = transactionFields.extend({ sourceType: z.enum(['sms', 'statement']), sourceHash: z.string().min(16).max(128), externalRef: z.string().max(120).optional(), metadata: z.record(z.string(), z.unknown()).optional() }).superRefine(validateAmountSign);
-const recurringInput = z.object({ categoryId: z.string().nullable().optional(), name: z.string().trim().min(1).max(120), kind: z.enum(['expense', 'income']), amountMinor: z.string().regex(/^-?\d+$/), currency: z.string().length(3).default('INR'), cadence: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']), nextDueAt: z.string().datetime() }).superRefine(validateAmountSign);
+const recurringInput = z.object({ categoryId: z.string().nullable().optional(), name: z.string().trim().min(1).max(120), kind: z.enum(['expense', 'income']), amountMinor: z.string().regex(/^-?\d+$/), currency: z.string().length(3).default('INR'), cadence: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']), nextDueAt: z.string().datetime({ offset: true }) }).superRefine(validateAmountSign);
 
 const recurringPatch = z.object({
   categoryId: z.string().nullable().optional(), name: z.string().trim().min(1).max(120).optional(), kind: z.enum(['expense', 'income']).optional(),
-  amountMinor: z.string().regex(/^-?\d+$/).optional(), cadence: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional(), nextDueAt: z.string().datetime().optional(), active: z.boolean().optional(),
+  amountMinor: z.string().regex(/^-?\d+$/).optional(), cadence: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']).optional(), nextDueAt: z.string().datetime({ offset: true }).optional(), active: z.boolean().optional(),
 }).superRefine((value, context) => {
   if ((value.amountMinor === undefined) !== (value.kind === undefined)) context.addIssue({ code: 'custom', path: ['amountMinor'], message: 'Provide kind and amountMinor together' });
   else if (value.amountMinor !== undefined) validateAmountSign(value, context);
@@ -41,7 +51,7 @@ const recurringPatch = z.object({
 const transactionPatch = z.object({
   merchant: z.string().max(160).nullable().optional(), note: z.string().max(2000).nullable().optional(),
   amountMinor: z.string().regex(/^-?\d+$/).optional(), kind: z.enum(['expense', 'income', 'transfer', 'refund']).optional(),
-  occurredAt: z.string().datetime().optional(), state: z.enum(['pending_review', 'confirmed', 'reconciled', 'excluded', 'voided']).optional(),
+  occurredAt: z.string().datetime({ offset: true }).optional(), state: z.enum(['pending_review', 'confirmed', 'reconciled', 'excluded', 'voided']).optional(),
   accountId: z.string().nullable().optional(), counterAccountId: z.string().nullable().optional(),
 }).superRefine((value, context) => {
   requireFields(value, context);
@@ -78,7 +88,15 @@ function requireFields(value, context) {
 }
 
 function parse(schema, input) {
-  const result = schema.safeParse(input);
+  // `safeParse` is documented not to throw, but a check inside the schema can:
+  // Zod runs every check on a field even after an earlier one failed, so a
+  // `BigInt()` in a `refine` is handed the raw string. That escaped twice and
+  // turned a 400 into a 500 on five money routes. Both are fixed at source;
+  // this is the net, and the distinct code means it is never silent — seeing
+  // VALIDATOR_THREW in the journal is a bug report, not a bad request.
+  let result;
+  try { result = schema.safeParse(input); }
+  catch (cause) { const error = new Error('Request validation failed'); error.statusCode = 400; error.code = 'VALIDATOR_THREW'; error.details = { reason: cause?.message }; throw error; }
   if (!result.success) { const error = new Error('Request validation failed'); error.statusCode = 400; error.code = 'VALIDATION_ERROR'; error.details = result.error.flatten(); throw error; }
   return result.data;
 }
@@ -239,7 +257,7 @@ export async function buildApp(options = {}) {
     // Superseded by budget-plan above, which budgets a share of income per group.
     // Kept because the endpoints work and the table may hold existing rows.
     api.get('/books/:bookId/budgets', async (request) => { await access(request); return { items: await app.store.listBudgets(request.params.bookId) }; });
-    api.put('/books/:bookId/budgets/:categoryId', async (request) => { const { book } = await access(request, 'edit'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}-01$/), amountMinor: z.string().regex(/^\d+$/).refine((value) => BigInt(value) > 0n, 'Budget must be greater than zero'), currency: z.string().length(3).default('INR') }), request.body); const budget = await app.store.upsertBudget({ bookId: book.id, categoryId: request.params.categoryId, ...body }); await app.store.addAudit({ workspaceId: book.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'budget.updated', entityType: 'budget', entityId: budget.id, after: { categoryId: request.params.categoryId, month: body.month, amountMinor: body.amountMinor } }); return budget; });
+    api.put('/books/:bookId/budgets/:categoryId', async (request) => { const { book } = await access(request, 'edit'); const body = parse(z.object({ month: z.string().regex(/^\d{4}-\d{2}-01$/), amountMinor: z.string().regex(/^\d+$/).refine((value) => /^\d+$/.test(value) && BigInt(value) > 0n, 'Budget must be greater than zero'), currency: z.string().length(3).default('INR') }), request.body); const budget = await app.store.upsertBudget({ bookId: book.id, categoryId: request.params.categoryId, ...body }); await app.store.addAudit({ workspaceId: book.workspaceId, bookId: book.id, actorId: request.actor.id, action: 'budget.updated', entityType: 'budget', entityId: budget.id, after: { categoryId: request.params.categoryId, month: body.month, amountMinor: body.amountMinor } }); return budget; });
     api.get('/books/:bookId/categorization-rules', async (request) => { await access(request); return { items: await app.store.listRules(request.params.bookId) }; });
     api.post('/books/:bookId/categorization-rules', async (request, reply) => { await access(request, 'edit'); const body = parse(z.object({ categoryId: z.string(), matchType: z.enum(['merchant_exact', 'merchant_contains', 'vpa_exact']), matchValue: z.string().trim().min(2).max(160), priority: z.number().int().min(1).max(1000).default(100) }), request.body); return reply.code(201).send(await app.store.createRule({ ...body, bookId: request.params.bookId, createdById: request.actor.id })); });
     api.patch('/books/:bookId/categorization-rules/:ruleId', async (request) => {

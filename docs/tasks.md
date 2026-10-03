@@ -100,6 +100,9 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 |---|---|
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
 | **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder on the contact page. **Request access** no longer needs it — it is a form now |
+| **Apache on the droplet sends 2 of 6 security headers** | The repo's vhost is not the live one. No CSP, `X-Frame-Options`, HSTS or `Permissions-Policy` on any dashboard response |
+| **Seven mutations write no audit event** | Including every SMS the Android app will upload. Decide before the phone starts posting |
+| **Unknown paths return 200, not 404** | The `[slug]` route renders a not-found body with a success status |
 | **Click Approve once on the live site** | 👤 Arjun's step — the Firebase half of approving a request has no service account on the dev machine, so only the new email lookup could be verified against the live project |
 | **Install the Firebase service-account key** | 👤 Arjun's step — without it the admin page cannot list, add, rename, disable or reset Firebase accounts |
 | **Prune expired `IdempotencyRecord` rows on a schedule** | A ledger wipe now clears the orphans, but nothing clears the expired ones |

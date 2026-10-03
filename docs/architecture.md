@@ -187,6 +187,7 @@ erDiagram
 | **Provenance** | `TransactionSource.importedAmount` | What the bank said, kept after any edit |
 | **Idempotency** | `IngestionEvent.sourceHash` | Unique per workspace — the duplicate guard |
 | **History** | `AuditEvent` | Append-only, `before` / `after` JSON |
+| **Timestamps** | `occurredAt`, `nextDueAt` | ISO 8601, `Z` or an offset like `+05:30`. A naked local time is rejected |
 | **Waiting list** | `AccessRequest` | Name and email of somebody with no account yet. Unique email; `approvedAt` is the tick |
 
 **Migrations** (all checked in):

@@ -129,6 +129,7 @@ flowchart TD
 | Never interpolate an argument into SQL | Validate the shape first |
 | Cap unbounded work | 2,000 rows per import; one request is not a job queue |
 | Security headers belong in Apache | helmet only covers API responses |
+| **A check inside a schema must not be able to throw** | Zod runs every check on a field even after an earlier one failed, so a `BigInt()` in a `refine` sees the raw string. `safeParse` then throws and the 400 becomes a 500 |
 | **A guard classifies; it does not grep for the bad state** | Grepping only for "broken" means every failure of the check itself reads as "fine". Name the good state too, and treat anything else as a stop |
 | An unauthenticated route gets its **own** rate limit | `POST /v1/access-requests` is the only one. 5 per 10 minutes, not the global 120 a minute — it is the one write anybody on the internet can reach |
 
@@ -150,6 +151,7 @@ flowchart TD
 | **Branch on a status code, never on a message** | `ApiError` carries `status`. `/not found/i.test(message)` breaks the day the wording changes |
 | An error state shows nothing, not zeros | A zeroed admin table beside an error banner reads as "nobody is signed up" |
 | **A modal goes in a portal to `<body>`** | Rendered inside the header or footer it is clipped by `.landing`'s `overflow:hidden` and painted under the hero — both are stacking contexts |
+| **Scope a `:has()` override to a `min-width`** | `:has()` inherits its argument's specificity, so it outranks the plain-class mobile rules in `@media(max-width:680px)` and the phone layout silently loses |
 | Never `display:flex` on a `<td>` | It stops being a table-cell; two adjacent ones merge into a single anonymous cell and stack |
 
 ---

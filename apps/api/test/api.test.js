@@ -980,6 +980,38 @@ describe('Paisa API authorization and ledger invariants', () => {
       });
     });
   });
+  // Zod v4 runs superRefine even after a field's own check has failed, so a
+  // malformed amount reached `BigInt()` and threw out of safeParse — a 500 on
+  // every money-writing route, including the one the Android app posts to.
+  it('answers a malformed amount with 400 on every route that takes money, never 500', async () => {
+    const bad = ['10.5', '-10.5', '1e5', 'abc', '', '0x10', ' 100', '100 ', '+100', '١٢٣'];
+    const when = '2026-10-01T00:00:00.000Z';
+    for (const amountMinor of bad) {
+      const routes = [
+        ['POST', '/v1/books/book_arjun/transactions', { kind: 'expense', amountMinor, occurredAt: when }],
+        ['POST', '/v1/books/book_arjun/ingestion-events', { sourceType: 'sms', sourceHash: '0123456789abcdef0123', kind: 'expense', amountMinor, occurredAt: when }],
+        ['PATCH', '/v1/books/book_arjun/transactions/txn_zomato', { kind: 'expense', amountMinor }],
+        ['POST', '/v1/books/book_arjun/recurring-plans', { name: 'Rent', kind: 'expense', amountMinor, cadence: 'monthly', nextDueAt: when }],
+      ];
+      for (const [method, url, payload] of routes) {
+        const response = await app.inject({ method, url, headers: { ...as('user_owner'), 'idempotency-key': 'amount-shape-check' }, payload });
+        expect(`${method} ${url} ${JSON.stringify(amountMinor)} -> ${response.statusCode}`)
+          .toBe(`${method} ${url} ${JSON.stringify(amountMinor)} -> 400`);
+      }
+    }
+  });
+
+  it('answers a malformed budget amount with 400, not 500', async () => {
+    // Same shape as the transaction bug: `.refine()` runs even though the
+    // `.regex()` before it already failed, so BigInt() saw the raw string.
+    for (const amountMinor of ['10.5', 'abc', '1e5', '-5']) {
+      const response = await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budgets/cat_dining', headers: as('user_owner'), payload: { month: '2026-10-01', amountMinor } });
+      expect(`${amountMinor} -> ${response.statusCode}`).toBe(`${amountMinor} -> 400`);
+    }
+    const good = await app.inject({ method: 'PUT', url: '/v1/books/book_arjun/budgets/cat_dining', headers: as('user_owner'), payload: { month: '2026-10-01', amountMinor: '500000' } });
+    expect(good.statusCode).toBe(200);
+  });
+
   describe('access requests', () => {
     const asAdmin = async (fn) => {
       const saved = process.env.PLATFORM_ADMINS;
