@@ -53,7 +53,7 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 |---|---|
 | 📒 **Ledger** | Full edit of any entry · void · split · comments · pagination beyond 100 · month navigation |
 | 📄 **Import** | CSV and `.xlsx` on one pipeline · SBI and HDFC narrations · balance checksum · per-row dedupe · 2,000-row cap |
-| 📅 **Pay cycles** | A book's month follows payday, not the calendar · per-book start day 1–28 · window shown beside the month name |
+| 📅 **Pay cycles** | A book's month follows payday, not the calendar · per-book start day 1–31, clamped in short months · window shown beside the month name |
 | 💰 **Money model** | Spent / Saving / Balance · breakdown covering uncategorized, splits and transfers · account-to-account flows |
 | 🎯 **Budgets** | Percentage of expected income per group · 50/30/20 preset · expected income from recurring plans |
 | 🔁 **Recurring** | Self-posting when due · month-end sticky · catch-up after downtime · idempotent |

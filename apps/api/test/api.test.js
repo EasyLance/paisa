@@ -968,12 +968,45 @@ describe('Paisa API authorization and ledger invariants', () => {
       expect(currentPeriodLabel(on('02'), tz, 1)).toBe('2026-10');
     });
 
-    it('rejects a start day that some month would not have', async () => {
-      const bad = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun', headers: as('user_owner'), payload: { periodStartDay: 31 } });
-      expect(bad.statusCode).toBe(400);
-      expect(normaliseStartDay(31)).toBe(1);
-      expect(normaliseStartDay(0)).toBe(1);
-      expect(normaliseStartDay(2.5)).toBe(1);
+    it('rejects a start day no month has, and accepts every one that exists', async () => {
+      for (const bad of [0, 32, 2.5, -1]) expect(normaliseStartDay(bad)).toBe(1);
+      expect(normaliseStartDay(31)).toBe(31);
+      const rejected = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun', headers: as('user_owner'), payload: { periodStartDay: 32 } });
+      expect(rejected.statusCode).toBe(400);
+      const accepted = await app.inject({ method: 'PATCH', url: '/v1/books/book_arjun', headers: as('user_owner'), payload: { periodStartDay: 30 } });
+      expect(accepted.statusCode).toBe(200);
+    });
+
+    it('clamps a late start day into short months without leaving a gap', () => {
+      const tz = 'Asia/Kolkata';
+      // IST midnight is 18:30 UTC the day before, so compare the local date.
+      const local = (d) => new Date(d.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+      const at = (month, startDay) => periodRangeUtc(month, tz, startDay);
+
+      // February has no 30th, so the cycle starts on the 28th that year.
+      expect(local(at('2027-02', 30).start)).toBe('2027-01-30');
+      expect(local(at('2027-02', 30).end)).toBe('2027-02-28');
+      expect(local(at('2027-03', 30).start)).toBe('2027-02-28');
+      // A leap year gives it the 29th.
+      expect(local(at('2028-02', 31).end)).toBe('2028-02-29');
+      expect(local(at('2028-03', 31).start)).toBe('2028-02-29');
+
+      // The clamp must not drop a day or double-count one: consecutive periods
+      // meet exactly, every month, for every start day.
+      for (const startDay of [26, 29, 30, 31]) {
+        for (let month = 1; month <= 11; month += 1) {
+          const label = (m) => `2027-${String(m).padStart(2, '0')}`;
+          expect(at(label(month), startDay).end.getTime()).toBe(at(label(month + 1), startDay).start.getTime());
+        }
+      }
+    });
+
+    it('treats the clamped day as the boundary when deciding the current period', () => {
+      const tz = 'Asia/Kolkata';
+      // 28 Feb 2027 is as close to "the 30th" as February gets, so the next
+      // cycle has begun; the day before, it has not.
+      expect(currentPeriodLabel(new Date('2027-02-28T12:00:00Z'), tz, 30)).toBe('2027-03');
+      expect(currentPeriodLabel(new Date('2027-02-27T12:00:00Z'), tz, 30)).toBe('2027-02');
     });
 
     it('counts a month-end salary into the period it funds', async () => {

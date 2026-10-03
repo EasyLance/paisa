@@ -345,21 +345,30 @@ function PayCycleCard({book,canManage,onSave}:{book?:Book;canManage:boolean;onSa
   const [day,setDay]=useState(String(current));
   const [saving,setSaving]=useState(false);
   const chosen=Number(day);
-  const valid=Number.isInteger(chosen)&&chosen>=1&&chosen<=28;
+  const valid=Number.isInteger(chosen)&&chosen>=1&&chosen<=31;
   const example=(()=>{
     if(!valid||chosen===1)return 'Months run from the 1st to the last day — the usual calendar month.';
-    const start=new Date(Date.UTC(2026,chosen>15?9:10,chosen));
-    const end=new Date(Date.UTC(2026,(chosen>15?9:10)+1,chosen-1));
+    const first=chosen>15?9:10;
+    const start=new Date(Date.UTC(2026,first,chosen));
+    const end=new Date(Date.UTC(2026,first+1,chosen-1));
     const fmt=(d:Date)=>d.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:'UTC'});
-    return `“November” would run ${fmt(start)} – ${fmt(end)}.`;
+    // A day past the 28th does not exist in February, so it clamps to the end
+    // of the month. Periods still meet exactly; the short one is just shorter.
+    const february=chosen>28?' In February it starts on the 28th — the 29th in a leap year.':'';
+    return `“November” would run ${fmt(start)} – ${fmt(end)}.${february}`;
   })();
+  // The whole point is that payday lands inside the period it opens. A cycle
+  // this late only works if payday is never earlier than it, and the last
+  // working day slips back whenever a month ends on a weekend.
+  const risky=valid&&chosen>=29;
   async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!valid)return;setSaving(true);try{await onSave(chosen);}finally{setSaving(false);}}
   return <article className="card"><div className="card-header"><div><p className="eyebrow">PAY CYCLE</p><h2>When this book&rsquo;s month starts</h2></div></div>
     <p className="quiet pay-cycle-copy">If your salary lands on the last working day, a calendar month puts the money that funds November into October. Set this a few days before payday and each period starts when you get paid.</p>
     <form className="pay-cycle" onSubmit={submit}>
-      <label>Starts on day<input type="number" min={1} max={28} value={day} disabled={!canManage||saving} onChange={event=>setDay(event.target.value)}/></label>
+      <label>Starts on day<input type="number" min={1} max={31} value={day} disabled={!canManage||saving} onChange={event=>setDay(event.target.value)}/></label>
       <button className="secondary-button" disabled={!canManage||saving||!valid||chosen===current}>{saving?'Saving…':'Save'}</button>
-      <small className={valid?'quiet':'form-error'}>{valid?example:'Pick a day from 1 to 28 — later days do not exist in every month.'}</small>
+      <small className={valid?'quiet':'form-error'}>{valid?example:'Pick a day from 1 to 31.'}</small>
+      {risky?<small className="pay-cycle-warn">Your salary has to arrive on or after day {chosen} every month. If the last working day ever slips earlier — a month ending on a weekend — that month&rsquo;s pay falls into the previous period. A few days earlier is safer.</small>:null}
     </form>
   </article>;
 }

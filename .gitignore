@@ -17,8 +17,11 @@ apps/mobile/lib/firebase_options.dart
 # Deploy stamps (see TODO.md)
 .deploy-stamp/
 
-# Production env lives in the app directory
+# Production env lives in the app directory. The glob matters: migrate.sh and
+# the setup steps leave paisa.env.bak-<stamp> beside it, and those hold the
+# database password too.
 paisa.env
+paisa.env.*
 
 # A Firebase service-account key can mint a token for any user. It belongs in
 # /etc/paisa/, never here — this is the net for the day it is downloaded to the

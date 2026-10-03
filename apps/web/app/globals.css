@@ -72,3 +72,4 @@
 .pay-cycle input{width:74px;border:1px solid #dfe3dc;border-radius:9px;background:#fbfcfa;padding:10px 11px;color:#1b2b23;outline:none}
 .pay-cycle input:focus{border-color:#4e816a;box-shadow:0 0 0 3px rgb(67 124 96 / 10%)}
 .pay-cycle small{grid-column:1/-1;line-height:1.5}
+.pay-cycle-warn{grid-column:1/-1;margin-top:-2px;padding:9px 11px;border:1px solid #e8d6ad;border-radius:9px;background:#fdf8ec;color:#6f5520;font-size:9px;line-height:1.55}

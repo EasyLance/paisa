@@ -9,14 +9,26 @@
 // 28th and the 31st: every one of those falls inside a cycle starting on the
 // 26th. Predicting payday needs a working-day calendar; bucketing it does not.
 //
-// Capped at 28 so no month is ever missing the day.
+// A day past the 28th is clamped to the end of a short month: a cycle starting
+// on the 30th starts on the 28th in February, the 29th in a leap year. Start
+// and end clamp through the same function, so consecutive periods still meet
+// exactly — no gap, no overlap.
 export const MIN_PERIOD_START_DAY = 1;
-export const MAX_PERIOD_START_DAY = 28;
+export const MAX_PERIOD_START_DAY = 31;
 
 export function normaliseStartDay(value) {
   const day = Number(value);
   if (!Number.isInteger(day) || day < MIN_PERIOD_START_DAY || day > MAX_PERIOD_START_DAY) return 1;
   return day;
+}
+
+function lastDayOf(year, monthIndex) {
+  // Day 0 of the next month is the last day of this one, and Date.UTC
+  // normalises a month index that has run off either end of the year.
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+function clampDay(year, monthIndex, day) {
+  return Math.min(day, lastDayOf(year, monthIndex));
 }
 
 function localParts(date, timezone) {
@@ -53,10 +65,10 @@ export function periodRangeUtc(month, timezone, periodStartDay = 1) {
   if (day === 1) {
     return { start: localMidnightUtc(year, monthIndex, timezone), end: localMidnightUtc(year, monthIndex + 1, timezone) };
   }
-  const offset = startMonthOffset(day);
+  const first = monthIndex + startMonthOffset(day);
   return {
-    start: localMidnightUtc(year, monthIndex + offset, timezone, day),
-    end: localMidnightUtc(year, monthIndex + offset + 1, timezone, day),
+    start: localMidnightUtc(year, first, timezone, clampDay(year, first, day)),
+    end: localMidnightUtc(year, first + 1, timezone, clampDay(year, first + 1, day)),
   };
 }
 
@@ -71,8 +83,9 @@ export function isInBookPeriod(date, month, timezone, periodStartDay = 1) {
 export function currentPeriodLabel(at, timezone, periodStartDay = 1) {
   const day = normaliseStartDay(periodStartDay);
   const { year, month, day: today } = localParts(at ?? new Date(), timezone);
-  // Months are 1-based here; Date.UTC normalises any overflow for us.
-  const startedThisMonth = today >= day;
+  // Compare against this month's clamped boundary, or 28 February would never
+  // count as having reached a cycle that starts on the 30th.
+  const startedThisMonth = today >= clampDay(year, month - 1, day);
   const monthIndex = (month - 1) + (startedThisMonth ? 0 : -1) - startMonthOffset(day);
   const anchor = new Date(Date.UTC(year, monthIndex, 1));
   return `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, '0')}`;
