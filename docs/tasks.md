@@ -67,11 +67,11 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 
 ## 3. Next — Android on a Real Phone
 
-> The new app is planned phase by phase in `Mobile App/`. **Phase 0 is done**
-> (project, API client, theme, 50 tests, runs on the emulator). Task 1 below is
-> still the gate for signing in to production; its exact steps are in
-> `Mobile App/05-firebase-android-setup.md`. Tasks 2–3 are absorbed by the new
-> app's Phase 1; tasks 4–7 belong to its Phase 9 (SMS capture), after v1.
+> The new app is planned phase by phase in `Mobile App/`. **Phases 0 to 2 are
+> built** (sign-in, request access, book picker, role gating, biometric lock, the
+> live dashboard; 152 tests). Task 1 below is done and tasks 2–3 are absorbed by the new app. What
+> is left is one sign-in against production with Arjun's account. Tasks 4–7
+> belong to its Phase 9 (SMS capture), after v1.
 
 Nothing below is verifiable until real SMS from real banks is flowing.
 

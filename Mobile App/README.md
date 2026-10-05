@@ -3,25 +3,30 @@
 Everything about the Paisa phone apps lives in this folder. Android first, iOS
 later. The web dashboard and API stay where they are (`apps/web`, `apps/api`);
 this app is a client of that API and adds nothing to the data model except the
-push-notification pieces in [02-technical-design.md](02-technical-design.md) §8.
+push-notification pieces in [docs/architecture.md](docs/architecture.md) §8.
 
-> **Last reviewed** 2026-10-05 · **Status** Phase 0 built and passing; waiting on
-> Arjun for the Firebase registration (0.3) and the look approval (0.7) ·
+> **Last reviewed** 2026-10-05 · **Status** Phases 0, 1 and 2 built, 152 tests passing.
+> Still waiting on Arjun to sign in once against production (Phase 1 gate) ·
 > **Owner** Arjun
 
 ## Files
 
+The docs mirror the web app's `docs/` folder, one file for each question.
+
 | File | Read it for |
 |---|---|
-| [01-requirements.md](01-requirements.md) | What v1 is, who uses it, every decision made so far, and the assumptions still open |
-| [02-technical-design.md](02-technical-design.md) | Stack, packages, folder layout, how each screen maps to an API route, auth, security, FCM, and what the API is missing |
-| [03-development-plan.md](03-development-plan.md) | The phased flow: tasks, gates, who does each step, risks |
-| [04-findings.md](04-findings.md) | Things found in the code or on this Mac that change the plan, each with a status |
-| [05-firebase-android-setup.md](05-firebase-android-setup.md) | Arjun's step 0.3: registering the Android app in Firebase |
-| `screenshots/` | Phase 0 look in light and dark, for approval |
+| [docs/prd.md](docs/prd.md) | What v1 is, who uses it, every requirement with its state, what is left out, acceptance criteria |
+| [docs/architecture.md](docs/architecture.md) | Stack, folder layout, how each screen maps to an API route, auth and session, security, push notifications, testing |
+| [docs/rules.md](docs/rules.md) | The conventions, each with the cost of breaking it |
+| [docs/design.md](docs/design.md) | Colours (light and dark), type scale, components, screen map, how it writes |
+| [docs/tasks.md](docs/tasks.md) | Where we are, what is next, who owns each step, and the full phased plan with gates and risks |
+| [docs/memory.md](docs/memory.md) | Facts, decisions and why, traps already paid for, open questions |
+| [docs/findings.md](docs/findings.md) | Things found in the code or on this Mac that change the plan, each with a status |
+| [docs/firebase-android-setup.md](docs/firebase-android-setup.md) | Registering the Android app in Firebase (done; kept for later fingerprints and iOS) |
+| `docs/screenshots/` | What each phase looked like |
 
-Code lives in `app/` (a Flutter project). Docs stay at
-this level so they are not buried in a build tree.
+Code lives in `app/` (a Flutter project). Docs stay one level up so they are not
+buried in a build tree.
 
 ## Decisions at a glance
 
@@ -43,18 +48,23 @@ Newest first. One line per change of state, with the date.
 
 | Date | Change |
 |---|---|
+| 2026-10-05 | Phase 2 built: the live dashboard. Pay-cycle month navigation (the Dart port of `currentPeriodLabel` agrees with the API's own function on 1,276 recorded cases), four tiles, where-the-money-went breakdown that adds up to spent plus saved, budget progress, review card, an explicit error state that shows no figures. Verified on the emulator at 360dp in light and dark, and against the API's own numbers for a calendar-month book and a book starting on the 26th. Found a web bug for start days 29–31 (F14). Open: the Phase 1 production sign-in |
+| 2026-10-05 | Phase 1 built: sign-in, forgot password, request access, no-household screen, book picker, role gating, biometric / PIN lock, theme choice, sign-out. Verified on the emulator against a local API (owner and CA accounts, real system PIN prompt) and a release build checked: window is secure, no dev header or emulator address in the binary, Firebase starts. Open: production sign-in with Arjun's own account |
 | 2026-10-05 | Phase 0 built: project, API client, money and time helpers, light and dark theme, 50 tests, boots on the emulator and reads `/me` and `/books` from a local API. Open: 0.3 (Arjun), 0.7 approval (Arjun) |
 | 2026-10-05 | Questions answered, planning docs written |
 
-## When code lands
+## Keeping the docs current
 
-The moment `app/` exists, update these in the same turn (the repo's own rule in
-`CLAUDE.md`, *Keeping the docs current*):
+A change is not finished until the docs that describe it match, in the same turn.
+The table for **this folder's** docs is in [docs/rules.md](docs/rules.md) §9. A
+mobile change can also touch the **repo-level** docs, which live outside this folder:
 
-| Doc | Change |
+| Repo doc | Touch it when |
 |---|---|
-| `CLAUDE.md` | Layout block: add `Mobile App/` and say what happens to `apps/mobile` |
-| `docs/architecture.md` | Folder structure §3, technology stack §2 |
-| `docs/prd.md` | Capture rows C7 / C8 stay as they are until Phase 9; add a mobile section |
-| `docs/tasks.md` and `TODO.md` | The mobile phases |
-| `docs/design.md` | Dark-mode tokens and the phone type scale (Phase 0 and Phase 2) |
+| `../CLAUDE.md` | The layout, the commands, or where things stand change |
+| `../docs/architecture.md` | The mobile folder layout or stack changes, or the server gains a route the app needs (push, Phase 7) |
+| `../docs/prd.md` §5.6 | A mobile requirement changes state |
+| `../docs/tasks.md` and `../TODO.md` | A phase finishes or is reprioritised |
+| `../docs/design.md` §12 | Only the pointer: the phone's design lives in [docs/design.md](docs/design.md) |
+| `../docs/memory.md` | A mobile decision or trap also affects the web or the API |
+| `../apps/web/` or `../apps/api/` | The phone finds a bug there: write it up where it lives (as `apps/web/BUG-pay-cycle-month-label.md`), do not fix it in passing |

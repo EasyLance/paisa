@@ -5,15 +5,18 @@ Ordered by what unblocks the most. Last reviewed 2026-10-05.
 ## Next: get the Android app onto a real phone
 
 > The replacement app is planned in `Mobile App/` (start at its `README.md`).
-> **Phase 0 is done**; Phase 1 (sign-in, lock, book picker) needs the Firebase
-> step below. Steps for it: `Mobile App/05-firebase-android-setup.md`. The
+> **Phases 0, 1 and 2 are built** (2 is the live dashboard); the one thing left on Phase 1 is a sign-in
+> against production with your own account (command in
+> `Mobile App/docs/tasks.md`, Phase 1). The
 > hardcoded-book and parser items below describe the older `apps/mobile` app and
 > are replaced by that plan rather than fixed here.
 
 The app is written and never run against production. Everything below is
 guesswork until real SMS from Arjun's own banks is flowing.
 
-- [ ] **Register an Android app in Firebase** — *Arjun's step.* The
+- [x] **Register an Android app in Firebase** — *done 2026-10-05* for the new
+      app in `Mobile App/` (`google-services.json` is in place and Firebase
+      initialises; no `firebase_options.dart` is needed). Original note: The
       `paisa-easylance` project only has a web app. Console → Add app → Android,
       package `com.paisa.mobile`, drop `google-services.json` into
       `apps/mobile/android/app/`. Both `google-services.json` and

@@ -1,4 +1,6 @@
-# 04 · Findings
+# 🔎 Findings
+
+**Paisa Mobile — Android app**
 
 Things found while reading the code and this Mac that change, or could change,
 how the mobile app is built. Each one says where it was found, why it matters,
@@ -21,6 +23,9 @@ rather than deleting it.
 | F10 | `GET /memberships` returns every member's `firebaseUid` | Open — Phase 6 |
 | F11 | "Confirm" is a category change, not a state change | Resolved |
 | F12 | Geist is `.woff2` on the web; Flutter needs `.ttf` | Open — optional |
+| F13 | `google-services.json` was one folder too high | Resolved |
+| F14 | Web month label is wrong for pay-cycle start days 29–31 | Open — task raised |
+| F15 | An outgoing transfer lands in "Other" until it is categorised | Open — Phase 3 decision |
 
 ---
 
@@ -54,7 +59,7 @@ Authentication Admin*. Sending needs *Firebase Cloud Messaging API Admin* added
 in the console, which widens what that key can do. That is a deliberate call, so
 it is not made for you.
 
-**Next:** Phase 7. Design in `02-technical-design.md` §8.
+**Next:** Phase 7. Design in [`architecture.md`](architecture.md) §8.
 
 ## F3 · `CLAUDE.md` is wrong about `Idempotency-Key`
 
@@ -182,3 +187,55 @@ only. Decide in Phase 3 and record it in `docs/memory.md`.
 needs the Geist `.ttf` files (open-licensed), which means downloading them: not
 done without your say-so. Purely cosmetic; skip unless the difference bothers
 you.
+
+## F13 · `google-services.json` was one folder too high
+
+**Where:** it was saved to `app/android/`; the Gradle plugin reads
+`app/android/app/`. With the file in the wrong place the build still succeeds and
+Firebase simply is not configured, which looks like a runtime failure later.
+
+**Resolved 2026-10-05:** moved to `app/android/app/`; the Gradle plugin now
+applies, and a build without `DEV_AUTH` logs `FirebaseApp initialization
+successful`. The file names `paisa-easylance`, package `com.paisa.mobile`. Its
+`oauth_client` list is empty because it was downloaded before the debug SHA-1 was
+added; that does not affect email and password sign-in, and re-downloading
+refreshes it.
+
+## F14 · The web's month label is wrong for pay-cycle start days 29–31
+
+**Where:** `apps/web/app/page.tsx` `currentPeriod()` accepts only start days 1–28
+(`startDay <= 28 ? startDay : 1`) and does not clamp to the end of a short month.
+The API's `currentPeriodLabel()` in `domain/period.js` accepts 1–31 and clamps.
+
+**Evidence:** both functions run over every day of 2026 for nine start days: 3,285
+comparisons, 61 mismatches, all at start days 29 (30), 30 (19) and 31 (12), none at
+1, 5, 15, 16, 26 or 28. Example, start day 30: 2026-01-30 is `2026-02` to the API
+and `2026-01` to the web. The web opens, and its arrows start, one period behind
+on those days. The window printed under the label comes from the server, which is
+why the header never contradicts the figures.
+
+**Mobile:** the phone ports the API's function, not the web's, and a test checks it
+against `test/fixtures/period_labels.json`, recorded from the real `period.js`
+across 11 start days, month ends, a leap February and a year end. It agrees on all
+1,276 cases.
+
+**Next:** written up for the web in its own file,
+[`apps/web/BUG-pay-cycle-month-label.md`](../../apps/web/BUG-pay-cycle-month-label.md)
+(cause, evidence, a repro script, the fix and how to verify it), and raised as a
+separate task. The fixture is reusable there. `docs/memory.md` already says "Start day clamps, it does not cap".
+
+## F15 · An outgoing transfer lands in "Other" until it is categorised
+
+**Where:** `domain/spending.js` counts an outgoing transfer as money that left but
+gives it its category's group, and a transfer has no category until someone sets
+one, so it falls under `Uncategorized` in group `Other`. Seen on the recorded
+fixture: ₹11,234.50 under Other is a ₹10,000 transfer plus a ₹1,234.50 payment.
+
+**Consequence:** a budget share for the `Saving` group (20% in the fixture) shows
+₹0 spent however much has been moved, until the transfer is given a category in
+the `Saving` group. The web behaves the same way.
+
+**Next:** not a bug, but easy to misread. Phase 3's review flow lets a reviewer
+categorise a transfer; consider whether the transaction detail should say "a
+transfer to your own account: choose a Saving category to count it against that
+budget".

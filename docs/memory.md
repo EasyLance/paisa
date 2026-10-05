@@ -78,6 +78,8 @@ already paid for, and what would make us change our minds.
 | **A fresh Flutter project in `Mobile App/`, not an edit of `apps/mobile`** | The old app's screens were hardcoded sample data, its book id and dev-auth header could not work in production, and it carried a Kotlin/Dart parser duplicate. Starting clean kept only the ideas worth keeping | The old SMS bridge turns out to need little change; port it in Phase 9 rather than rewrite it |
 | **`APP_CHECK_MODE=off` for the mobile launch** | Play Integrity does not attest a sideloaded APK, so enforcing App Check would lock the sideload channel out | The app becomes Play-only |
 | **Android-only `flutter create`, iOS added later** | iOS needs Xcode, which is not installed, and an Apple account; nothing in v1 needs it | Phase 10 starts |
+| **The app lock is a UI gate over the Firebase session, never a replacement for it** | Locking does not sign out or change the token, so a forgotten PIN is never a locked-out account: "Sign out instead" is always on the lock screen. It uses the phone's own screen lock or biometric, so there is no Paisa PIN to forget or leak | A requirement appears to lock against a second person who knows the phone's PIN |
+| **`FLAG_SECURE` on release builds only** | Balances must not show in recents or recordings, but debug builds need screenshots while developing | The household finds the screenshot block annoying — make it a setting |
 | **Only the Flutter packages a phase uses** | Each plugin carries Android config and build time; adding all of them up front would ship unused permissions | — |
 
 ---
@@ -160,6 +162,19 @@ already paid for, and what would make us change our minds.
 | `flutter create` names the application id `com.paisa.paisa_mobile` | The old app had that as its Kotlin namespace and `com.paisa.mobile` as its application id. Set both to `com.paisa.mobile` and move `MainActivity` into that package |
 | `google-services` Gradle plugin fails the build if the JSON is missing | Applied only when `app/android/app/google-services.json` exists, so the app builds before Firebase is registered |
 | zsh treats `?` in an unquoted URL as a glob | `curl localhost:4000/...summary?month=2026-08` fails with "no matches found". Quote the URL |
+| Riverpod 3 **pauses a provider nothing is listening to** | `container.read(provider.future)` in a test never completes: 10 of 11 session tests timed out at 30 s. A screen is always listening in the app, so only tests hit it. Register `container.listen(provider, (_, _) {})` first |
+| Riverpod 3 **retries a failed provider on its own** | A failed `/me` lookup would hit the API again and again before showing its error. `retry: (count, error) => null` on the `ProviderScope` turns it off |
+| Two text buttons in one `Row` on a 360dp phone | Overflowed by 226px. A `Wrap` lets them fall onto two lines. The widget test found it; the 411dp emulator would not have |
+| A test finder matching a field behind a bottom sheet | The sheet's `Email` and the sign-in form's `Email` are both on screen. Scope the finder with `find.descendant(of: find.byType(BottomSheet), ...)` |
+| The system PIN / biometric prompt is invisible to `adb screencap` | It is a secure window and the capture comes back **black**. `dumpsys window | grep mCurrentFocus` shows `BiometricPrompt`; `adb shell input text 1234` then `keyevent 66` answers it. Set a throwaway PIN with `adb shell locksettings set-pin 1234` and remove it with `locksettings clear --old 1234` |
+| `FlutterActivity` cannot show the biometric prompt | `local_auth` needs a `FragmentActivity`; `MainActivity` extends `FlutterFragmentActivity` |
+| `google-services.json` saved in `android/` instead of `android/app/` | The build succeeds and Firebase is just unconfigured. Check the log for `FirebaseApp initialization successful` |
+| The web's `currentPeriod()` caps the pay-cycle start day at 28 | The API takes 1–31 and clamps. For start days 29–31 the web's month label is one period behind on 61 days of a year. The phone ports the API's function and a recorded table (`Mobile App/app/test/fixtures/period_labels.json`) keeps it honest. See `Mobile App/docs/findings.md` F14 |
+| A provider that reads `bookProvider()!` breaks during sign-out | The session has no book for a moment while the dashboard is still on screen, so a `!` throws inside Riverpod. Pass the book's values (`timezone`, `periodStartDay`) in as the provider's argument instead |
+| Riverpod 3 family notifiers take their argument in the constructor | `NotifierProvider.family<MonthController, String, Key>(MonthController.new)` with `MonthController(this.key)` |
+| `tester.scrollUntilVisible` stops as soon as the widget is *built* | A list builds items beyond the viewport, so it returns without scrolling and the next `tap` misses. Use `ensureVisible` then `pumpAndSettle` |
+| The test font is wider than a real one | Ahem makes text overflow in tests where real fonts fit. Treat the overflow as real for large amounts on a 360dp phone: long `₹` pairs went under the bar |
+| `adb shell wm density 480` makes the emulator 360dp wide; `wm density reset` undoes it | The narrowest common phone. `adb shell cmd uimode night yes` flips system dark mode, which the app follows. Reset both when done |
 | `java` on this Mac is only the macOS stub | `keytool` and Gradle use Android Studio's bundled JDK at `/Applications/Android Studio.app/Contents/jbr/Contents/Home` |
 
 ---

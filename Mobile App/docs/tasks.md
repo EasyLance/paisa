@@ -1,10 +1,76 @@
-# 03 · Development Plan
+# ✅ Tasks & Progress
 
-> **Last reviewed** 2026-10-05 · Read [01-requirements.md](01-requirements.md) and
-> [02-technical-design.md](02-technical-design.md) first. Phase numbers here are
-> the ones used in the other two files.
+**Paisa Mobile — Android app**
 
-## 1. The flow
+This document tracks what is built, what is next, who owns each step, and the full
+phase-by-phase plan. The repo's own `TODO.md` carries a short pointer to it.
+
+> **Last reviewed** 2026-10-05 · Read [`prd.md`](prd.md) and
+> [`architecture.md`](architecture.md) first. Phase numbers are the ones used in
+> every mobile doc.
+
+---
+
+## 1. Where We Are
+
+```mermaid
+flowchart LR
+    P0("✅ 0<br/>Foundations")
+    P1("🟡 1<br/>Access + lock")
+    P2("✅ 2<br/>Dashboard")
+    P3("⛔ 3<br/>Transactions")
+    P4("⛔ 4<br/>Import")
+    P5("⛔ 5<br/>Budgets")
+    P6("⛔ 6<br/>People")
+    P7("⛔ 7<br/>Push")
+    P8("⛔ 8<br/>Release")
+
+    P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8
+
+    classDef done fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
+    classDef part fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
+
+    class P0,P2 done
+    class P1 part
+    class P3,P4,P5,P6,P7,P8 todo
+```
+
+```text
+Phase 0  ██████████████████████████████  100%
+Phase 1  ███████████████████████████░░░   90%   one sign-in against production
+Phase 2  ██████████████████████████████  100%
+Phase 3  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0%
+Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
+```
+
+> **Health** — 152 tests passing · analyzer clean · release build checked (secure
+> window, no development header in the binary, Firebase starts) · verified on the
+> Android emulator at 360dp, light and dark, against a local copy of the API.
+
+---
+
+## 2. Done
+
+| Phase | Shipped |
+|---|---|
+| 🧱 **0 Foundations** | Flutter project (`com.paisa.mobile`), API client with a single 401 retry, money and time helpers, light and dark theme, models checked against recorded API responses, `google-services.json` in place |
+| 🔑 **1 Access** | Sign in, forgot password, request access (three replies, rate limit), "no household yet", book picker with the choice remembered, role gating, biometric / PIN lock with grace period, theme choice, sign-out that forgets the book |
+| 📊 **2 Dashboard** | Pay-cycle month navigation, four tiles, "where your money went" that adds up to spent plus saved, budget progress, review card, an error state that shows no figures |
+
+---
+
+## 3. Next
+
+| # | Task | Owner | Blocks |
+|---|---|---|---|
+| 1 | **Sign in once against production** with your own account: `flutter run --release --dart-define=API_URL=https://paisa.easylancefreelance.com`, choose a book, turn the lock on, background the app over a minute and return | 👤 **Arjun** | Closing Phase 1 and proving the Firebase path |
+| 2 | **Phase 3 — transactions**: browse, review, edit, split, comment, add. The Review button on the dashboard leads here | 🤖 Claude | Phases 4–7 |
+| 3 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
+
+---
+
+## 4. The flow
 
 Each phase ends at a **gate**: something that can be run or looked at, not a
 feeling. A phase is not finished until its gate passes and its docs are updated.
@@ -53,7 +119,7 @@ week or more of evenings.
    doc the change touches (table in `README.md`).
 5. **Hand off** with the build command for the APK, never a `git push`.
 
-## 2. Phases
+## 5. Phases
 
 ### Phase 0 — Foundations · M
 
@@ -86,6 +152,25 @@ mock. **Docs:** `README.md` status log, `CLAUDE.md` layout, `docs/architecture.m
 
 ### Phase 1 — Access and lock · M
 
+> **State 2026-10-05:** 1.1–1.7 built and verified on the emulator against a local
+> API (owner, spouse-style two-book and CA reviewer accounts, the phone's real PIN
+> prompt, a 66-second background return) and on a release build. 95 tests pass.
+> **Open: the production gate below, which needs Arjun's own password.** Notes:
+> the role helper is `Book.can()` in `models.dart`; `FLAG_SECURE` is applied only
+> to non-debuggable builds so debug can be screenshotted (release verified); in
+> debug dev-auth builds the "email" box takes a dev user id such as `user_ca`.
+>
+> **To do the gate**, from `Mobile App/app` with a phone attached (USB debugging
+> on) or the emulator running:
+>
+> ```bash
+> flutter run --release --dart-define=API_URL=https://paisa.easylancefreelance.com
+> ```
+>
+> Then sign in with your own email and password, choose a book, open Settings, turn
+> the lock on, background the app for over a minute and return. I never type your
+> password. Debug builds point at `10.0.2.2:4000` unless `API_URL` is given.
+
 | # | Task | Req |
 |---|---|---|
 | 1.1 | Session provider: Firebase user → `/me` → `/books` → selected book and role, persisted | X5 |
@@ -102,6 +187,19 @@ replies · lock engages after backgrounding · a `viewer` test account sees no e
 controls. **Ship:** first sideloadable APK.
 
 ### Phase 2 — Dashboard · M
+
+> **State 2026-10-05:** built and verified. 2.1–2.7 done; 152 tests. Verified on the
+> emulator at 360dp, light and dark, against the API's own numbers: a calendar-month
+> book (August: ₹5,87,867 income, ₹39,324.50 spent, ₹10,000 saved) and a book
+> starting on the 26th (the 26 Aug – 25 Sept period holds the Aug 26 payments, the
+> 26 Jul – 25 Aug period holds the Aug 25 salary). Deviations: **(a)** the current
+> period is computed by a Dart port of the API's `currentPeriodLabel`, not the web's
+> mirror, because the web's is wrong for start days 29–31 (F14); the port is checked
+> against `period_labels.json`, recorded from the real function. **(b)** "Review"
+> goes to the Activity tab, which is still a placeholder until Phase 3. **(c)** The
+> next-month arrow stops at today's period. **(d)** The role-abilities card moved
+> from Overview to Settings. **(e)** The headline reads "1 payment needs", where the
+> web says "1 payment need".
 
 | # | Task | Req |
 |---|---|---|
@@ -243,7 +341,7 @@ the app closed.
   Play.
 - Statement import is the iOS capture path, which makes Phase 4 quality matter.
 
-## 3. Arjun's steps in one list
+## 6. Arjun's steps in one list
 
 | When | Step |
 |---|---|
@@ -256,7 +354,7 @@ the app closed.
 | Before Phase 9 | 10–20 redacted real bank SMS; start the Play SMS declaration |
 | Any time | Disable public sign-up in Firebase (`TODO.md`) |
 
-## 4. Risks
+## 7. Risks
 
 | # | Risk | Mitigation |
 |---|---|---|
@@ -273,9 +371,9 @@ the app closed.
 | R11 | **Dark mode is unspecified** and the web has none | Mock first, approval in Phase 0, then write it into `docs/design.md` |
 | R12 | **SMS permission approval** can take weeks | Start in Phase 8; it only blocks the Play channel in Phase 9, not the sideload |
 
-## 5. Open items
+## 8. Open items
 
-All of these have a default in `01-requirements.md` §7; none blocks Phase 0.
+All of these have a default in `prd.md` §7; none blocks Phase 0.
 
 - A1–A7 assumptions awaiting a yes or a correction.
 - Exact Android minimum SDK: Flutter's default is assumed.

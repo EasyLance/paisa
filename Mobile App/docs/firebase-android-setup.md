@@ -1,4 +1,9 @@
-# 05 · Registering the Android app in Firebase
+# 🔥 Registering the Android app in Firebase
+
+**Paisa Mobile — Android app**
+
+> **Status** Done 2026-10-05. Kept for the release and Play SHA-1s (Phase 8), the
+> iOS app (Phase 10), and anyone setting up another environment.
 
 Phase 0 task 0.3 — **Arjun's step**. About ten minutes. Nothing here changes the
 server: the API already verifies any token issued by the `paisa-easylance`

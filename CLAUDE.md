@@ -10,7 +10,8 @@ apps/web       React dashboard — vinext (Vite), NOT an npm workspace, own lock
 apps/api       Fastify REST API + Prisma schema
 apps/worker    BullMQ stubs — no Redis is running, effectively unused
 apps/mobile    older Flutter app + Kotlin SMS bridge — kept until Mobile App/ replaces it
-Mobile App/    the new Flutter app (Android first) and its plan: start at Mobile App/README.md
+Mobile App/    the new Flutter app (Android first). Start at Mobile App/README.md; its docs
+               (prd, architecture, rules, design, tasks, memory) are in Mobile App/docs/
 deploy/        bootstrap, deploy, migrate, reset-ledger, systemd units, Apache config
 ```
 
@@ -27,6 +28,8 @@ The mobile app has its own checks, from `Mobile App/app`: `flutter analyze` and
 `flutter test`. Local development uses the API in dev auth
 (`npm run serve`, then `flutter build apk --debug --dart-define=DEV_AUTH=true`);
 that flag only works in debug builds.
+The mobile docs are in `Mobile App/docs/`; their own "which doc to update" table is
+in `Mobile App/docs/rules.md` §9.
 
 Before saying anything is done: `npm run test`, `npm run lint`, for dashboard
 changes `npx tsc --noEmit` in `apps/web` plus a build, **and update the docs the
@@ -273,7 +276,9 @@ systemctl show paisa-api -p User -p EnvironmentFiles --value
 ## Where things stand
 
 Phases 1 and 2 (dashboard, ledger, statement import, budgets) are live. The
-new Android app in `Mobile App/` has finished Phase 0 of its plan (project, API
-client, theme, 50 tests, boots on the emulator); it cannot sign in against
-production until the Android app is registered in Firebase. The older
-`apps/mobile` app was never run against production — see `TODO.md`.
+new Android app in `Mobile App/` has finished Phases 0 to 2 of its plan (sign-in,
+request access, book picker, role gating, biometric lock, the live dashboard; 152
+tests; verified on the emulator and in a release build). The Android app is registered in Firebase.
+What remains of Phase 1 is one sign-in against production with Arjun's own
+account. The older `apps/mobile` app was never run against production — see
+`TODO.md`.

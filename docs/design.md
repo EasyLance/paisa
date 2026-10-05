@@ -258,34 +258,11 @@ Three rules the landing page follows:
 
 ## 12. The Phone App
 
-`Mobile App/` follows this document; where a phone needs something different, it
-is here. Tokens live in `Mobile App/app/lib/core/theme/tokens.dart`.
+The Android app has its own design doc, [`Mobile App/docs/design.md`](../Mobile%20App/docs/design.md),
+with the dark palette, the phone type scale, the components and the screen map. It follows
+this document; the differences are few:
 
-| Difference | Why |
-|---|---|
-| Body is **14sp**, nothing below **12sp** | §3's 10–12px is a desktop trade-off; on a handset it is unreadable |
-| `muted` is **`#5b665f`**, not `#6e7771` | The web value is 4.1:1 on `--cream`; the phone is used outdoors and the floor is 4.5:1 |
-| Headings in the system serif, the rest in the system sans | Geist ships as `.woff2` on the web; Flutter needs `.ttf` |
-| Touch targets 48dp | Buttons and rows, not the 38px icon buttons of the dashboard |
-
-**Dark mode** exists only on the phone. Light is §2 unchanged.
-
-| Token | Light | Dark |
-|---|---|---|
-| Background (cream) | `#f4f2eb` | `#101714` |
-| Card (paper) | `#ffffff` | `#19231e` |
-| Line | `#e5e7df` | `#2a3730` |
-| Ink | `#17211c` | `#e9eee9` |
-| Muted | `#5b665f` | `#9aa7a0` |
-| Primary | `#1e5c45` | `#8ccaa7` (text on it `#0c1a13`) |
-| Positive money | `#2b6a4a` | `#8fd0ac` |
-| Coral | `#e47d5f` | `#ee9a80` |
-| Essentials | `#244e3c` | `#5fa085` |
-| Lifestyle | `#a9c467` | `#c3d98a` |
-| Saving | `#df8d6d` | `#eba083` |
-| Other | `#a1a8a3` | `#8b948f` |
-| Income | `#6399a4` | `#7fb4bf` |
-
-Group swatches keep their order in both modes. A test
-(`Mobile App/app/test/theme_test.dart`) fails if body or secondary text drops
-under 4.5:1 on either background.
+- Body text is **14sp** with a **12sp** floor, because §3's 10–12px is a desktop trade-off.
+- `muted` is **`#5b665f`**, darker than `#6e7771`, to reach 4.5:1 on the cream background.
+- **Dark mode** exists only on the phone. The web is light-only.
+- Money pairs sit **under** a budget bar rather than beside its label on a narrow screen.

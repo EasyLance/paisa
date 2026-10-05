@@ -1,0 +1,17 @@
+{
+    "items": [
+        {
+            "groupName": "Essentials",
+            "percent": 50
+        },
+        {
+            "groupName": "Lifestyle",
+            "percent": 30
+        },
+        {
+            "groupName": "Saving",
+            "percent": 20
+        }
+    ],
+    "baseIncomeMinor": "58786700"
+}

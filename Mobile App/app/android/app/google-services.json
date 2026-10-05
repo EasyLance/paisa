@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505038559840",
+    "project_id": "paisa-easylance",
+    "storage_bucket": "paisa-easylance.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505038559840:android:d394855e928bbe327b0105",
+        "android_client_info": {
+          "package_name": "com.paisa.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC51LYFyRPF16VWckzh5O4xl4XJE8BIUR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -149,17 +149,17 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 
 ### 5.6 Mobile app (v1)
 
-The full list, with IDs, is `Mobile App/01-requirements.md`. State here is at
+The full list, with IDs, is `Mobile App/docs/prd.md`. State here is at
 the level of the whole app.
 
 | ID | Requirement | State |
 |---|---|---|
-| MO1 | Sign in, request access, forgot password, biometric / PIN lock | ⛔ |
-| MO2 | Live dashboard for a chosen book and pay-cycle month | ⛔ |
+| MO1 | Sign in, request access, forgot password, biometric / PIN lock | 🟡 built and verified on an emulator; one production sign-in outstanding |
+| MO2 | Live dashboard for a chosen book and pay-cycle month | 🟡 built; matches the API's figures on an emulator, not yet seen against production |
 | MO3 | Browse, review, split, comment, edit and import statements | ⛔ |
 | MO4 | Budgets, recurring plans, people and access | ⛔ |
 | MO5 | Push notification when payments need review | ⛔ |
-| MO6 | Dark mode | 🟡 palette built and checked; no screens yet |
+| MO6 | Dark mode | 🟡 palette, Settings switch and the Phase 1 screens; the rest follow each phase |
 
 SMS capture (C7, C8) moves to a later phase of the mobile plan, after v1.
 
