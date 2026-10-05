@@ -38,7 +38,7 @@ flowchart LR
 
 ```text
 Phase 0  ██████████████████████████████  100%
-Phase 1  ███████████████████████████░░░   90%   one sign-in against production
+Phase 1  ████████████████████████████░░   95%   production sign-in done; the lock with a real fingerprint is untested
 Phase 2  ██████████████████████████████  100%
 Phase 3  ██████████████████████████░░░░   85%   built; ten real payments reviewed is Arjun's gate
 Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
@@ -65,7 +65,7 @@ Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
 
 | # | Task | Owner | Blocks |
 |---|---|---|---|
-| 1 | **Sign in once against production** with your own account: `flutter run --release --dart-define=API_URL=https://paisa.easylancefreelance.com`, choose a book, turn the lock on, background the app over a minute and return | 👤 **Arjun** | Closing Phase 1 and proving the Firebase path |
+| 1 | **Try the lock with a real fingerprint or face** on a physical phone: Settings → Lock Paisa on, background the app over a minute, return. Production sign-in is done (see below); the lock's PIN path was already checked on the emulator, but an emulator has no sensor | 👤 **Arjun** | Closing Phase 1 |
 | 2 | **Review real payments on the phone** (Phase 3 gate): as the owner, review ten pending payments and see each on the web; then try the app as a viewer and a reviewer account if you have one | 👤 **Arjun** | Closing Phase 3 |
 | 3 | **Phase 4 — statement import**: pick a CSV or .xlsx, show imported / duplicate counts and warnings | 🤖 Claude | Phases 5–7 |
 | 4 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
@@ -224,7 +224,7 @@ phone type scale.
 > 3.1–3.8 done; 205 tests. Verified on the emulator at 360dp in light and dark
 > against a local API, including a real Confirm from the phone that the server then
 > reported as confirmed. Not done: **reviewing ten real payments from the production
-> ledger** and seeing them on the web, which needs Arjun's production sign-in. Deviations:
+> ledger** and seeing them on the web, which is Arjun's. Production sign-in and adding a payment both worked on 2026-10-05. Deviations:
 > **(a)** the confirm button reuses the category route (a reviewer can confirm because
 > choosing a category is what confirms); only an editor can confirm a payment that has
 > no category. **(b)** Void is offered, exclude and restore are not. **(c)** Type and

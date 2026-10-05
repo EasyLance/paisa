@@ -6,8 +6,8 @@ Ordered by what unblocks the most. Last reviewed 2026-10-05.
 
 > The replacement app is planned in `Mobile App/` (start at its `README.md`).
 > **Phases 0 to 3 are built** (2 is the live dashboard, 3 the ledger); what is left on them
-> is a sign-in against production with your own account and reviewing real payments on
-> the phone (commands in `Mobile App/docs/tasks.md`). Next is Phase 4, statement import. The
+> is trying the lock with a real fingerprint on a phone (production sign-in and adding a
+> payment already work) and reviewing real payments on the phone (commands in `Mobile App/docs/tasks.md`). Next is Phase 4, statement import. The
 > hardcoded-book and parser items below describe the older `apps/mobile` app and
 > are replaced by that plan rather than fixed here.
 
