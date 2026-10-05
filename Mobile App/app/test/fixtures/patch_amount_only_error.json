@@ -1,0 +1,12 @@
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "details": {
+    "formErrors": [],
+    "fieldErrors": {
+      "amountMinor": [
+        "Provide kind and amountMinor together"
+      ]
+    }
+  }
+}

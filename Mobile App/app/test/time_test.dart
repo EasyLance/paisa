@@ -29,6 +29,13 @@ void main() {
     expect([wall.year, wall.month, wall.day, wall.hour, wall.minute], [2026, 2, 28, 0, 0]);
   });
 
+  test('times read on a 12-hour clock in the book, with midnight and noon as 12', () {
+    expect(clock.time(DateTime.utc(2026, 9, 30, 18, 30)), '12:00 am');
+    expect(clock.time(DateTime.utc(2026, 9, 30, 6, 30)), '12:00 pm');
+    expect(clock.time(DateTime.utc(2026, 8, 26, 14, 20)), '7:50 pm');
+    expect(clock.time(DateTime.utc(2026, 8, 26, 3, 35)), '9:05 am');
+  });
+
   test('UTC books have no offset', () {
     expect(BookClock('UTC').dateAt(2026, 10, 1), DateTime.utc(2026, 10, 1));
   });

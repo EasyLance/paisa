@@ -239,3 +239,40 @@ the `Saving` group. The web behaves the same way.
 categorise a transfer; consider whether the transaction detail should say "a
 transfer to your own account: choose a Saving category to count it against that
 budget".
+
+## F16 · The write routes answer with different parts of a payment
+
+**Where:** `PATCH …/transactions/:id` returns the payment with `sources`, `splits` and
+`comments`. `PATCH …/category` returns it with `sources` and `splits` in the memory store
+and with **neither** in the Prisma store, and `PUT …/splits` returns `sources` and
+`splits` but **no `comments`**. There is no `GET …/transactions/:id`.
+
+**Consequence:** a screen that takes a write's answer as the new payment loses its
+comments (and, after a category change, its splits). The first draft of the detail
+screen did exactly that.
+
+**What the phone does:** `Transaction.fromJson(json, previous:)` keeps the old lists when
+the answer omits them. A test uses the recorded category answer to prove the comments
+survive. **Next, if wanted:** make every write route return the same shape, or add the
+single-payment GET; the phone's merge can then be deleted.
+
+## F17 · The server lets a split payment's amount change
+
+**Where:** `PATCH …/transactions/:id` with a new `amountMinor` does not look at
+`TransactionSplit`. Recorded: a payment of −₹750 split −₹500 and −₹250, then edited to
+−₹800, was accepted and now has parts that add up to the old figure.
+
+**Consequence:** the parts and the total disagree and nothing says so. `spendByCategory`
+counts the parts, so the dashboard and the ledger can differ for that payment.
+
+**What the phone does:** locks type and amount on a split payment, with a sentence
+saying why. **Next:** the API should refuse the edit (or clear the split), and the web
+has the same hole. Not fixed here: it is in `apps/api`.
+
+## F18 · Comments carry an author id and nothing else
+
+**Where:** `Comment` is `{id, transactionId, authorId, body, createdAt}`. The name lives
+in `GET …/memberships`, which also exposes `firebaseUid` (F10).
+
+**What the phone does:** "You" for the signed-in person, "A member of this book" for
+anyone else. Phase 6 loads memberships and can show names.

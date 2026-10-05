@@ -18,7 +18,7 @@ flowchart LR
     P0("✅ 0<br/>Foundations")
     P1("🟡 1<br/>Access + lock")
     P2("✅ 2<br/>Dashboard")
-    P3("⛔ 3<br/>Transactions")
+    P3("✅ 3<br/>Transactions")
     P4("⛔ 4<br/>Import")
     P5("⛔ 5<br/>Budgets")
     P6("⛔ 6<br/>People")
@@ -31,20 +31,20 @@ flowchart LR
     classDef part fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
     classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
 
-    class P0,P2 done
+    class P0,P2,P3 done
     class P1 part
-    class P3,P4,P5,P6,P7,P8 todo
+    class P4,P5,P6,P7,P8 todo
 ```
 
 ```text
 Phase 0  ██████████████████████████████  100%
 Phase 1  ███████████████████████████░░░   90%   one sign-in against production
 Phase 2  ██████████████████████████████  100%
-Phase 3  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0%
+Phase 3  ██████████████████████████░░░░   85%   built; ten real payments reviewed is Arjun's gate
 Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
 ```
 
-> **Health** — 152 tests passing · analyzer clean · release build checked (secure
+> **Health** — 205 tests passing · analyzer clean · release build checked (secure
 > window, no development header in the binary, Firebase starts) · verified on the
 > Android emulator at 360dp, light and dark, against a local copy of the API.
 
@@ -57,6 +57,7 @@ Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
 | 🧱 **0 Foundations** | Flutter project (`com.paisa.mobile`), API client with a single 401 retry, money and time helpers, light and dark theme, models checked against recorded API responses, `google-services.json` in place |
 | 🔑 **1 Access** | Sign in, forgot password, request access (three replies, rate limit), "no household yet", book picker with the choice remembered, role gating, biometric / PIN lock with grace period, theme choice, sign-out that forgets the book |
 | 📊 **2 Dashboard** | Pay-cycle month navigation, four tiles, "where your money went" that adds up to spent plus saved, budget progress, review card, an error state that shows no figures |
+| 💳 **3 Transactions** | Paged ledger with state chips and search over what is loaded, payment detail, confirm / change category (with "do the same next time") / void with a two-step confirm, edit (kind and amount together, date at the book's midnight), split editor that only saves when the parts add up, comments, add a payment with one idempotency key per form; each action offered by role |
 
 ---
 
@@ -65,8 +66,9 @@ Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
 | # | Task | Owner | Blocks |
 |---|---|---|---|
 | 1 | **Sign in once against production** with your own account: `flutter run --release --dart-define=API_URL=https://paisa.easylancefreelance.com`, choose a book, turn the lock on, background the app over a minute and return | 👤 **Arjun** | Closing Phase 1 and proving the Firebase path |
-| 2 | **Phase 3 — transactions**: browse, review, edit, split, comment, add. The Review button on the dashboard leads here | 🤖 Claude | Phases 4–7 |
-| 3 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
+| 2 | **Review real payments on the phone** (Phase 3 gate): as the owner, review ten pending payments and see each on the web; then try the app as a viewer and a reviewer account if you have one | 👤 **Arjun** | Closing Phase 3 |
+| 3 | **Phase 4 — statement import**: pick a CSV or .xlsx, show imported / duplicate counts and warnings | 🤖 Claude | Phases 5–7 |
+| 4 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
 
 ---
 
@@ -217,6 +219,21 @@ month (check two books and two months, including one across a pay-cycle boundary
 phone type scale.
 
 ### Phase 3 — Transactions · L
+
+> **State 2026-10-05:** built and verified except the real-data part of the gate.
+> 3.1–3.8 done; 205 tests. Verified on the emulator at 360dp in light and dark
+> against a local API, including a real Confirm from the phone that the server then
+> reported as confirmed. Not done: **reviewing ten real payments from the production
+> ledger** and seeing them on the web, which needs Arjun's production sign-in. Deviations:
+> **(a)** the confirm button reuses the category route (a reviewer can confirm because
+> choosing a category is what confirms); only an editor can confirm a payment that has
+> no category. **(b)** Void is offered, exclude and restore are not. **(c)** Type and
+> amount are locked on a split payment because the server would otherwise let the parts
+> stop adding up (F17). **(d)** Search also covers the category name. **(e)** Comment
+> authors read "You" / "A member of this book" until People (Phase 6) can name them.
+> **(f)** The list is not refreshed when the tab is re-selected; pull down to refresh.
+> The month filter (API change #2) was not needed: pages of 50 are quick, but this has
+> only been tried against sample data.
 
 | # | Task | Req |
 |---|---|---|

@@ -23,7 +23,7 @@ The server side is described in the repo's [`docs/architecture.md`](../../docs/a
 | Auth | `firebase_core`, `firebase_auth` | ✅ | Same Firebase project as the web |
 | App lock | `local_auth` | ✅ | The phone's own biometric or screen-lock prompt |
 | Preferences | `shared_preferences` | ✅ | Theme, last book, lock settings. None of it sensitive |
-| Formatting | hand-written | ✅ | `intl` is installed but unused so far; money grouping is BigInt-safe by hand. Remove at Phase 3 if still unused |
+| Formatting | hand-written | ✅ | Money grouping is BigInt-safe by hand; `intl` was removed in Phase 3 because nothing used it |
 | File picking, hashing | `file_picker`, `crypto` | ⛔ Phase 4 | Statement import |
 | Push | `firebase_messaging` | ⛔ Phase 7 | FCM |
 | Crash reports | `firebase_crashlytics` | ⛔ Phase 8 | Needs its Gradle plugin; added with release hardening |
@@ -65,6 +65,7 @@ Mobile App/
     │       ├── access/           sign in, request access, no household, book picker
     │       ├── home/             the four-tab shell
     │       ├── dashboard/        logic (pure) · providers · view
+    │       ├── activity/         the ledger: list, detail, edit/add form, split editor, category sheet; logic (pure) · providers (paging, writes)
     │       ├── settings/         account, theme, lock, abilities, sign out
     │       ├── lock/             controller + the gate that covers the app
     │       └── phase0/           theme_preview.dart — throwaway, debug-only
@@ -353,9 +354,29 @@ Android specifics, all in place:
 - Still to add: `POST_NOTIFICATIONS` for Android 13+ (Phase 7).
 - No `READ_SMS` / `RECEIVE_SMS` in v1.
 
+### Built so far: how the ledger screens use these routes
+
+- **Paging** is cursor-based: `nextCursor` is the id of the last row sent. The list
+  asks for 50 and loads more on scroll or on "Load older payments". A failed later
+  page keeps what is shown and offers a retry; a failed first page is an error panel.
+- **There is no route to fetch one payment.** A write's answer is the only fresh copy,
+  and the answers are not uniform: `PATCH …/category` and `PUT …/splits` return the
+  payment **without `comments`** (the category route also without `splits`), `PATCH
+  …/transactions/:id` returns everything. The phone merges a response over what the
+  screen already holds (`Transaction.fromJson(json, previous:)`); see `findings.md` F16.
+- **After any write** the open list takes the new version (a confirmed payment leaves
+  the "Needs review" chip) and the dashboard's summary is fetched again.
+- **A manual payment's `Idempotency-Key`** is generated once per form and kept across
+  a lost connection. A definitive answer from the server (any status) replaces it,
+  because that attempt was seen and refused; `409 IDEMPOTENCY_CONFLICT` (same key,
+  changed body) is explained to the person. Only the Prisma store enforces body
+  equality; the memory store ignores it.
+- **The server does not stop a split payment's amount being edited** (F17), so the
+  phone locks type and amount on a split payment.
+
 ## 13. Testing
 
-152 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
+205 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
 honest are in [`rules.md`](rules.md) §6.
 
 | Kind | Where | Covers |
@@ -363,6 +384,7 @@ honest are in [`rules.md`](rules.md) §6.
 | Unit | `money_test`, `time_test`, `api_client_test`, `models_test`, `dashboard_logic_test`, `theme_test` | Grouping, sign and paise; the pay-cycle label against 1,276 recorded API cases; error mapping and the 401 retry; model parsing against recorded responses; breakdown and budget maths; contrast |
 | Session | `session_test` | Signed out, one book, several books, a remembered book, no household, a token that stays invalid, a server error, sign-out |
 | Lock | `lock_test` | The controller (grace period, the prompt backgrounding the app) and the lock screen over a signed-in app |
+| Ledger | `activity_logic_test`, `activity_test` | Search, labels, the edit patch (kind and amount together), the create body, error sentences; the list at 360dp (paging, filters, errors), what each role is offered, confirm / category / void / comment / edit / add / split through a fake server, and a retry after a dropped connection creating one row |
 | Screens | `access_test`, `dashboard_test` | Sign in, request access, role gating, errors, the dashboard at 360dp in light and dark, month navigation, pay cycles, empty and error states |
 | Fixtures | `test/fixtures/` | Responses **recorded from a running copy of the API**, never hand-written: `me`, `books`, `summary`, `summary_rich`, `transactions`, `budget_plan`, `budget_plan_set`, `recurring_plans`, `memberships`, `invitations`, `accounts`, `categories`, and `period_labels` (from the real `period.js`) |
 | Harness | `test/support/fakes.dart` | A scripted API (`FakeServer`), a fake sign-in, a fake phone prompt, a fixed clock. A fixture changing is the signal the API moved |

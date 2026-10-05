@@ -1,0 +1,25 @@
+{
+  "id": "tx_3",
+  "workspaceId": "ws_household",
+  "bookId": "book_arjun",
+  "kind": "income",
+  "state": "reconciled",
+  "amountMinor": "58000000",
+  "currency": "INR",
+  "merchant": "Acme Technologies Pvt Ltd",
+  "categoryId": "cat_salary",
+  "note": "bonus adj",
+  "occurredAt": "2026-08-25T05:30:00.000Z",
+  "createdAt": "2026-08-26T15:30:00.000Z",
+  "updatedAt": "2026-10-05T17:59:49.118Z",
+  "sources": [
+    {
+      "id": "tx_3_source",
+      "sourceType": "statement",
+      "sourceReference": "statement:tx_3",
+      "importedAmount": "58786700"
+    }
+  ],
+  "splits": [],
+  "comments": []
+}

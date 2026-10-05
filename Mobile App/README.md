@@ -5,8 +5,8 @@ later. The web dashboard and API stay where they are (`apps/web`, `apps/api`);
 this app is a client of that API and adds nothing to the data model except the
 push-notification pieces in [docs/architecture.md](docs/architecture.md) §8.
 
-> **Last reviewed** 2026-10-05 · **Status** Phases 0, 1 and 2 built, 152 tests passing.
-> Still waiting on Arjun to sign in once against production (Phase 1 gate) ·
+> **Last reviewed** 2026-10-05 · **Status** Phases 0, 1, 2 and 3 built, 205 tests passing.
+> Still waiting on Arjun to sign in once against production (Phase 1 gate) and to review real payments on the phone (Phase 3 gate) ·
 > **Owner** Arjun
 
 ## Files
@@ -48,6 +48,7 @@ Newest first. One line per change of state, with the date.
 
 | Date | Change |
 |---|---|
+| 2026-10-05 | Phase 3 built: the ledger. Paged list with state chips and search over what is loaded; payment detail; confirm, change category (with "do the same next time") and void with a two-step confirm; edit (kind and amount together, date at the book's midnight); split editor that only saves when the parts add up; comments; add a payment with one idempotency key per form, proven to create one row after a dropped connection. Every action is offered by role. 205 tests; verified on the emulator in light and dark, including a real Confirm that the local server reported back. Found: write routes answer with different shapes (F16), the server lets a split payment's amount change (F17), comments carry only an author id (F18). Open: reviewing real payments against production |
 | 2026-10-05 | Phase 2 built: the live dashboard. Pay-cycle month navigation (the Dart port of `currentPeriodLabel` agrees with the API's own function on 1,276 recorded cases), four tiles, where-the-money-went breakdown that adds up to spent plus saved, budget progress, review card, an explicit error state that shows no figures. Verified on the emulator at 360dp in light and dark, and against the API's own numbers for a calendar-month book and a book starting on the 26th. Found a web bug for start days 29–31 (F14). Open: the Phase 1 production sign-in |
 | 2026-10-05 | Phase 1 built: sign-in, forgot password, request access, no-household screen, book picker, role gating, biometric / PIN lock, theme choice, sign-out. Verified on the emulator against a local API (owner and CA accounts, real system PIN prompt) and a release build checked: window is secure, no dev header or emulator address in the binary, Firebase starts. Open: production sign-in with Arjun's own account |
 | 2026-10-05 | Phase 0 built: project, API client, money and time helpers, light and dark theme, 50 tests, boots on the emulator and reads `/me` and `/books` from a local API. Open: 0.3 (Arjun), 0.7 approval (Arjun) |

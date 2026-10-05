@@ -71,3 +71,12 @@ BigInt signedMinor(String kind, BigInt unsigned, {bool transferOut = true}) {
       throw ArgumentError.value(kind, 'kind', 'Unknown transaction kind');
   }
 }
+
+/// The paise as plain rupees for a text field, with no grouping or symbol:
+/// `75000` -> `750`, `75050` -> `750.50`. The reverse of [minorFromRupees].
+String plainRupees(BigInt minor) {
+  final abs = minor.abs();
+  final rupees = abs ~/ BigInt.from(100);
+  final paise = (abs % BigInt.from(100)).toInt();
+  return paise == 0 ? '$rupees' : '$rupees.${paise.toString().padLeft(2, '0')}';
+}

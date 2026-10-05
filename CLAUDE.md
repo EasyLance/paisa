@@ -276,9 +276,9 @@ systemctl show paisa-api -p User -p EnvironmentFiles --value
 ## Where things stand
 
 Phases 1 and 2 (dashboard, ledger, statement import, budgets) are live. The
-new Android app in `Mobile App/` has finished Phases 0 to 2 of its plan (sign-in,
-request access, book picker, role gating, biometric lock, the live dashboard; 152
-tests; verified on the emulator and in a release build). The Android app is registered in Firebase.
-What remains of Phase 1 is one sign-in against production with Arjun's own
-account. The older `apps/mobile` app was never run against production — see
+new Android app in `Mobile App/` has finished Phases 0 to 3 of its plan (sign-in,
+request access, book picker, role gating, biometric lock, the live dashboard, the
+ledger: browse, review, edit, split, comment, add; 205 tests; verified on the emulator and in a release build). The Android app is registered in Firebase.
+What remains is one sign-in against production with Arjun's own account (Phase 1)
+and reviewing real payments on the phone (Phase 3). The older `apps/mobile` app was never run against production — see
 `TODO.md`.

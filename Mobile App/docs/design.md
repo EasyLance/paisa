@@ -123,6 +123,9 @@ flowchart LR
     BP("📚 Book picker")
     O("⌂ Overview<br/>dashboard")
     A("⇄ Activity")
+    D("💳 Payment<br/>detail")
+    F("✎ Add or edit")
+    SP("⑂ Split")
     B("◌ Budgets")
     P("◎ People")
     S("⚙ Settings")
@@ -134,6 +137,10 @@ flowchart LR
     NH --> RA
     BP --> O
     O --> A
+    A --> D
+    A --> F
+    D --> F
+    D --> SP
     O --> B
     O --> P
     O --> S
@@ -142,12 +149,11 @@ flowchart LR
 
     classDef built fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
     classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
-    class SI,RA,NH,BP,O,S,L built
-    class A,B,P todo
+    class SI,RA,NH,BP,O,S,L,A,D,F,SP built
+    class B,P todo
 ```
 
-Green is built; grey is a placeholder tab until its phase (3 Activity, 5 Budgets,
-6 People).
+Green is built; grey is a placeholder tab until its phase (5 Budgets, 6 People).
 
 ---
 
@@ -166,7 +172,13 @@ Green is built; grey is a placeholder tab until its phase (3 Activity, 5 Budgets
 | **Notice** | An inline sentence under a field. Errors in the error colour, confirmations in `muted`. A live region, so a screen reader announces it |
 | **Bottom sheet** | One job per sheet, as the web's modal: primary action first. Used for Request access |
 | **Lock screen** | The mark, "Paisa is locked", an Unlock button and **Sign out instead**, so a failed sensor never strands someone |
-| **Status pill** *(Phase 3)* | Lowercase word with a border. Voided and excluded are struck through |
+| **Status pill** | Lowercase word with a border: "needs review" (coral border), "confirmed", "reconciled", "excluded", "voided". Shown on a row only when the state is not confirmed or reconciled |
+| **Payment row** | Merchant, then "26 Aug · Category" (or "Split 2 ways", "Transfer", "Uncategorised"), then the pill if any; the signed amount at the right. 64dp minimum, one line each, ellipsis. Income in the positive colour, an expense in ink, voided and excluded **struck through** and muted |
+| **Filter chips** | One row that scrolls sideways: All, Needs review, Confirmed, Reconciled, Excluded, Voided. The dashboard's Review button lands with "Needs review" chosen |
+| **Search** | One field under the app bar, "Search payments". It filters what is loaded and says so when older pages exist |
+| **Payment detail** | Hero card (type, serif amount, merchant, date and time, pill) → review card for a pending payment → facts → split → actions → comments. Actions the role cannot do are absent, not greyed. Void is the only red |
+| **Category sheet** | Grouped as the dashboard groups them, 48dp rows with the category's swatch. In the change-category flow a switch at the top offers "Do the same for future payments to <merchant>" |
+| **Split editor** | Total, then a live line: "₹40 left to place" / "Over by ₹60" / "Nothing left to place." The Save button stays off until it reads the last one |
 
 ---
 
@@ -212,7 +224,7 @@ The interface talks like a careful colleague, not a brand. Same rules as the web
 - Every icon-only control has a tooltip, which is its accessible label: month
   arrows, the settings avatar, the password toggle.
 - Status is never colour alone: a budget row says "Over the plan", a role says "Yes"
-  or "No", a voided payment will carry its word.
+  or "No", a voided payment carries its word and a strike-through.
 - Touch targets are 48dp. Text scales with the system setting.
 - The lock hides the app from screen readers while it is covering it
   (`ExcludeSemantics`), so a locked app does not read out balances.
@@ -226,6 +238,8 @@ The interface talks like a careful colleague, not a brand. Same rules as the web
 
 | | Light | Dark |
 |---|---|---|
+| Activity | ![Activity, light](screenshots/phase3-activity-light.png) | ![Activity, dark](screenshots/phase3-activity-dark.png) |
+| Payment detail | ![Payment detail, light](screenshots/phase3-detail-light.png) | |
 | Dashboard | ![Dashboard, light](screenshots/phase2-dashboard-light.png) | ![Dashboard, dark](screenshots/phase2-dashboard-dark.png) |
 
 | Pay-cycle book, current | Pay-cycle book, one back | Empty period |

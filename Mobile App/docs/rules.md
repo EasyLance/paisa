@@ -72,6 +72,8 @@ final rupees = amount / 100;
 | In a test, `container.listen(provider, ...)` before reading it | Riverpod 3 **pauses** a provider nothing is listening to; a bare `read` never completes. Ten tests timed out at 30 s on it |
 | Nothing sensitive in preferences | Theme, last book and lock settings only. Firebase holds the session; the app never stores a token |
 | Sign-out forgets the chosen book | The next person on the phone inherits nothing |
+| **A write's answer is merged over what the screen holds** (`Transaction.fromJson(json, previous:)`) | The server's write routes answer with different parts of a payment, and there is no route to fetch one. Taking the answer whole dropped a payment's comments |
+| A failed write changes nothing on screen, and says so in a sentence | Showing the attempted value as saved would be a lie about the ledger |
 
 ---
 
@@ -83,6 +85,8 @@ final rupees = amount / 100;
 | Hide what the role cannot do; do not let it 403 | `Book.can(Capability.x)`. The server still checks every request |
 | Status is a word, never colour alone | A pill, "Over the plan", "Yes" / "No" |
 | Long money pairs go **under** the bar | `₹37,340 of ₹2,93,933.50` does not fit beside a label on 360dp. Use `Flexible`/`Wrap` wherever two pieces of text share a row |
+| **One idempotency key per form**, kept across a lost connection, replaced after any answer the server gave | A retry after a dropped connection must add one payment, not two; a key reused with a changed body is a `409` |
+| Guard on the phone what the server does not | The server lets a split payment's amount change, so the parts stop adding up. The phone locks it (`findings.md` F17) |
 | Two buttons in one `Row` become a `Wrap` | "Forgot your password?" and "Request access" overflowed a 360dp phone by 226px |
 | A `ColoredBox` inside a fixed-height `Row` needs `crossAxisAlignment.stretch` | Otherwise it sizes to nothing and the chart bar is invisible. Only a screenshot showed it |
 | Cards in a row get `IntrinsicHeight` + `stretch` | Different content, different heights |
@@ -94,7 +98,7 @@ final rupees = amount / 100;
 
 ## 6. Tests
 
-- Tests live in `app/test/`. **152 passing.** Run `flutter analyze` and
+- Tests live in `app/test/`. **205 passing.** Run `flutter analyze` and
   `flutter test` before saying anything is done.
 - **Fixtures are recorded from a running API** (`apps/api` in dev auth, memory store,
   sample data) into `test/fixtures/`. Never hand-write one, and never commit real
@@ -110,7 +114,8 @@ final rupees = amount / 100;
 - To reach something below the fold use `ensureVisible` then `pumpAndSettle`.
   `scrollUntilVisible` stops as soon as the widget is *built*, which a list does well
   beyond the viewport, so it can return without scrolling.
-- Scope a finder when a sheet is over a form: both have an `Email` field.
+- Scope a finder when a sheet is over a screen: both have an `Email` field, and the split rows behind the category sheet repeat its names. Use `find.descendant(of: find.byType(BottomSheet), …)`.
+- To test "a retry creates one row", make the fake server save the payment and then drop the reply (`FakeServer.dropNextCreateReply`), and assert both requests carried the same key.
 - The system PIN / biometric prompt cannot be screenshotted (it is a secure window).
   Check focus with `dumpsys window | grep mCurrentFocus` and answer it with
   `adb shell input text`.

@@ -9,6 +9,7 @@ import 'package:paisa_mobile/core/api/models.dart';
 dynamic fixture(String name) => jsonDecode(File('test/fixtures/$name.json').readAsStringSync());
 
 void main() {
+  paymentModels();
   test('Me parses /v1/me', () {
     final me = Me.fromJson(fixture('me') as Map<String, dynamic>);
     expect(me.id, 'user_owner');
@@ -55,6 +56,62 @@ void main() {
 
     test('an unknown role can do nothing', () {
       expect(as('stranger').can(Capability.read), isFalse);
+    });
+  });
+}
+
+// Phase 3: payments, as the real API sends them (test/fixtures/transactions_*.json).
+void paymentModels() {
+  group('payments', () {
+    test('a page carries its cursor, and the last page has none', () {
+      final first = TransactionPage.fromJson(fixture('transactions_page1') as Map<String, dynamic>);
+      final last = TransactionPage.fromJson(fixture('transactions_page2') as Map<String, dynamic>);
+      expect(first.items, hasLength(2));
+      expect(first.nextCursor, 'tx_1');
+      expect(last.items.first.id, 'tx_2');
+    });
+
+    test('money is paise as BigInt, signed by direction', () {
+      final page = TransactionPage.fromJson(fixture('transactions_rich') as Map<String, dynamic>);
+      final tx1 = page.items.firstWhere((t) => t.id == 'tx_1');
+      expect(tx1.amountMinor, BigInt.from(-75000));
+      expect(tx1.sources.single.importedAmount, BigInt.from(-75000));
+      expect(tx1.splits.map((s) => s.amountMinor), [BigInt.from(-50000), BigInt.from(-25000)]);
+      expect(tx1.splits.last.note, 'milk');
+      expect(tx1.comments.single.body, 'Checked against the bill');
+      expect(page.items.firstWhere((t) => t.id == 'tx_3').amountMinor, BigInt.from(58000000));
+    });
+
+    test('a corrected amount keeps the bank figure beside it', () {
+      final tx3 = TransactionPage.fromJson(fixture('transactions_rich') as Map<String, dynamic>).items.firstWhere((t) => t.id == 'tx_3');
+      expect(tx3.amountMinor, isNot(tx3.sources.single.importedAmount));
+    });
+
+    test('a response that leaves out comments and splits keeps the ones already known', () {
+      final known = TransactionPage.fromJson(fixture('transactions_rich') as Map<String, dynamic>).items.firstWhere((t) => t.id == 'tx_1');
+      // The category route answers without `comments`; the real shape is recorded.
+      final response = fixture('transaction_after_category') as Map<String, dynamic>;
+      expect(response.containsKey('comments'), isFalse);
+      final merged = Transaction.fromJson({...response, 'id': 'tx_1'}, previous: known);
+      expect(merged.comments, hasLength(1));
+      expect(merged.state, 'confirmed');
+    });
+
+    test('without a previous version the missing lists are empty, not an error', () {
+      expect(Transaction.fromJson(fixture('transaction_after_category') as Map<String, dynamic>).comments, isEmpty);
+    });
+
+    test('a comment is read with its author and time', () {
+      final comment = TxComment.fromJson(fixture('comment') as Map<String, dynamic>);
+      expect(comment.authorId, 'user_owner');
+      expect(comment.createdAt.isUtc, isTrue);
+    });
+
+    test('categories and accounts', () {
+      final category = Category.fromJson(((fixture('categories') as Map<String, dynamic>)['items'] as List).first as Map<String, dynamic>);
+      expect(category.groupName, isNotEmpty);
+      final account = Account.fromJson(((fixture('accounts') as Map<String, dynamic>)['items'] as List).first as Map<String, dynamic>);
+      expect(account.label, 'Primary bank ····0042');
     });
   });
 }

@@ -61,7 +61,13 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | **`FLAG_SECURE` on release builds only** | Balances must not show in recents or recordings, but debug builds need screenshots | The household finds the block annoying: make it a setting |
 | **The phone ports the API's pay-cycle function, not the web's** | The web's copy is wrong for start days 29–31 (`findings.md` F14). The API is the source of truth, and a recorded table keeps the port honest | The API exposes the current period itself, so nothing needs porting |
 | **Month navigation stops at today's period** | Nothing to see beyond it, and the web's habit of opening future months shows only zeros | Someone needs to plan a future month on the phone |
-| **"Review" leads to the Activity tab** | The dashboard's review card has to go somewhere. It is a placeholder until Phase 3 | — |
+| **"Review" opens Activity with "Needs review" chosen** | The dashboard's review card has to go somewhere, and a person tapping it wants the pending payments, not the whole ledger | — |
+| **Confirm reuses the category route** | The server confirms a payment as part of choosing its category, so a reviewer can confirm. Only a payment with no category needs the editor-only state change | The server gains a reviewer-allowed confirm route |
+| **Void is offered; exclude and restore are not** | Void is what the web's modal offers and keeps the history. A void cannot be undone from the app, and says so | The household asks to exclude or restore from the phone |
+| **Type and amount are locked on a split payment** | The server would let the amount change and leave the parts adding up to the old figure (F17) | The server rejects that itself |
+| **Search is client-side over what is loaded** | The list route has no search or month filter. The screen says when older pages are not searched | API change #2 (a month or text filter) lands |
+| **Comment authors read "You" or "A member of this book"** | A comment carries only an author id; names come from the memberships list, which is Phase 6 | People ships, then name them |
+| **The Activity list is not re-fetched on tab change** | Pull to refresh does it, and every write updates the open list. Re-fetching on each switch would blank the list | Someone is surprised by a stale list in use |
 | **The role-abilities card lives in Settings** | It served the Phase 1 gate on the Overview tab; once the dashboard arrived it was clutter, but it still explains why a button is missing | — |
 | **An error replaces the figures** | A zeroed screen beside an error reads as "nothing happened", and old numbers read as live | — |
 | **Dev auth takes a typed dev user id as the "email"** | One build can be a viewer, a reviewer and an owner without a Firebase account. Compile-time guarded, so a release build cannot reach it | — |
@@ -83,6 +89,8 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | `Override` is not exported by `flutter_riverpod` | Import `package:flutter_riverpod/misc.dart show Override` in test helpers |
 | `tester.scrollUntilVisible` stops when the widget is *built* | A list builds items beyond the viewport, so it returns without scrolling and the next `tap` misses. Use `ensureVisible` then `pumpAndSettle` |
 | A test finder matching a field behind a bottom sheet | The sheet's `Email` and the form's `Email` are both on screen. Scope with `find.descendant(of: find.byType(BottomSheet), ...)` |
+| A bottom sheet over a screen repeats that screen's words | `find.text('Groceries')` found the sheet row and the split row behind it. Scope to `find.descendant(of: find.byType(BottomSheet), …)` |
+| A payment edited while a page loads can arrive twice | Appending a page skips ids already shown |
 | The test font is wider than a real one | Ahem makes text overflow in tests where real fonts fit. Treat it as real for long `₹` amounts |
 | A test asserting a screen by a greeting that moved | Three tests used "Hello, Arjun" as "we reached home" and broke when the greeting went. Assert on something structural, such as the Settings tooltip |
 
@@ -114,6 +122,9 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 |---|---|
 | The system PIN / biometric prompt is invisible to `adb screencap` | It is a secure window and the capture is **black**. `dumpsys window | grep mCurrentFocus` shows `BiometricPrompt`; `adb shell input text 1234` then `keyevent 66` answers it. `adb shell locksettings set-pin 1234` sets a throwaway PIN and `locksettings clear --old 1234` removes it |
 | `FLAG_SECURE` makes a release build's screenshots black too | That is the point. Use a debug build to screenshot |
+| The app stays dark after `cmd uimode night no` | The theme choice is saved (Settings → Appearance). It says Dark if a past session chose it; pick System to follow the phone |
+| `curl` of the local API returns nothing right after `npm run serve` | The API takes a few seconds to bind. Poll `/v1/books` until it answers before recording a fixture |
+| `open(path, 'w').write(json.dumps(json.load(open(path))))` empties the file | The `'w'` open truncates before the `load` runs. Read into a variable first |
 | The first launch after install, or after a density change, takes ~20 s | The Flutter splash stays up. Wait before tapping or the tap lands on the splash |
 | `adb shell wm density 480` makes the emulator 360dp wide | The narrowest common phone. `wm density reset` undoes it. `adb shell cmd uimode night yes` flips system dark mode, which the app follows; `night no` undoes it |
 | zsh treats `?` in an unquoted URL as a glob | `curl .../summary?month=2026-08` fails with "no matches found". Quote the URL |
@@ -130,6 +141,8 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | `GET /memberships` returns each member's `firebaseUid` | The app parses only the fields it shows and never logs the rest (`findings.md` F10) |
 | Choosing a category **confirms** a payment | `PATCH …/category` sets `state: 'confirmed'`, so a reviewer can confirm. A bare state change needs editor (`findings.md` F11) |
 | `Idempotency-Key` **is** honoured for a manual transaction | `CLAUDE.md` says it is ignored in production; `createTransaction` replays by key for 24 h. One key per form submission is safe (`findings.md` F3) |
+| The write routes answer with different parts of a payment | `PATCH …/category` and `PUT …/splits` leave out `comments`; there is no single-payment GET. Merge the answer over what the screen holds (`findings.md` F16) |
+| A recurring plan posts a pending payment when the API starts | The sample ledger gains a fresh "Monthly salary" in review on each start, with a random id. Recorded fixtures hold one such row |
 | Opening the dashboard on the current month of an old ledger | Every tile reads zero, which looks like a failed import. Use the arrows; the sample data is August 2026 and the emulator's clock is October |
 
 ---

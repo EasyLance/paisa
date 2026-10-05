@@ -165,3 +165,164 @@ class BudgetPlan {
     baseIncomeMinor: parseMinor((json['baseIncomeMinor'] as String?) ?? '0'),
   );
 }
+
+class Category {
+  const Category({required this.id, required this.name, required this.groupName, required this.color});
+
+  final String id;
+  final String name;
+  final String groupName;
+  final String color;
+
+  factory Category.fromJson(Map<String, dynamic> json) => Category(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    groupName: (json['groupName'] as String?)?.trim().isNotEmpty == true ? json['groupName'] as String : 'Other',
+    color: json['color'] as String,
+  );
+}
+
+class Account {
+  const Account({required this.id, required this.name, required this.accountType, this.accountMask});
+
+  final String id;
+  final String name;
+  final String accountType;
+  final String? accountMask;
+
+  /// `Primary bank ····0042`, so two accounts with one name stay tellable apart.
+  String get label => accountMask == null || accountMask!.isEmpty ? name : '$name ····$accountMask';
+
+  factory Account.fromJson(Map<String, dynamic> json) => Account(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    accountType: json['accountType'] as String,
+    accountMask: json['accountMask'] as String?,
+  );
+}
+
+/// Where a payment came from. The bank's own figure is kept here forever, even
+/// after the payment is edited.
+class TxSource {
+  const TxSource({required this.sourceType, required this.importedAmount});
+
+  final String sourceType;
+  final BigInt importedAmount;
+
+  factory TxSource.fromJson(Map<String, dynamic> json) => TxSource(
+    sourceType: json['sourceType'] as String,
+    importedAmount: parseMinor(json['importedAmount'] as String),
+  );
+}
+
+class TxSplit {
+  const TxSplit({required this.categoryId, required this.amountMinor, this.note});
+
+  final String categoryId;
+  final BigInt amountMinor;
+  final String? note;
+
+  factory TxSplit.fromJson(Map<String, dynamic> json) => TxSplit(
+    categoryId: json['categoryId'] as String,
+    amountMinor: parseMinor(json['amountMinor'] as String),
+    note: json['note'] as String?,
+  );
+}
+
+class TxComment {
+  const TxComment({required this.id, required this.authorId, required this.body, required this.createdAt});
+
+  final String id;
+  final String authorId;
+  final String body;
+  final DateTime createdAt;
+
+  factory TxComment.fromJson(Map<String, dynamic> json) => TxComment(
+    id: json['id'] as String,
+    authorId: json['authorId'] as String,
+    body: json['body'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
+class Transaction {
+  const Transaction({
+    required this.id,
+    required this.kind,
+    required this.state,
+    required this.amountMinor,
+    required this.occurredAt,
+    required this.sources,
+    required this.splits,
+    required this.comments,
+    this.merchant,
+    this.note,
+    this.categoryId,
+    this.accountId,
+    this.counterAccountId,
+  });
+
+  final String id;
+
+  /// expense, income, transfer or refund.
+  final String kind;
+
+  /// pending_review, confirmed, reconciled, excluded or voided.
+  final String state;
+
+  /// Signed: expenses negative, income and refunds positive.
+  final BigInt amountMinor;
+  final DateTime occurredAt;
+  final String? merchant;
+  final String? note;
+  final String? categoryId;
+  final String? accountId;
+  final String? counterAccountId;
+  final List<TxSource> sources;
+  final List<TxSplit> splits;
+  final List<TxComment> comments;
+
+  /// `previous` fills in what a response leaves out. The category and split
+  /// routes return the payment without its comments (and the category route
+  /// without its splits), and there is no route to fetch one payment on its own,
+  /// so dropping the old values would lose them from the screen.
+  factory Transaction.fromJson(Map<String, dynamic> json, {Transaction? previous}) {
+    List<T> list<T>(String key, T Function(Map<String, dynamic>) read, List<T> fallback) =>
+        json[key] is List ? [for (final item in json[key] as List) read(item as Map<String, dynamic>)] : fallback;
+    return Transaction(
+      id: json['id'] as String,
+      kind: json['kind'] as String,
+      state: json['state'] as String,
+      amountMinor: parseMinor(json['amountMinor'] as String),
+      occurredAt: DateTime.parse(json['occurredAt'] as String),
+      merchant: json['merchant'] as String?,
+      note: json['note'] as String?,
+      categoryId: json['categoryId'] as String?,
+      accountId: json['accountId'] as String?,
+      counterAccountId: json['counterAccountId'] as String?,
+      sources: list('sources', TxSource.fromJson, previous?.sources ?? const []),
+      splits: list('splits', TxSplit.fromJson, previous?.splits ?? const []),
+      comments: list('comments', TxComment.fromJson, previous?.comments ?? const []),
+    );
+  }
+
+  Transaction withComment(TxComment comment) => Transaction(
+    id: id, kind: kind, state: state, amountMinor: amountMinor, occurredAt: occurredAt, merchant: merchant, note: note,
+    categoryId: categoryId, accountId: accountId, counterAccountId: counterAccountId,
+    sources: sources, splits: splits, comments: [...comments, comment],
+  );
+}
+
+class TransactionPage {
+  const TransactionPage({required this.items, required this.nextCursor});
+
+  final List<Transaction> items;
+
+  /// Null on the last page.
+  final String? nextCursor;
+
+  factory TransactionPage.fromJson(Map<String, dynamic> json) => TransactionPage(
+    items: [for (final item in json['items'] as List) Transaction.fromJson(item as Map<String, dynamic>)],
+    nextCursor: json['nextCursor'] as String?,
+  );
+}

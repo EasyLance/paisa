@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "id": "tx_2",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "expense",
+      "state": "pending_review",
+      "amountMinor": "-3500000",
+      "currency": "INR",
+      "merchant": "Hostel EMI",
+      "categoryId": "cat_emi",
+      "note": null,
+      "occurredAt": "2026-08-26T09:10:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-08-26T15:30:00.000Z",
+      "sources": [
+        {
+          "id": "tx_2_source",
+          "sourceType": "sms",
+          "sourceReference": "sms:tx_2",
+          "importedAmount": "-3500000"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "tx_3",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "income",
+      "state": "reconciled",
+      "amountMinor": "58786700",
+      "currency": "INR",
+      "merchant": "Acme Technologies",
+      "categoryId": "cat_salary",
+      "note": null,
+      "occurredAt": "2026-08-25T05:30:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-08-26T15:30:00.000Z",
+      "sources": [
+        {
+          "id": "tx_3_source",
+          "sourceType": "statement",
+          "sourceReference": "statement:tx_3",
+          "importedAmount": "58786700"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    }
+  ],
+  "nextCursor": "tx_3"
+}

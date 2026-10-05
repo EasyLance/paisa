@@ -144,7 +144,9 @@ void main() {
       await pumpDashboard(tester, owner());
       await tester.tap(find.widgetWithText(FilledButton, 'Review'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('This is where the Review button leads'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Needs review'), findsOneWidget);
+      expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Needs review')).selected, isTrue, reason: 'the list opens already filtered');
+      expect(find.text('Monthly salary'), findsOneWidget);
     });
 
     testWidgets('is not offered to somebody who cannot act on a payment', (tester) async {

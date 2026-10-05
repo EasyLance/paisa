@@ -1,0 +1,4 @@
+{
+  "code": "SPLIT_TOTAL_MISMATCH",
+  "message": "Split amounts must equal the transaction amount"
+}

@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "id": "6d01163b-6108-46ec-9a02-234134e9cb3d",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "accountId": null,
+      "categoryId": "cat_salary",
+      "kind": "income",
+      "state": "pending_review",
+      "amountMinor": "58786700",
+      "currency": "INR",
+      "merchant": "Monthly salary",
+      "counterAccountId": null,
+      "note": null,
+      "occurredAt": "2026-09-25T05:30:00.000Z",
+      "createdAt": "2026-10-05T18:00:31.953Z",
+      "updatedAt": "2026-10-05T18:00:31.953Z",
+      "sources": [
+        {
+          "id": "c50326ea-24fc-470b-994a-0a7d121cb907",
+          "sourceType": "manual",
+          "sourceReference": "manual:23b99b86-9ae7-4e42-a20b-23bfe1cf47ba",
+          "importedAmount": "58786700"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "tx_1",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "expense",
+      "state": "confirmed",
+      "amountMinor": "-75000",
+      "currency": "INR",
+      "merchant": "Swiggy",
+      "categoryId": "cat_food",
+      "note": null,
+      "occurredAt": "2026-08-26T14:20:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-08-26T15:30:00.000Z",
+      "sources": [
+        {
+          "id": "tx_1_source",
+          "sourceType": "sms",
+          "sourceReference": "sms:tx_1",
+          "importedAmount": "-75000"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    }
+  ],
+  "nextCursor": "tx_1"
+}

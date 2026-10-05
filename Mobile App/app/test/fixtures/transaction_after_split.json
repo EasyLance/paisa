@@ -1,0 +1,36 @@
+{
+  "id": "tx_1",
+  "workspaceId": "ws_household",
+  "bookId": "book_arjun",
+  "kind": "expense",
+  "state": "confirmed",
+  "amountMinor": "-75000",
+  "currency": "INR",
+  "merchant": "Swiggy",
+  "categoryId": "cat_food",
+  "note": null,
+  "occurredAt": "2026-08-26T14:20:00.000Z",
+  "createdAt": "2026-08-26T15:30:00.000Z",
+  "updatedAt": "2026-08-26T15:30:00.000Z",
+  "sources": [
+    {
+      "id": "tx_1_source",
+      "sourceType": "sms",
+      "sourceReference": "sms:tx_1",
+      "importedAmount": "-75000"
+    }
+  ],
+  "splits": [
+    {
+      "id": "8c984c45-36ee-4221-85c2-abf42acb9bab",
+      "categoryId": "cat_food",
+      "amountMinor": "-50000"
+    },
+    {
+      "id": "a0c06a01-6e78-4702-9c36-a1a914b2ef45",
+      "categoryId": "cat_groceries",
+      "amountMinor": "-25000",
+      "note": "milk"
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "items": [
+    {
+      "id": "23924f83-9291-4981-96f3-d95c42a6958e",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "accountId": null,
+      "categoryId": "cat_salary",
+      "kind": "income",
+      "state": "pending_review",
+      "amountMinor": "58786700",
+      "currency": "INR",
+      "merchant": "Monthly salary",
+      "counterAccountId": null,
+      "note": null,
+      "occurredAt": "2026-09-25T05:30:00.000Z",
+      "createdAt": "2026-10-05T17:59:41.742Z",
+      "updatedAt": "2026-10-05T17:59:41.742Z",
+      "sources": [
+        {
+          "id": "756266e4-3731-4920-a437-bbb60c31ff1d",
+          "sourceType": "manual",
+          "sourceReference": "manual:d00c77f3-bf4e-46fb-ad08-f37c8c4764ef",
+          "importedAmount": "58786700"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "tx_1",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "expense",
+      "state": "confirmed",
+      "amountMinor": "-75000",
+      "currency": "INR",
+      "merchant": "Swiggy",
+      "categoryId": "cat_food",
+      "note": null,
+      "occurredAt": "2026-08-26T14:20:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-08-26T15:30:00.000Z",
+      "sources": [
+        {
+          "id": "tx_1_source",
+          "sourceType": "sms",
+          "sourceReference": "sms:tx_1",
+          "importedAmount": "-75000"
+        }
+      ],
+      "splits": [
+        {
+          "id": "8c984c45-36ee-4221-85c2-abf42acb9bab",
+          "categoryId": "cat_food",
+          "amountMinor": "-50000"
+        },
+        {
+          "id": "a0c06a01-6e78-4702-9c36-a1a914b2ef45",
+          "categoryId": "cat_groceries",
+          "amountMinor": "-25000",
+          "note": "milk"
+        }
+      ],
+      "comments": [
+        {
+          "id": "1a18cd24-b43d-40ed-b903-d0a64654d4c0",
+          "transactionId": "tx_1",
+          "authorId": "user_owner",
+          "body": "Checked against the bill",
+          "createdAt": "2026-10-05T17:59:49.151Z"
+        }
+      ]
+    },
+    {
+      "id": "tx_2",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "expense",
+      "state": "confirmed",
+      "amountMinor": "-3500000",
+      "currency": "INR",
+      "merchant": "Hostel EMI",
+      "categoryId": "cat_emi",
+      "note": null,
+      "occurredAt": "2026-08-26T09:10:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-10-05T17:59:49.108Z",
+      "sources": [
+        {
+          "id": "tx_2_source",
+          "sourceType": "sms",
+          "sourceReference": "sms:tx_2",
+          "importedAmount": "-3500000"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "tx_3",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "income",
+      "state": "reconciled",
+      "amountMinor": "58000000",
+      "currency": "INR",
+      "merchant": "Acme Technologies Pvt Ltd",
+      "categoryId": "cat_salary",
+      "note": "bonus adj",
+      "occurredAt": "2026-08-25T05:30:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-10-05T17:59:49.118Z",
+      "sources": [
+        {
+          "id": "tx_3_source",
+          "sourceType": "statement",
+          "sourceReference": "statement:tx_3",
+          "importedAmount": "58786700"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "8652fe63-3c2f-4d93-b853-ae85f5b6fc58",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "accountId": null,
+      "categoryId": "cat_food",
+      "kind": "expense",
+      "state": "confirmed",
+      "amountMinor": "-45000",
+      "currency": "INR",
+      "merchant": "Chai stall",
+      "counterAccountId": null,
+      "note": "cash",
+      "occurredAt": "2026-08-24T18:30:00.000Z",
+      "createdAt": "2026-10-05T17:59:49.164Z",
+      "updatedAt": "2026-10-05T17:59:49.164Z",
+      "sources": [
+        {
+          "id": "b09410f7-26a7-47f2-af8f-646b220c74a9",
+          "sourceType": "manual",
+          "sourceReference": "manual:f1d80e9f-2757-4487-853b-e77b2635a2f4",
+          "importedAmount": "-45000"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    },
+    {
+      "id": "tx_4",
+      "workspaceId": "ws_household",
+      "bookId": "book_arjun",
+      "kind": "expense",
+      "state": "confirmed",
+      "amountMinor": "-234000",
+      "currency": "INR",
+      "merchant": "Electricity bill",
+      "categoryId": "cat_utilities",
+      "note": null,
+      "occurredAt": "2026-08-24T10:45:00.000Z",
+      "createdAt": "2026-08-26T15:30:00.000Z",
+      "updatedAt": "2026-08-26T15:30:00.000Z",
+      "sources": [
+        {
+          "id": "tx_4_source",
+          "sourceType": "sms",
+          "sourceReference": "sms:tx_4",
+          "importedAmount": "-234000"
+        }
+      ],
+      "splits": [],
+      "comments": []
+    }
+  ],
+  "nextCursor": null
+}

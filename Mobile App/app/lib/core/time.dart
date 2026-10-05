@@ -42,6 +42,13 @@ class BookClock {
 
   /// `26 Aug 2026`, in the book's timezone.
   String longDate(DateTime instant) => '${shortDate(instant)} ${wall(instant).year}';
+
+  /// `5:29 pm`, in the book's timezone.
+  String time(DateTime instant) {
+    final local = wall(instant);
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    return '$hour:${local.minute.toString().padLeft(2, '0')} ${local.hour < 12 ? 'am' : 'pm'}';
+  }
 }
 
 /// `August 2026` from a `YYYY-MM` month key.

@@ -5,9 +5,9 @@ Ordered by what unblocks the most. Last reviewed 2026-10-05.
 ## Next: get the Android app onto a real phone
 
 > The replacement app is planned in `Mobile App/` (start at its `README.md`).
-> **Phases 0, 1 and 2 are built** (2 is the live dashboard); the one thing left on Phase 1 is a sign-in
-> against production with your own account (command in
-> `Mobile App/docs/tasks.md`, Phase 1). The
+> **Phases 0 to 3 are built** (2 is the live dashboard, 3 the ledger); what is left on them
+> is a sign-in against production with your own account and reviewing real payments on
+> the phone (commands in `Mobile App/docs/tasks.md`). Next is Phase 4, statement import. The
 > hardcoded-book and parser items below describe the older `apps/mobile` app and
 > are replaced by that plan rather than fixed here.
 

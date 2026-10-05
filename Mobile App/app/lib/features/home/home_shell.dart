@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/models.dart';
 import '../../core/theme/tokens.dart';
+import '../activity/activity_providers.dart';
+import '../activity/activity_screen.dart';
 import '../dashboard/dashboard_view.dart';
 import '../settings/settings_screen.dart';
 
@@ -38,8 +40,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
       body: IndexedStack(index: _tab, children: [
-        DashboardView(book: book, onReview: () => setState(() => _tab = 1)),
-        const _Soon(icon: Icons.swap_horiz, title: 'Activity', copy: 'Browse, review and import payments. This is where the Review button leads; it arrives in the next phase.'),
+        DashboardView(
+          book: book,
+          onReview: () {
+            ref.read(activityFilterProvider.notifier).select('pending_review');
+            setState(() => _tab = 1);
+          },
+        ),
+        ActivityScreen(book: book, me: widget.me),
         const _Soon(icon: Icons.donut_large, title: 'Budgets', copy: 'Plan a share of income per group, and manage recurring payments.'),
         const _Soon(icon: Icons.people_outline, title: 'People', copy: 'See who has access to this book and invite others.'),
       ]),

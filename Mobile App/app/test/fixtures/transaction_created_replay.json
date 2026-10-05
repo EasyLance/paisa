@@ -1,0 +1,26 @@
+{
+  "id": "8652fe63-3c2f-4d93-b853-ae85f5b6fc58",
+  "workspaceId": "ws_household",
+  "bookId": "book_arjun",
+  "accountId": null,
+  "categoryId": "cat_food",
+  "kind": "expense",
+  "state": "confirmed",
+  "amountMinor": "-45000",
+  "currency": "INR",
+  "merchant": "Chai stall",
+  "counterAccountId": null,
+  "note": "cash",
+  "occurredAt": "2026-08-24T18:30:00.000Z",
+  "createdAt": "2026-10-05T17:59:49.164Z",
+  "updatedAt": "2026-10-05T17:59:49.164Z",
+  "sources": [
+    {
+      "id": "b09410f7-26a7-47f2-af8f-646b220c74a9",
+      "sourceType": "manual",
+      "sourceReference": "manual:f1d80e9f-2757-4487-853b-e77b2635a2f4",
+      "importedAmount": "-45000"
+    }
+  ],
+  "splits": []
+}
