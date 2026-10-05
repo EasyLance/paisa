@@ -1,0 +1,14 @@
+{
+    "items": [
+        {
+            "id": "account_primary",
+            "workspaceId": "ws_household",
+            "bookId": "book_arjun",
+            "name": "Primary bank",
+            "institution": "Demo Bank",
+            "accountMask": "0042",
+            "accountType": "bank",
+            "currency": "INR"
+        }
+    ]
+}

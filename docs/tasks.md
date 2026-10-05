@@ -4,7 +4,7 @@
 
 This document tracks what is shipped, what is next, and who owns each step.
 
-> **Last reviewed** 2026-10-03 · `TODO.md` at the repo root is the working
+> **Last reviewed** 2026-10-05 · `TODO.md` at the repo root is the working
 > checklist — if the two disagree, **`TODO.md` wins**
 
 ---
@@ -66,6 +66,12 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 ---
 
 ## 3. Next — Android on a Real Phone
+
+> The new app is planned phase by phase in `Mobile App/`. **Phase 0 is done**
+> (project, API client, theme, 50 tests, runs on the emulator). Task 1 below is
+> still the gate for signing in to production; its exact steps are in
+> `Mobile App/05-firebase-android-setup.md`. Tasks 2–3 are absorbed by the new
+> app's Phase 1; tasks 4–7 belong to its Phase 9 (SMS capture), after v1.
 
 Nothing below is verifiable until real SMS from real banks is flowing.
 

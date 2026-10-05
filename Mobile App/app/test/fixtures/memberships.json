@@ -1,0 +1,15 @@
+{
+    "items": [
+        {
+            "bookId": "book_arjun",
+            "userId": "user_owner",
+            "role": "book_owner",
+            "user": {
+                "id": "user_owner",
+                "firebaseUid": "firebase-owner",
+                "email": "arjun@example.com",
+                "displayName": "Arjun Mohanesh"
+            }
+        }
+    ]
+}

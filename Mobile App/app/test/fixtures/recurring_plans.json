@@ -1,0 +1,16 @@
+{
+    "items": [
+        {
+            "id": "recurring_salary",
+            "bookId": "book_arjun",
+            "categoryId": "cat_salary",
+            "name": "Monthly salary",
+            "kind": "income",
+            "amountMinor": "58786700",
+            "currency": "INR",
+            "cadence": "monthly",
+            "nextDueAt": "2026-09-25T05:30:00.000Z",
+            "active": true
+        }
+    ]
+}

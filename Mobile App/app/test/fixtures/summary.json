@@ -1,0 +1,43 @@
+{
+    "incomeMinor": "58786700",
+    "spentMinor": "3809000",
+    "movedMinor": "0",
+    "byAccount": [
+        {
+            "accountId": null,
+            "name": "Not linked to an account",
+            "inMinor": "58786700",
+            "outMinor": "3809000",
+            "netMinor": "54977700"
+        }
+    ],
+    "flows": [],
+    "balanceMinor": "54977700",
+    "pendingReview": 1,
+    "byCategory": [
+        {
+            "categoryId": "cat_emi",
+            "name": "EMI",
+            "groupName": "Essentials",
+            "amountMinor": "3500000"
+        },
+        {
+            "categoryId": "cat_utilities",
+            "name": "Utilities",
+            "groupName": "Essentials",
+            "amountMinor": "234000"
+        },
+        {
+            "categoryId": "cat_food",
+            "name": "Food delivery",
+            "groupName": "Lifestyle",
+            "amountMinor": "75000"
+        }
+    ],
+    "period": {
+        "month": "2026-08",
+        "startDay": 1,
+        "startsAt": "2026-07-31T18:30:00.000Z",
+        "endsAt": "2026-08-31T18:30:00.000Z"
+    }
+}

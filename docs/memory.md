@@ -5,7 +5,7 @@
 The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds.
 
-> **Last reviewed** 2026-10-03 · Working rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-05 · Working rules live in `/CLAUDE.md`
 
 ---
 
@@ -75,6 +75,10 @@ already paid for, and what would make us change our minds.
 | **Landing page at `/`, dashboard also at `/`** | `page.tsx` renders the landing page when signed out instead of moving the dashboard to `/app`. Invitation links are `/#people?invite=…` and already in people's inboxes; moving the dashboard would break every one of them | The dashboard needs server rendering or its own metadata |
 | **An invitation link still opens the form** | A signed-out visitor at `/` gets marketing, but one carrying an invite token gets the sign-in card — their link is the only way in | — |
 | **`localStorage` decides the first paint** | Without it the dark loading card flashed in front of the landing page, or the landing page flashed in front of a returning user. It is a rendering hint and grants nothing | — | — |
+| **A fresh Flutter project in `Mobile App/`, not an edit of `apps/mobile`** | The old app's screens were hardcoded sample data, its book id and dev-auth header could not work in production, and it carried a Kotlin/Dart parser duplicate. Starting clean kept only the ideas worth keeping | The old SMS bridge turns out to need little change; port it in Phase 9 rather than rewrite it |
+| **`APP_CHECK_MODE=off` for the mobile launch** | Play Integrity does not attest a sideloaded APK, so enforcing App Check would lock the sideload channel out | The app becomes Play-only |
+| **Android-only `flutter create`, iOS added later** | iOS needs Xcode, which is not installed, and an Apple account; nothing in v1 needs it | Phase 10 starts |
+| **Only the Flutter packages a phase uses** | Each plugin carries Android config and build time; adding all of them up front would ship unused permissions | — |
 
 ---
 
@@ -145,6 +149,18 @@ already paid for, and what would make us change our minds.
 | An inline `<svg>` with no `width`/`height` | Fills its container. The leaf logo rendered ~300px tall inside the sign-in card |
 | `window.scrollTo` while verifying a page | `html{scroll-behavior:smooth}` animates it, so a screenshot taken straight after catches the page mid-flight and looks blank |
 | `node_modules/@cloudflare/workerd-darwin-arm64/bin` empty | `vinext build` fails at **config load** with a confusing "installed on another platform" message naming the same platform twice. `npm install @cloudflare/workerd-darwin-arm64 --no-save` |
+
+### 3.5 Mobile app
+
+| Trap | Detail |
+|---|---|
+| `ColoredBox` inside a `Row` of fixed height | A chart bar made of `Expanded(child: ColoredBox(...))` rendered **nothing**: the row centres its children vertically and a box with no child sizes to zero. `crossAxisAlignment: CrossAxisAlignment.stretch` fixes it. Looking at a screenshot found it; the analyzer and the tests did not |
+| Two cards in a `Row` with different content | They end up different heights. Wrap in `IntrinsicHeight` and stretch |
+| `flutter create` puts `INTERNET` in the **debug** manifest only | A release build has no network. It is added to the main manifest; cleartext HTTP to `10.0.2.2` is allowed in the debug manifest only |
+| `flutter create` names the application id `com.paisa.paisa_mobile` | The old app had that as its Kotlin namespace and `com.paisa.mobile` as its application id. Set both to `com.paisa.mobile` and move `MainActivity` into that package |
+| `google-services` Gradle plugin fails the build if the JSON is missing | Applied only when `app/android/app/google-services.json` exists, so the app builds before Firebase is registered |
+| zsh treats `?` in an unquoted URL as a glob | `curl localhost:4000/...summary?month=2026-08` fails with "no matches found". Quote the URL |
+| `java` on this Mac is only the macOS stub | `keytool` and Gradle use Android Studio's bundled JDK at `/Applications/Android Studio.app/Contents/jbr/Contents/Home` |
 
 ---
 

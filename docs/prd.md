@@ -5,7 +5,7 @@
 This document defines the problem Paisa solves, who it is for, the principles it
 holds to, and every functional requirement with its current state.
 
-> **Last reviewed** 2026-10-03 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
+> **Last reviewed** 2026-10-05 · **Status** Phases 1–2 live · **Region** India / INR / Asia-Kolkata
 
 ---
 
@@ -146,6 +146,22 @@ Legend — ✅ shipped · 🟡 partial · ⛔ not started
 | A9 | Reset a household to new — ledger **and** configuration — keeping the login | ✅ |
 | A10 | A stranger can ask for access from the landing page, once, and is told where they stand | ✅ |
 | A11 | The master admin sees who is waiting and grants access in one click | ✅ *(needs a service-account key)* |
+
+### 5.6 Mobile app (v1)
+
+The full list, with IDs, is `Mobile App/01-requirements.md`. State here is at
+the level of the whole app.
+
+| ID | Requirement | State |
+|---|---|---|
+| MO1 | Sign in, request access, forgot password, biometric / PIN lock | ⛔ |
+| MO2 | Live dashboard for a chosen book and pay-cycle month | ⛔ |
+| MO3 | Browse, review, split, comment, edit and import statements | ⛔ |
+| MO4 | Budgets, recurring plans, people and access | ⛔ |
+| MO5 | Push notification when payments need review | ⛔ |
+| MO6 | Dark mode | 🟡 palette built and checked; no screens yet |
+
+SMS capture (C7, C8) moves to a later phase of the mobile plan, after v1.
 
 ---
 

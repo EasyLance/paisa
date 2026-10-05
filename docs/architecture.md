@@ -61,7 +61,7 @@ Technologies used in the project and their purpose.
 | ORM | Prisma | Schema, migrations, typed queries |
 | Database | MariaDB | Ledger, audit trail, tenancy |
 | Auth | Firebase Auth + `jose` | Identity; RS256 verified against JWKS |
-| Mobile | Flutter + Kotlin | Android SMS capture |
+| Mobile | Flutter + Kotlin | New Android app in `Mobile App/app` (in progress); older SMS capture in `apps/mobile` |
 | Testing | Vitest | 68 API tests |
 | Hosting | DigitalOcean droplet + Apache | Shared with two other sites |
 | Process | systemd | `paisa-api`, `paisa-web` |
@@ -99,7 +99,8 @@ Financial-App/
 │   │   ├── prisma/               schema, 6 migrations, seed
 │   │   └── test/api.test.js      the only test suite
 │   ├── worker/           BullMQ stubs — no Redis runs, effectively dead
-│   └── mobile/           Flutter + Kotlin SMS bridge — written, not shipped
+│   └── mobile/           older Flutter + Kotlin SMS bridge — never run in production
+├── Mobile App/           new Flutter Android app (`app/`) and its plan docs
 ├── deploy/               bootstrap · deploy · migrate · reset-ledger · reset-rules
 │                         lib-db.sh + lib-db.test.sh · systemd · Apache
 └── docs/                 prd · architecture · rules · design · tasks · memory

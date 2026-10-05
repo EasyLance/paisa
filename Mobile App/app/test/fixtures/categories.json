@@ -1,0 +1,109 @@
+{
+    "items": [
+        {
+            "id": "cat_rent",
+            "workspaceId": "ws_household",
+            "name": "Rent + maintenance",
+            "groupName": "Essentials",
+            "color": "#315b46"
+        },
+        {
+            "id": "cat_utilities",
+            "workspaceId": "ws_household",
+            "name": "Utilities",
+            "groupName": "Essentials",
+            "color": "#60806f"
+        },
+        {
+            "id": "cat_groceries",
+            "workspaceId": "ws_household",
+            "name": "Groceries",
+            "groupName": "Essentials",
+            "color": "#89a55b"
+        },
+        {
+            "id": "cat_health",
+            "workspaceId": "ws_household",
+            "name": "Health and insurance",
+            "groupName": "Essentials",
+            "color": "#6d8e81"
+        },
+        {
+            "id": "cat_family",
+            "workspaceId": "ws_household",
+            "name": "Money sent to family",
+            "groupName": "Essentials",
+            "color": "#a9bd72"
+        },
+        {
+            "id": "cat_emi",
+            "workspaceId": "ws_household",
+            "name": "EMI",
+            "groupName": "Essentials",
+            "color": "#607b87"
+        },
+        {
+            "id": "cat_transport",
+            "workspaceId": "ws_household",
+            "name": "Transportation",
+            "groupName": "Essentials",
+            "color": "#6f8f83"
+        },
+        {
+            "id": "cat_food",
+            "workspaceId": "ws_household",
+            "name": "Food delivery",
+            "groupName": "Lifestyle",
+            "color": "#df8d6d"
+        },
+        {
+            "id": "cat_dining",
+            "workspaceId": "ws_household",
+            "name": "Dining out",
+            "groupName": "Lifestyle",
+            "color": "#d29a65"
+        },
+        {
+            "id": "cat_subscriptions",
+            "workspaceId": "ws_household",
+            "name": "Subscriptions",
+            "groupName": "Lifestyle",
+            "color": "#9d83a6"
+        },
+        {
+            "id": "cat_travel",
+            "workspaceId": "ws_household",
+            "name": "Travel",
+            "groupName": "Lifestyle",
+            "color": "#6399a4"
+        },
+        {
+            "id": "cat_salary",
+            "workspaceId": "ws_household",
+            "name": "Salary",
+            "groupName": "Income",
+            "color": "#397454"
+        },
+        {
+            "id": "cat_investment",
+            "workspaceId": "ws_household",
+            "name": "Investment",
+            "groupName": "Saving",
+            "color": "#4a7c8c"
+        },
+        {
+            "id": "cat_savings_transfer",
+            "workspaceId": "ws_household",
+            "name": "Transfer to savings",
+            "groupName": "Saving",
+            "color": "#5f8f9c"
+        },
+        {
+            "id": "cat_other",
+            "workspaceId": "ws_household",
+            "name": "Uncategorized",
+            "groupName": "Other",
+            "color": "#a1a8a3"
+        }
+    ]
+}

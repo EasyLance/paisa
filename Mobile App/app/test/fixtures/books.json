@@ -1,0 +1,24 @@
+{
+    "items": [
+        {
+            "id": "book_arjun",
+            "workspaceId": "ws_household",
+            "name": "Arjun's finances",
+            "visibility": "private",
+            "currency": "INR",
+            "timezone": "Asia/Kolkata",
+            "periodStartDay": 1,
+            "role": "book_owner"
+        },
+        {
+            "id": "book_home",
+            "workspaceId": "ws_household",
+            "name": "Household",
+            "visibility": "shared",
+            "currency": "INR",
+            "timezone": "Asia/Kolkata",
+            "periodStartDay": 1,
+            "role": "book_owner"
+        }
+    ]
+}
