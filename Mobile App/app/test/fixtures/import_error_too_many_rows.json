@@ -1,0 +1,7 @@
+{
+  "status": 413,
+  "body": {
+    "code": "STATEMENT_TOO_LARGE",
+    "message": "This statement has 2001 rows; 2000 is the most that can be imported at once. Split it by month and import each part."
+  }
+}

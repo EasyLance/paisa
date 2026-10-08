@@ -5,7 +5,7 @@
 This document tracks what is built, what is next, who owns each step, and the full
 phase-by-phase plan. The repo's own `TODO.md` carries a short pointer to it.
 
-> **Last reviewed** 2026-10-05 · Read [`prd.md`](prd.md) and
+> **Last reviewed** 2026-10-08 · Read [`prd.md`](prd.md) and
 > [`architecture.md`](architecture.md) first. Phase numbers are the ones used in
 > every mobile doc.
 
@@ -19,7 +19,7 @@ flowchart LR
     P1("🟡 1<br/>Access + lock")
     P2("✅ 2<br/>Dashboard")
     P3("✅ 3<br/>Transactions")
-    P4("⛔ 4<br/>Import")
+    P4("🟡 4<br/>Import")
     P5("⛔ 5<br/>Budgets")
     P6("⛔ 6<br/>People")
     P7("⛔ 7<br/>Push")
@@ -32,8 +32,8 @@ flowchart LR
     classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
 
     class P0,P2,P3 done
-    class P1 part
-    class P4,P5,P6,P7,P8 todo
+    class P1,P4 part
+    class P5,P6,P7,P8 todo
 ```
 
 ```text
@@ -41,10 +41,11 @@ Phase 0  ███████████████████████�
 Phase 1  ████████████████████████████░░   95%   production sign-in done; the lock with a real fingerprint is untested
 Phase 2  ██████████████████████████████  100%
 Phase 3  ██████████████████████████░░░░   85%   built; ten real payments reviewed is Arjun's gate
-Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
+Phase 4  ██████████████░░░░░░░░░░░░░░░░   45%   .xlsx incl. password-protected built; CSV and PDF to come
+Phases 5–8 not started · 9 SMS capture and 10 iOS come after v1
 ```
 
-> **Health** — 205 tests passing · analyzer clean · release build checked (secure
+> **Health** — 248 tests passing · analyzer clean · release build checked (secure
 > window, no development header in the binary, Firebase starts) · verified on the
 > Android emulator at 360dp, light and dark, against a local copy of the API.
 
@@ -67,8 +68,9 @@ Phases 4–8 not started · 9 SMS capture and 10 iOS come after v1
 |---|---|---|---|
 | 1 | **Try the lock with a real fingerprint or face** on a physical phone: Settings → Lock Paisa on, background the app over a minute, return. Production sign-in is done (see below); the lock's PIN path was already checked on the emulator, but an emulator has no sensor | 👤 **Arjun** | Closing Phase 1 |
 | 2 | **Review real payments on the phone** (Phase 3 gate): as the owner, review ten pending payments and see each on the web; then try the app as a viewer and a reviewer account if you have one | 👤 **Arjun** | Closing Phase 3 |
-| 3 | **Phase 4 — statement import**: pick a CSV or .xlsx, show imported / duplicate counts and warnings | 🤖 Claude | Phases 5–7 |
-| 4 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
+| 3 | **Try your own statement on the emulator**: Activity → the upload icon → `MyStatement.xlsx` → type its password → Import, against the local server. Tell me the counts and any warnings (the gate wants 0) | 👤 **Arjun** | Closing the .xlsx part of Phase 4 |
+| 4 | **Phase 4, next parts**: CSV, then PDF (password-protected, opened on the phone) | 🤖 Claude | Phases 5–7 |
+| 5 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
 
 ---
 
@@ -133,8 +135,8 @@ week or more of evenings.
 > phase that needs them, so no phase carries Android config it does not use.
 > `intl` is installed but unused so far (date formatting is hand-written and the
 > money grouping is BigInt-safe by hand); remove it at Phase 2 if still unused.
-> Fonts are the system serif and sans; Geist is `.woff2` on the web and Flutter
-> needs `.ttf`, so bundling it is an optional later step.
+> Fonts were the system serif and sans here; since 2026-10-08 the whole app uses
+> the bundled Anek Latin (`design.md` §3).
 
 | # | Task | Who |
 |---|---|---|
@@ -256,10 +258,28 @@ slow.
 
 | # | Task | Req |
 |---|---|---|
-| 4.1 | File picker restricted to CSV and .xlsx; PDF refused with the reason | T8 |
+| 4.1 | File picker; a file that cannot be imported is refused with the reason (PDF, CSV and .xls for now) | T8 |
 | 4.2 | Account picker (optional), size check against the 2.2 MB xlsx ceiling, SHA-256, base64 for xlsx | T8 |
 | 4.3 | Result screen: imported, duplicates, each warning | T8 |
 | 4.4 | Server errors `413` and `422` shown verbatim | T8 |
+| 4.5 | **Password-protected .xlsx**, opened on the phone: ask for the password, check it, decrypt, send the ordinary workbook; the password is never sent, stored or logged | T8 |
+| 4.6 | A note before the file is chosen saying what is and is not kept | T8 |
+| 4.7 | *(next)* CSV | T8 |
+| 4.8 | *(after that)* PDF, password-protected, parsed on the phone | T8 |
+
+> **State 2026-10-08:** order changed at Arjun's request: **.xlsx first, then CSV, then PDF.**
+> 4.1–4.6 built, 248 tests. Verified on the emulator against a local API with the
+> system file picker: a synthetic password-protected workbook (SHA-1 + AES-128, the
+> scheme Arjun's real bank file uses) is detected, a wrong password is refused, the
+> right one imports 7 entries with 0 warnings, and a second import says "Nothing new".
+> The decryption is checked against fixtures produced by an **independent** library
+> (`msoffcrypto-tool`), for two schemes. Not done: Arjun's own file (the emulator has it
+> as `MyStatement.xlsx`; he types the password), CSV, PDF. Deviations: **(a)** the
+> phone sends the whole workbook after opening it, not a stripped copy: the server
+> already keeps nothing of the header, the file name or the file (F20), and stripping
+> would change the rows' duplicate hashes so web and phone imports would double-count.
+> **(b)** The file's own name is never sent. **(c)** The note says what the server does
+> keep: each payment's date, amount, description and the running balance after it.
 
 **Gate:** import the SBI CSV and the HDFC .xlsx used in the web's verification
 (**from Arjun's own files, not committed**) → 0 warnings and the same row counts as

@@ -6,7 +6,7 @@ How the phone app is built: stack, folder layout, how each screen maps to an API
 route, authentication, security, push notifications, and what the server is missing.
 The server side is described in the repo's [`docs/architecture.md`](../../docs/architecture.md).
 
-> **Last reviewed** 2026-10-05 · Everything about the API was read from `apps/api`
+> **Last reviewed** 2026-10-08 · Everything about the API was read from `apps/api`
 > and recorded from a running copy of it, never guessed. Where a feature is not
 > built yet the section says so.
 
@@ -24,10 +24,11 @@ The server side is described in the repo's [`docs/architecture.md`](../../docs/a
 | App lock | `local_auth` | ✅ | The phone's own biometric or screen-lock prompt |
 | Preferences | `shared_preferences` | ✅ | Theme, last book, lock settings. None of it sensitive |
 | Formatting | hand-written | ✅ | Money grouping is BigInt-safe by hand; `intl` was removed in Phase 3 because nothing used it |
-| File picking, hashing | `file_picker`, `crypto` | ⛔ Phase 4 | Statement import |
+| File picking, hashing | `file_picker` 13, `crypto` | ✅ | Statement import: the system picker returns the bytes; SHA-256 of the workbook |
+| Opening protected workbooks | `pointycastle` | ✅ | AES-CBC for Office "agile" encryption, pure Dart. The SHA hashes come from `crypto` |
 | Push | `firebase_messaging` | ⛔ Phase 7 | FCM |
 | Crash reports | `firebase_crashlytics` | ⛔ Phase 8 | Needs its Gradle plugin; added with release hardening |
-| Fonts | System serif for headings, system sans for the rest | ✅ | No runtime font fetch and no Google call from a finance app. Geist ships as `.woff2` on the web and Flutter needs `.ttf`, so bundling it is an optional polish |
+| Fonts | **Anek Latin**, bundled (`assets/fonts/AnekLatin.ttf`, one variable file, OFL) | ✅ | The family super.money uses. No runtime font fetch and no Google call from a finance app. One family for everything, set once in the theme; `test/font_test.dart` guards it |
 
 **Left out on purpose:** code generation (`freezed`, `json_serializable`,
 `build_runner`) because the models are small and hand-written ones fail loudly with
@@ -66,6 +67,7 @@ Mobile App/
     │       ├── home/             the four-tab shell
     │       ├── dashboard/        logic (pure) · providers · view
     │       ├── activity/         the ledger: list, detail, edit/add form, split editor, category sheet; logic (pure) · providers (paging, writes)
+    │       ├── import/           statement import: screen · pure logic · providers (picker, decryptor) · office_crypto (compound file + agile decryption)
     │       ├── settings/         account, theme, lock, abilities, sign out
     │       ├── lock/             controller + the gate that covers the app
     │       └── phase0/           theme_preview.dart — throwaway, debug-only
@@ -184,6 +186,33 @@ Consequences for the app:
   both numbers and the warnings, in the web's words ("17 entries imported, 3
   already in the ledger").
 - Re-importing the same file is safe: dedupe is per row.
+
+### What is built (Phase 4, .xlsx)
+
+- **A password-protected workbook is not a ZIP.** Banks (HDFC's `AccountStatement_…xlsx`
+  is one) export it as an Office *compound file* holding `EncryptionInfo` and
+  `EncryptedPackage`. The web sends it as it is and the server answers `422 Not a valid
+  .xlsx file (no ZIP directory found)` (F19). The phone opens it first:
+  `features/import/office_crypto.dart` reads the compound file (FAT, mini stream),
+  derives the key from the password (SHA-1/256/384/512 stretched 100,000 times), checks
+  the password against the file's own verifier, then decrypts the package in 4096-byte
+  segments. It accepts Agile encryption (Office 2010+) with AES-CBC; older "standard"
+  encryption is refused with a sentence saying to re-save it. The integrity HMAC is not
+  checked: the password verifier already proves the key.
+- **The password lives in one text field**, goes to `decryptOfficeXlsx` on a separate
+  isolate (the stretching takes a moment), and is cleared when the import succeeds. It is
+  never put in a request, a log or preferences.
+- **What is sent** is `prepareWorkbook(openedWorkbook)`: the ordinary workbook as base64,
+  its SHA-256 (of the opened workbook, so the same statement protected or not is one
+  file), its size, and the fixed name `statement.xlsx`. The real file name never leaves
+  the phone. The phone does **not** cut the header off: the server already keeps none of
+  it (F20), and the rows' duplicate hashes include the account number, so a stripped
+  copy would be imported again as new rows by anyone who also imports on the web.
+- **Limits** match the server exactly: 2,359,296 bytes of workbook (the most that fits a
+  3 MB base64 string), 10 MB picked, 2,000 rows (`413`, shown in the server's words).
+- **A file that cannot be imported is named, not greyed out**: the picker offers
+  `.xlsx .xls .csv .pdf`, and the last three are refused with the reason (CSV and PDF are
+  the next two steps).
 
 ## 6. Authentication and session
 
@@ -376,7 +405,7 @@ Android specifics, all in place:
 
 ## 13. Testing
 
-205 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
+248 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
 honest are in [`rules.md`](rules.md) §6.
 
 | Kind | Where | Covers |
@@ -384,6 +413,7 @@ honest are in [`rules.md`](rules.md) §6.
 | Unit | `money_test`, `time_test`, `api_client_test`, `models_test`, `dashboard_logic_test`, `theme_test` | Grouping, sign and paise; the pay-cycle label against 1,276 recorded API cases; error mapping and the 401 retry; model parsing against recorded responses; breakdown and budget maths; contrast |
 | Session | `session_test` | Signed out, one book, several books, a remembered book, no household, a token that stays invalid, a server error, sign-out |
 | Lock | `lock_test` | The controller (grace period, the prompt backgrounding the app) and the lock screen over a signed-in app |
+| Import | `office_crypto_test`, `import_logic_test`, `import_test` | Opening protected workbooks against fixtures made by an independent library in two schemes (and refusing a wrong password and a damaged file); size limits to the byte; the upload body and what it must not contain; the screen end to end: plain, protected, wrong password, repeats, warnings, `413`/`422`, refused kinds, empty file, role gating |
 | Ledger | `activity_logic_test`, `activity_test` | Search, labels, the edit patch (kind and amount together), the create body, error sentences; the list at 360dp (paging, filters, errors), what each role is offered, confirm / category / void / comment / edit / add / split through a fake server, and a retry after a dropped connection creating one row |
 | Screens | `access_test`, `dashboard_test` | Sign in, request access, role gating, errors, the dashboard at 360dp in light and dark, month navigation, pay cycles, empty and error states |
 | Fixtures | `test/fixtures/` | Responses **recorded from a running copy of the API**, never hand-written: `me`, `books`, `summary`, `summary_rich`, `transactions`, `budget_plan`, `budget_plan_set`, `recurring_plans`, `memberships`, `invitations`, `accounts`, `categories`, and `period_labels` (from the real `period.js`) |

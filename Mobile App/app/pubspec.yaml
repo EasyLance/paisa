@@ -40,6 +40,9 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
   local_auth: ^3.0.2
+  file_picker: ^13.1.0
+  crypto: ^3.0.7
+  pointycastle: ^4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +65,17 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Anek Latin (SIL Open Font License), the family super.money uses. One variable
+  # file carries every weight (100-800) and width (75-125), so there is no
+  # runtime font fetch and no call to Google from a finance app. The licence text
+  # ships with it, as the OFL requires.
+  fonts:
+    - family: AnekLatin
+      fonts:
+        - asset: assets/fonts/AnekLatin.ttf
+  assets:
+    - assets/fonts/OFL.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

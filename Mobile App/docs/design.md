@@ -7,7 +7,7 @@ dashboard's [`docs/design.md`](../../docs/design.md); this file records only whe
 the phone needs something different, and the dark palette, which the web does not
 have.
 
-> **Last reviewed** 2026-10-05 · Tokens live in `app/lib/core/theme/tokens.dart` and
+> **Last reviewed** 2026-10-08 · Tokens live in `app/lib/core/theme/tokens.dart` and
 > `theme.dart`
 
 ---
@@ -15,7 +15,7 @@ have.
 ## 1. The Idea
 
 Same as the web: Paisa is something you open on a Sunday with tea. Deep forest green,
-warm paper, a serif for headings. **Calm enough that a number being wrong is the only
+warm paper, one friendly typeface (Anek Latin). **Calm enough that a number being wrong is the only
 thing that stands out.** On a phone that means fewer things per screen, larger text,
 and never a screen of zeros that looks like data.
 
@@ -66,22 +66,32 @@ Light is the web's palette, with one change (muted text). Dark is new.
 
 ## 3. Typography
 
-| Role | Face | Size | Notes |
-|---|---|---|---|
-| Screen heading | System serif | 24sp / 500 | `-0.3` tracking |
-| Card title | System serif | 18sp / 500 | |
-| Month name | System serif | 20sp / 500 | |
-| Amount in a tile | System serif | 20sp / 500 | Scales down rather than wraps |
-| Body | System sans | 14sp | `1.35` line height |
-| Secondary, labels | System sans | 12sp | **The floor.** Nothing is smaller |
-| Eyebrow | System sans | 12sp / 700 | `0.9` tracking, uppercase |
-| Buttons | System sans | 14sp / 700 | |
+**One typeface: Anek Latin**, the family super.money uses (confirmed from that site's
+own CSS, `font-family: AnekLatin`). It is bundled in the app as one variable file,
+`app/assets/fonts/AnekLatin.ttf` (weights 100–800, widths 75–125, SIL Open Font
+License, text in `OFL.txt` beside it), so there is no font download at run time and no
+call to Google from a finance app. It replaces both the system serif and the system
+sans, and it is **deliberately different from the web dashboard's Geist and serif**.
+Hierarchy now comes from size and weight, not from a second face.
+
+| Role | Size / weight | Notes |
+|---|---|---|
+| Screen heading | 24sp / 600 | `-0.3` tracking |
+| Card title | 18sp / 600 | |
+| Month name | 20sp / 600 | |
+| Amount in a tile | 20sp / 600 | Scales down rather than wraps |
+| Body | 14sp / 400 | `1.35` line height |
+| Secondary, labels | 12sp / 400–600 | **The floor.** Nothing is smaller |
+| Eyebrow | 12sp / 700 | `0.9` tracking, uppercase |
+| Buttons | 14sp / 700 | |
 
 The web's 10–12px body is a desktop trade-off and unreadable on a handset. Text
 scales with the phone's font setting; layouts are tested at 360dp, the narrowest
-common width. Two families only, as on the web: the serif is what stops it feeling
-like a banking app. Geist is `.woff2` on the web and Flutter needs `.ttf`, so the
-phone uses the system faces until someone bundles it (see `findings.md` F12).
+common width, and the long amounts (`₹5,90,561.50`) were checked on the emulator in
+the new face, light and dark. The theme sets the family once (`fontFamily` in
+`core/theme/theme.dart`); a test fails if any screen names another family. The width
+axis is left at its default (100); if a narrow phone ever needs it tighter, set a
+`FontVariation('wdth', …)` in the theme rather than shrinking sizes.
 
 ---
 
@@ -125,6 +135,7 @@ flowchart LR
     A("⇄ Activity")
     D("💳 Payment<br/>detail")
     F("✎ Add or edit")
+    IM("⇪ Import<br/>statement")
     SP("⑂ Split")
     B("◌ Budgets")
     P("◎ People")
@@ -139,6 +150,7 @@ flowchart LR
     O --> A
     A --> D
     A --> F
+    A --> IM
     D --> F
     D --> SP
     O --> B
@@ -149,7 +161,7 @@ flowchart LR
 
     classDef built fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
     classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
-    class SI,RA,NH,BP,O,S,L,A,D,F,SP built
+    class SI,RA,NH,BP,O,S,L,A,D,F,SP,IM built
     class B,P todo
 ```
 
@@ -161,9 +173,9 @@ Green is built; grey is a placeholder tab until its phase (5 Budgets, 6 People).
 
 | Pattern | Rule |
 |---|---|
-| **Card** | `paper`, 12dp radius, `line` border, no shadow. A serif title, then the content |
-| **Stat tile** | Eyebrow label, a big serif number, one honest line beneath. The number shrinks to fit; it never wraps. A negative keeps its `−` |
-| **Month bar** | Previous and next arrows (48dp), the month in the serif, the pay-cycle window beneath **only** when the book is not on calendar months. Next stops at today's period |
+| **Card** | `paper`, 12dp radius, `line` border, no shadow. A bold title, then the content |
+| **Stat tile** | Eyebrow label, a big bold number, one honest line beneath. The number shrinks to fit; it never wraps. A negative keeps its `−` |
+| **Month bar** | Previous and next arrows (48dp), the month in the heading weight, the pay-cycle window beneath **only** when the book is not on calendar months. Next stops at today's period |
 | **Review card** | `primaryContainer` fill. "N payments need a quick review" with a Review button, or "You are all caught up" with none. Not offered to a viewer |
 | **Breakdown** | A 12dp stacked bar (one segment per group, never less than a sliver), "x% of income spent", then a row per group that opens to its categories, then the "₹X left the account" line when money was saved |
 | **Budget row** | Group and share on the left, "13% used" on the right, the bar, and the amounts **under** the bar so a long pair wraps on a narrow phone. Amber from 90%, coral over 100%, and always a word |
@@ -176,8 +188,10 @@ Green is built; grey is a placeholder tab until its phase (5 Budgets, 6 People).
 | **Payment row** | Merchant, then "26 Aug · Category" (or "Split 2 ways", "Transfer", "Uncategorised"), then the pill if any; the signed amount at the right. 64dp minimum, one line each, ellipsis. Income in the positive colour, an expense in ink, voided and excluded **struck through** and muted |
 | **Filter chips** | One row that scrolls sideways: All, Needs review, Confirmed, Reconciled, Excluded, Voided. The dashboard's Review button lands with "Needs review" chosen |
 | **Search** | One field under the app bar, "Search payments". It filters what is loaded and says so when older pages exist |
-| **Payment detail** | Hero card (type, serif amount, merchant, date and time, pill) → review card for a pending payment → facts → split → actions → comments. Actions the role cannot do are absent, not greyed. Void is the only red |
+| **Payment detail** | Hero card (type, large amount, merchant, date and time, pill) → review card for a pending payment → facts → split → actions → comments. Actions the role cannot do are absent, not greyed. Void is the only red |
 | **Category sheet** | Grouped as the dashboard groups them, 48dp rows with the category's swatch. In the change-category flow a switch at the top offers "Do the same for future payments to <merchant>" |
+| **Privacy note** | A `primaryContainer` card with a shield, headed "Your bank details are not saved", at the top of the import screen before anything is chosen. It names what is kept (date, amount, description, balance after each) |
+| **Import screen** | Note, then a one-line instruction and one button. After a file is chosen: its name and size (with a lock and "password protected" if so), the password field with its helper line, an optional account, then Import. The result is two cards: the counts, and "No problems found" or "Check these" with each warning |
 | **Split editor** | Total, then a live line: "₹40 left to place" / "Over by ₹60" / "Nothing left to place." The Save button stays off until it reads the last one |
 
 ---
@@ -240,6 +254,10 @@ The interface talks like a careful colleague, not a brand. Same rules as the web
 |---|---|---|
 | Activity | ![Activity, light](screenshots/phase3-activity-light.png) | ![Activity, dark](screenshots/phase3-activity-dark.png) |
 | Payment detail | ![Payment detail, light](screenshots/phase3-detail-light.png) | |
+| Import: protected file | ![Import, password](screenshots/phase4-import-password.png) | ![Import, wrong password](screenshots/phase4-import-wrong-password.png) |
+| Import: result | ![Import, result](screenshots/phase4-import-result.png) | |
+| Dashboard, Anek Latin | ![Dashboard, light, Anek Latin](screenshots/phase4-font-dashboard-light.png) | ![Dashboard, dark, Anek Latin](screenshots/phase4-font-dashboard-dark.png) |
+| Activity, Anek Latin | ![Activity, light, Anek Latin](screenshots/phase4-font-activity-light.png) | |
 | Dashboard | ![Dashboard, light](screenshots/phase2-dashboard-light.png) | ![Dashboard, dark](screenshots/phase2-dashboard-dark.png) |
 
 | Pay-cycle book, current | Pay-cycle book, one back | Empty period |
@@ -251,3 +269,6 @@ The interface talks like a careful colleague, not a brand. Same rules as the web
 | ![Sign in](screenshots/phase1-sign-in.png) | ![Book picker](screenshots/phase1-book-picker.png) | ![Settings](screenshots/phase1-settings.png) | ![Lock](screenshots/phase1-lock.png) |
 
 The Phase 0 look-approval screenshots (`phase0-*.png`) are in the same folder.
+
+The screenshots named `phase0`–`phase3` were taken before the typeface changed on
+2026-10-08 and show the earlier serif headings; the `phase4-font-*` ones show Anek Latin.

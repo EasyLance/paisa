@@ -7,7 +7,7 @@ how the mobile app is built. Each one says where it was found, why it matters,
 and what happens next. Add to the bottom as new ones turn up; mark one **Resolved**
 rather than deleting it.
 
-> **Last reviewed** 2026-10-05
+> **Last reviewed** 2026-10-08
 
 | # | Finding | Status |
 |---|---|---|
@@ -22,7 +22,7 @@ rather than deleting it.
 | F9 | Light chart colours are under 3:1 against a white card | Open — mitigated |
 | F10 | `GET /memberships` returns every member's `firebaseUid` | Open — Phase 6 |
 | F11 | "Confirm" is a category change, not a state change | Resolved |
-| F12 | Geist is `.woff2` on the web; Flutter needs `.ttf` | Open — optional |
+| F12 | Geist is `.woff2` on the web; Flutter needs `.ttf` | Superseded 2026-10-08: the phone uses Anek Latin |
 | F13 | `google-services.json` was one folder too high | Resolved |
 | F14 | Web month label is wrong for pay-cycle start days 29–31 | Open — task raised |
 | F15 | An outgoing transfer lands in "Other" until it is categorised | Open — Phase 3 decision |
@@ -183,10 +183,12 @@ only. Decide in Phase 3 and record it in `docs/memory.md`.
 
 **Where:** `apps/web/.vinext/fonts/geist-*` holds Next's split `.woff2` subsets.
 
-**Consequence:** Phase 0 uses the system serif and sans. Matching the web exactly
-needs the Geist `.ttf` files (open-licensed), which means downloading them: not
-done without your say-so. Purely cosmetic; skip unless the difference bothers
-you.
+**Consequence:** Phase 0 used the system serif and sans. **Superseded on 2026-10-08**:
+Arjun asked for the phone to use the font on super.money instead, which is **Anek
+Latin** (that site's CSS declares `font-family: AnekLatin`). `AnekLatin[wdth,wght].ttf`
+(404,880 bytes) and its `OFL.txt` came from `github.com/google/fonts`, `ofl/aneklatin/`,
+and are bundled in `app/assets/fonts/`. The phone's type therefore now differs from the
+web dashboard's Geist on purpose.
 
 ## F13 · `google-services.json` was one folder too high
 
@@ -276,3 +278,44 @@ in `GET …/memberships`, which also exposes `firebaseUid` (F10).
 
 **What the phone does:** "You" for the signed-in person, "A member of this book" for
 anyone else. Phase 6 loads memberships and can show names.
+
+## F19 · The web cannot import a password-protected workbook
+
+**Where:** `apps/web` sends the file as it is and `domain/xlsx.js` expects a ZIP. A
+bank's protected export (Arjun's HDFC `AccountStatement_…xlsx`) is an Office compound
+file (`CDFV2 Encrypted`, Agile, SHA-1, AES-128, 100,000 spins), so the server answers
+`422 Not a valid .xlsx file (no ZIP directory found)`, which says nothing about a password.
+
+**What the phone does:** asks for the password and opens the file itself (Phase 4).
+**Next, if wanted:** the web could say "this file is password protected; remove the
+password in Excel and try again", or the same decryption could move into
+`apps/api/src/domain/` (it would then receive the password, which is why the phone does
+it instead). Not fixed here: it is in `apps/web` and `apps/api`.
+
+*How the fixtures were made:* `statement.xlsx` is a synthetic HDFC-style workbook with a
+fake account number and balances that reconcile; the two `statement_encrypted_*.xlsx`
+files are the same workbook encrypted (password `test-password`) with
+`msoffcrypto-tool`'s key handling and a small compound-file writer written for the
+purpose, because the library's own writer corrupts the package stream. The library's
+reader then decrypts both back to the original bytes.
+
+## F20 · What an imported statement leaves in the database
+
+**Read from** `domain/statement.js`, `prisma-store.js` (`createImport`, `ingest`).
+
+| Kept | Where |
+|---|---|
+| Date, amount, kind, the merchant read from the narration | `Transaction` |
+| The **full narration** (up to 2,000 characters) | `Transaction.note` |
+| The bank's reference number | `IngestionEvent.externalRef` |
+| The UPI handle and bank code, and the **running balance after the row** | `IngestionEvent.metadata` |
+| File size, content type, SHA-256 | `Attachment` |
+| **Not kept:** the file, its name, the account number, IFSC, holder name, address, header and footer | the account number is only mixed into each row's duplicate hash |
+
+**Consequences:** the import screen's note says what is kept, including the balance
+after each row and the description, because those are bank details of a kind. The
+narration can itself contain a counterparty's account or UPI id. If that is not wanted,
+the API would have to stop saving `note`, `metadata` and `externalRef` for statement rows
+(which also feeds `vpa_exact` categorisation rules), and that is a server and web
+decision, not a phone one.
+

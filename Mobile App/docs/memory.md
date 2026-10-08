@@ -6,7 +6,7 @@ The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds. The platform's own are in
 the repo's [`docs/memory.md`](../../docs/memory.md).
 
-> **Last reviewed** 2026-10-05 · Working rules live in [`rules.md`](rules.md) and the
+> **Last reviewed** 2026-10-08 · Working rules live in [`rules.md`](rules.md) and the
 > repo's `/CLAUDE.md`. `/CLAUDE.md` wins any disagreement.
 
 ---
@@ -67,6 +67,11 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | **Type and amount are locked on a split payment** | The server would let the amount change and leave the parts adding up to the old figure (F17) | The server rejects that itself |
 | **Search is client-side over what is loaded** | The list route has no search or month filter. The screen says when older pages are not searched | API change #2 (a month or text filter) lands |
 | **Comment authors read "You" or "A member of this book"** | A comment carries only an author id; names come from the memberships list, which is Phase 6 | People ships, then name them |
+| **Statement import goes .xlsx, then CSV, then PDF** | Arjun's own bank file turned out to be a password-protected workbook, so that came first. CSV is nearly free after it; PDF needs text extraction from a table and a sample of that bank's layout | A sample PDF arrives, or the household stops using PDFs |
+| **A protected workbook is opened on the phone** | The password never leaves it, and the server needs no change. The server cannot read protected files at all | The server grows decryption and the password is judged safe to send |
+| **The phone sends the whole workbook, not a header-stripped copy** | The server keeps no header, file name or file anyway (F20); stripping would change the duplicate hashes, so web and phone imports of one statement would double-count | The server stops hashing the account number |
+| **The privacy note lists what is kept, including the running balance** | The server saves each row's balance-after and the full description. Saying "only date and amount" would be false | The server stops saving them |
+| **One typeface, Anek Latin, bundled; the web's Geist and serif are not used on the phone** | Arjun asked for the font super.money uses, and a single family is simpler than two. Bundled, so nothing is fetched at run time. The phone now differs from the web on purpose | He asks to match the web again, or the household finds it hard to read |
 | **The Activity list is not re-fetched on tab change** | Pull to refresh does it, and every write updates the open list. Re-fetching on each switch would blank the list | Someone is surprised by a stale list in use |
 | **The role-abilities card lives in Settings** | It served the Phase 1 gate on the Overview tab; once the dashboard arrived it was clutter, but it still explains why a button is missing | — |
 | **An error replaces the figures** | A zeroed screen beside an error reads as "nothing happened", and old numbers read as live | — |
@@ -123,6 +128,12 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | The system PIN / biometric prompt is invisible to `adb screencap` | It is a secure window and the capture is **black**. `dumpsys window | grep mCurrentFocus` shows `BiometricPrompt`; `adb shell input text 1234` then `keyevent 66` answers it. `adb shell locksettings set-pin 1234` sets a throwaway PIN and `locksettings clear --old 1234` removes it |
 | `FLAG_SECURE` makes a release build's screenshots black too | That is the point. Use a debug build to screenshot |
 | The app stays dark after `cmd uimode night no` | The theme choice is saved (Settings → Appearance). It says Dark if a past session chose it; pick System to follow the phone |
+| `adb push` straight into `/sdcard/Download` right after the emulator boots can leave a 0-byte file | The picker lists it as "0 B" and the app reads nothing. Push to `/data/local/tmp`, then `adb shell cp` into Download and broadcast `MEDIA_SCANNER_SCAN_FILE`. The app now says "That file is empty" |
+| Python's `msoffcrypto-tool` writes a broken container, and fails on SHA-1 | Its compound-file writer put the wrong bytes in `EncryptedPackage`, and its integrity step assumes the hash is a whole number of AES blocks. The fixtures use its key handling with a small writer of our own (`findings.md` F19); its *reader* then decrypts them, which is the independent check |
+| A variable font's default weight is not 400 | Anek Latin's default `wght` is 500. Flutter maps `FontWeight` onto the axis, so weights do vary on screen (checked), but a screenshot is the only proof: the test runner draws every font as boxes |
+| Excel's "agile" encryption varies by file | Arjun's file is SHA-1 + AES-128, `msoffcrypto`'s default is SHA-512 + AES-256. The decryptor reads the scheme from the file and both are tested |
+| `Isolate.run` never finishes in a widget test | Widget tests run in fake async. Override `decryptorProvider` with an inline function |
+| `file_picker` 13 is not the API in most tutorials | `FilePicker.pickFile(...)` returns a `PlatformFile?` and bytes come from `readAsBytes()`; there is no `FilePickerResult` and no `withData` |
 | `curl` of the local API returns nothing right after `npm run serve` | The API takes a few seconds to bind. Poll `/v1/books` until it answers before recording a fixture |
 | `open(path, 'w').write(json.dumps(json.load(open(path))))` empties the file | The `'w'` open truncates before the `load` runs. Read into a variable first |
 | The first launch after install, or after a density change, takes ~20 s | The Flutter splash stays up. Wait before tapping or the tap lands on the splash |
@@ -168,6 +179,5 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 |---|---|
 | Does the production sign-in work end to end? | Arjun signing in once with his own account |
 | Should the light chart swatches be darkened for the phone? | A design call: it changes the brand palette (`findings.md` F9) |
-| Bundle Geist? | Downloading `.ttf` files, and whether the system face is good enough |
 | Do the household's phones need a read-only offline cache? | Real use; it was not chosen for v1 and fights the "never show stale numbers" rule |
 | When does accepting an invitation move to the phone? | A deep-link and verified-email path (`prd.md` A3) |

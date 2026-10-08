@@ -133,6 +133,11 @@ class LedgerApi {
   Future<TxComment> comment(Transaction tx, String body) async =>
       TxComment.fromJson(await _api.post('$_base/${tx.id}/comments', body: {'body': body}) as Map<String, dynamic>);
 
+  /// The statement goes up in one request. Re-sending the same file is safe: the
+  /// server skips each row it already has.
+  Future<ImportResult> importStatement(Map<String, Object?> body) async =>
+      ImportResult.fromJson(await _api.post('/v1/books/$bookId/imports', body: body) as Map<String, dynamic>);
+
   /// One key per form, reused on a retry: if the connection drops after the
   /// server saved the payment, sending it again returns that payment instead
   /// of adding a second one.

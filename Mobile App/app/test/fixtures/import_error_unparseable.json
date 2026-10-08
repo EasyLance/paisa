@@ -1,0 +1,7 @@
+{
+  "status": 422,
+  "body": {
+    "code": "STATEMENT_UNPARSEABLE",
+    "message": "Not a valid .xlsx file (no ZIP directory found)."
+  }
+}

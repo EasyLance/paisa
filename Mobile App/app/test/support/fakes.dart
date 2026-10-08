@@ -124,6 +124,13 @@ class FakeServer {
   /// reply arrives: the case an idempotency key exists for.
   bool dropNextCreateReply = false;
   final createKeys = <String>[];
+
+  /// Statement uploads, as the server received them, and what it answers.
+  /// By default the first upload of a file is "7 imported" and any repeat is
+  /// "7 duplicates", both recorded from the real API.
+  final importBodies = <Map<String, dynamic>>[];
+  ({int status, Map<String, dynamic> body})? importOverride;
+  final _importedHashes = <String>{};
   final _byKey = <String, Map<String, dynamic>>{};
 
   Future<http.Response> handle(http.Request request) async {
@@ -181,6 +188,15 @@ extension on FakeServer {
       final limit = min(pageSize, int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 50);
       final page = items.take(limit).toList();
       return jsonResponse(200, {'items': page, 'nextCursor': items.length > limit ? page.last['id'] : null});
+    }
+    if (base == 'imports' && request.method == 'POST') {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      importBodies.add(body);
+      writes.add('POST imports');
+      final forced = importOverride;
+      if (forced != null) return jsonResponse(forced.status, forced.body);
+      final recorded = fixture(_importedHashes.add(body['sha256'] as String) ? 'import_result' : 'import_result_again') as Map<String, dynamic>;
+      return jsonResponse(recorded['status'] as int, recorded['body'] as Object);
     }
     if (base == 'transactions' && request.method == 'POST') {
       final key = request.headers['idempotency-key'];
@@ -246,8 +262,9 @@ extension on FakeServer {
 }
 
 class Harness {
-  Harness({FakeAuth? auth, FakeServer? server, Map<String, Object>? prefs, FakeAuthenticator? authenticator, DateTime? now})
-    : now = now ?? DateTime.utc(2026, 8, 25, 6, 30),
+  Harness({FakeAuth? auth, FakeServer? server, Map<String, Object>? prefs, FakeAuthenticator? authenticator, DateTime? now, List<Override>? extra})
+    : extra = extra ?? const [],
+      now = now ?? DateTime.utc(2026, 8, 25, 6, 30),
       auth = auth ?? FakeAuth(),
       server = server ?? FakeServer(),
       authenticator = authenticator ?? FakeAuthenticator() {
@@ -257,6 +274,9 @@ class Harness {
   final FakeAuth auth;
   final FakeServer server;
   final FakeAuthenticator authenticator;
+
+  /// Extra overrides a test needs, such as a file picker that answers without a dialog.
+  final List<Override> extra;
 
   /// "Today". The default is noon on 25 August 2026 in India, inside the month
   /// the recorded summary describes.
@@ -272,6 +292,7 @@ class Harness {
       apiClientProvider.overrideWithValue(client),
       authenticatorProvider.overrideWithValue(authenticator),
       clockProvider.overrideWithValue(() => now),
+      ...extra,
     ];
   }
 

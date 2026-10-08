@@ -7,7 +7,7 @@ with its current state, and what is deliberately left out. The platform's own
 requirements are in the repo's [`docs/prd.md`](../../docs/prd.md); this is the
 phone's share of them.
 
-> **Last reviewed** 2026-10-05 · **Status** Phases 0–3 built, 205 tests · **Platform** Android first, iOS later
+> **Last reviewed** 2026-10-08 · **Status** Phases 0–3 built, Phase 4 (.xlsx) built, 248 tests · **Platform** Android first, iOS later
 
 ## 1. Purpose
 
@@ -90,7 +90,7 @@ Legend — **Pri** M must · S should, cut first if time runs short.
 | T5 | Edit amount, kind, date, merchant, note, account (kind and amount change together). Type and amount are locked while a payment is split | M | ✅ |
 | T6 | Split one payment across categories; Save stays off until the parts add up exactly | M | ✅ |
 | T7 | Comment on a transaction (authors read "You" or "A member of this book" until Phase 6 can name them) | M | ✅ |
-| T8 | **Import a bank statement** (CSV or .xlsx) from the phone's files, show imported / duplicate counts and any balance warnings | M | ⛔ |
+| T8 | **Import a bank statement** from the phone's files, show imported / duplicate counts and any balance warnings. **Order: .xlsx (built, including password-protected ones, opened on the phone), then CSV, then PDF (password-protected)**. The screen says what is and is not kept | M | 🟡 |
 | T9 | Add a manual transaction; one `Idempotency-Key` per form, so a retry after a dropped connection adds one row | S | ✅ |
 
 ### 4.4 Budgets and recurring
@@ -197,7 +197,7 @@ phone adds four of its own.
 
 | Measure | Target | Today |
 |---|---|---|
-| Automated checks | All green before any phase is called done | ✅ 205 tests, analyzer clean |
+| Automated checks | All green before any phase is called done | ✅ 248 tests, analyzer clean |
 | Month logic agrees with the API | 100% on recorded cases | ✅ 1,276 of 1,276 |
 | Dashboard figures equal the API's | Every book and period checked | ✅ 2 books, 4 periods, incl. a pay-cycle boundary |
 | Sign in against production | Done once with a real account | ⛔ needs Arjun's own password |

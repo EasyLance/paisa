@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
+/// The app's only typeface, declared in `pubspec.yaml`.
+const fontFamily = 'AnekLatin';
+
 ThemeData buildTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final c = dark ? PaisaColors.dark : PaisaColors.light;
@@ -30,16 +33,15 @@ ThemeData buildTheme(Brightness brightness) {
     onPrimaryContainer: dark ? const Color(0xffcfe9da) : const Color(0xff1c3b2f),
   );
 
-  // Headings are a serif and everything scanned is a sans, as on the web. The
-  // generic 'serif' resolves to the system serif; swap for a bundled font if
-  // the look needs to be exact. Sizes are phone sizes: the web's 10-12px body
-  // is unreadable on a handset, so the floor here is 12sp and body is 14sp.
-  const serif = 'serif';
+  // One family for everything: Anek Latin, bundled (see pubspec.yaml). Headings
+  // differ from body by size and weight, not by face. Sizes are phone sizes: the
+  // web's 10-12px body is unreadable on a handset, so the floor here is 12sp and
+  // body is 14sp.
   final text = TextTheme(
-    displaySmall: TextStyle(fontFamily: serif, fontSize: 30, fontWeight: FontWeight.w500, letterSpacing: -0.5, color: c.ink),
-    headlineMedium: TextStyle(fontFamily: serif, fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: -0.3, color: c.ink),
-    headlineSmall: TextStyle(fontFamily: serif, fontSize: 20, fontWeight: FontWeight.w500, color: c.ink),
-    titleLarge: TextStyle(fontFamily: serif, fontSize: 18, fontWeight: FontWeight.w500, color: c.ink),
+    displaySmall: TextStyle(fontSize: 30, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: c.ink),
+    headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.3, color: c.ink),
+    headlineSmall: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: c.ink),
+    titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.ink),
     titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
     titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
     bodyLarge: TextStyle(fontSize: 16, color: c.ink),
@@ -53,6 +55,7 @@ ThemeData buildTheme(Brightness brightness) {
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(10));
   return ThemeData(
     useMaterial3: true,
+    fontFamily: fontFamily,
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: c.cream,

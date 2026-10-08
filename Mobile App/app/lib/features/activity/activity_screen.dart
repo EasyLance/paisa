@@ -9,6 +9,7 @@ import 'activity_logic.dart';
 import 'activity_providers.dart';
 import 'activity_widgets.dart';
 import 'transaction_detail_screen.dart';
+import '../import/import_screen.dart';
 import 'transaction_form_screen.dart';
 
 class ActivityScreen extends ConsumerStatefulWidget {
@@ -82,19 +83,29 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
           : null,
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          child: TextField(
-            controller: _search,
-            onChanged: (_) => setState(() {}),
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Search payments',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _search.text.isEmpty
-                  ? null
-                  : IconButton(tooltip: 'Clear search', icon: const Icon(Icons.close), onPressed: () => setState(_search.clear)),
+          padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search payments',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(tooltip: 'Clear search', icon: const Icon(Icons.close), onPressed: () => setState(_search.clear)),
+                ),
+              ),
             ),
-          ),
+            if (book.can(Capability.edit))
+              IconButton(
+                tooltip: 'Import a statement',
+                icon: const Icon(Icons.upload_file),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ImportScreen(book: book))),
+              ),
+          ]),
         ),
         SizedBox(
           height: 52,

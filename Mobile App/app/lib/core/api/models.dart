@@ -326,3 +326,24 @@ class TransactionPage {
     nextCursor: json['nextCursor'] as String?,
   );
 }
+
+/// What an import reply says about the file. The reply also echoes the
+/// statement's account number; it is deliberately not read, so it cannot end up
+/// on screen, in a log or in memory longer than the response.
+class ImportResult {
+  const ImportResult({required this.imported, required this.duplicates, required this.warnings});
+
+  final int imported;
+
+  /// Rows already in the ledger, skipped.
+  final int duplicates;
+
+  /// Rows whose running balance did not follow; they were still imported.
+  final List<String> warnings;
+
+  factory ImportResult.fromJson(Map<String, dynamic> json) => ImportResult(
+    imported: json['imported'] as int,
+    duplicates: json['duplicates'] as int,
+    warnings: [for (final warning in (json['warnings'] as List? ?? const [])) warning as String],
+  );
+}

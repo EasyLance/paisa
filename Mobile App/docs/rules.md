@@ -7,7 +7,7 @@ something specific, and each one names that cost. The platform's rules in the re
 [`docs/rules.md`](../../docs/rules.md) all apply (money is integer paise, history is not
 optional, verify before you claim done); these are the phone's additions.
 
-> **Last reviewed** 2026-10-05 · Operational rules live in the repo's `/CLAUDE.md`
+> **Last reviewed** 2026-10-08 · Operational rules live in the repo's `/CLAUDE.md`
 
 ---
 
@@ -98,12 +98,13 @@ final rupees = amount / 100;
 
 ## 6. Tests
 
-- Tests live in `app/test/`. **205 passing.** Run `flutter analyze` and
+- Tests live in `app/test/`. **248 passing.** Run `flutter analyze` and
   `flutter test` before saying anything is done.
 - **Fixtures are recorded from a running API** (`apps/api` in dev auth, memory store,
   sample data) into `test/fixtures/`. Never hand-write one, and never commit real
   financial data: record from the sample data or build the case in the test.
 - A fixture changing is the signal the API moved. Update the model on purpose.
+- **Test crypto and file formats against an independent implementation.** A decryptor checked only by an encryptor you wrote proves nothing. The protected-workbook fixtures are made by Python's `msoffcrypto-tool` (with a small writer of ours where its own was broken); the Dart code must reproduce the original bytes.
 - Prefer an invariant to an example: `sum(byCategory) == spent + moved` catches more
   than any single expected figure.
 - **Assert the setup succeeded.** A test that blames the code for a bad setup wastes
@@ -127,6 +128,9 @@ final rupees = amount / 100;
 | Rule | Why |
 |---|---|
 | Never log a token, an amount, a merchant or a response body | A finance app's logs are as sensitive as its screens |
+| **A file's password is used on the phone and nowhere else** | It opens the file, is never put in a request, a log or preferences, and the field is cleared when the import succeeds. A test asserts the request body does not contain it |
+| Send the file's contents under a fixed name | A bank puts the account number in the file name; the server has no use for it |
+| **A privacy note says only what the server really keeps** | The import note names the running balance and the description as kept, because they are. Read the server's store before writing the promise (`findings.md` F20) |
 | `AppConfig.devAuth` is `kDebugMode && DEV_AUTH` | A compile-time constant: a release build cannot turn it on whatever is passed. Checked by searching the release binary |
 | The lock is a UI gate over the session, never a replacement | A forgotten PIN must never mean a locked-out account; "Sign out instead" is always there |
 | Turning the lock on proves it works first | Nobody locks themselves out of a phone with no screen lock |

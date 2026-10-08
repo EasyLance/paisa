@@ -5,7 +5,7 @@ later. The web dashboard and API stay where they are (`apps/web`, `apps/api`);
 this app is a client of that API and adds nothing to the data model except the
 push-notification pieces in [docs/architecture.md](docs/architecture.md) §8.
 
-> **Last reviewed** 2026-10-05 · **Status** Phases 0, 1, 2 and 3 built, 205 tests passing.
+> **Last reviewed** 2026-10-08 · **Status** Phases 0, 1, 2 and 3 built, Phase 4 (statement import) in progress: .xlsx done, CSV and PDF to come; 248 tests passing.
 > Production sign-in and adding a payment confirmed working by Arjun; still open: the lock with a real fingerprint (Phase 1 gate) and reviewing real payments (Phase 3 gate) ·
 > **Owner** Arjun
 
@@ -40,7 +40,7 @@ buried in a build tree.
 | **v1 extras** | Biometric / PIN lock · Dark mode · Push notifications (FCM) |
 | **Not in v1** | SMS capture (Phase 9, after v1), offline cache, reports, master admin |
 | **Distribution** | Sideloaded APK **and** Play internal / closed testing |
-| **Look** | Matches the web dashboard (`docs/design.md`) |
+| **Look** | The web dashboard's colours and layout, in a different typeface: **Anek Latin**, the one super.money uses, bundled in the app (`docs/design.md` §3) |
 
 ## Status log
 
@@ -48,6 +48,8 @@ Newest first. One line per change of state, with the date.
 
 | Date | Change |
 |---|---|
+| 2026-10-08 | The whole app now uses **Anek Latin** (the typeface on super.money, confirmed from its CSS), bundled as one variable file with its OFL licence: no download at run time. It replaces both the system serif and sans. Checked on the emulator in light and dark at 360dp. A test fails if any screen names another family |
+| 2026-10-08 | Phase 4, .xlsx: import a bank statement from the phone, including a **password-protected** workbook, which is opened on the phone (the password is never sent or saved). Sends the ordinary workbook under a fixed name; shows imported / already-in-ledger counts and each warning; shows the server's own words on `413` / `422`; a note says what is and is not kept. The decryption is checked against fixtures made by an independent library in two encryption schemes. Verified on the emulator through the system file picker against a local API. Found: the web cannot import protected workbooks (F19); what a statement import leaves in the database (F20). Open: Arjun's own file, then CSV, then PDF |
 | 2026-10-05 | Arjun signed in against production with his own account and added a payment from the release build: both work. Open: the lock with a real fingerprint (the emulator has no sensor), reviewing real payments |
 | 2026-10-05 | Phase 3 built: the ledger. Paged list with state chips and search over what is loaded; payment detail; confirm, change category (with "do the same next time") and void with a two-step confirm; edit (kind and amount together, date at the book's midnight); split editor that only saves when the parts add up; comments; add a payment with one idempotency key per form, proven to create one row after a dropped connection. Every action is offered by role. 205 tests; verified on the emulator in light and dark, including a real Confirm that the local server reported back. Found: write routes answer with different shapes (F16), the server lets a split payment's amount change (F17), comments carry only an author id (F18). Open: reviewing real payments against production |
 | 2026-10-05 | Phase 2 built: the live dashboard. Pay-cycle month navigation (the Dart port of `currentPeriodLabel` agrees with the API's own function on 1,276 recorded cases), four tiles, where-the-money-went breakdown that adds up to spent plus saved, budget progress, review card, an explicit error state that shows no figures. Verified on the emulator at 360dp in light and dark, and against the API's own numbers for a calendar-month book and a book starting on the 26th. Found a web bug for start days 29–31 (F14). Open: the Phase 1 production sign-in |

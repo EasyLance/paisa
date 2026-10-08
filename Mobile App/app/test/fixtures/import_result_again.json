@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "body": {
+    "id": "2c5be9e3-60fe-48be-96e0-fbf8571aa6ad",
+    "status": "parsed",
+    "storageKey": "imports/ws_household/book_arjun/a3dcea60-57e5-46bd-83dd-c81541cd2076",
+    "createdAt": "2026-10-08T16:40:37.723Z",
+    "duplicate": true,
+    "fileName": "statement.xlsx",
+    "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "sizeBytes": 19796,
+    "sha256": "7f0fe949e2d889dce1e95428b7a1db05e31f85622f3c7e527b01112a480d2454",
+    "workspaceId": "ws_household",
+    "bookId": "book_arjun",
+    "account": {
+      "number": "00000000000000",
+      "ifsc": null
+    },
+    "imported": 0,
+    "duplicates": 7,
+    "warnings": []
+  }
+}
