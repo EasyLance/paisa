@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/books/book_home/budget-plan",
+    "body": {
+      "allocations": [
+        {
+          "groupName": "Essentials",
+          "percent": 50
+        }
+      ]
+    }
+  },
+  "status": 403,
+  "body": {
+    "code": "FORBIDDEN",
+    "message": "Role reviewer cannot edit"
+  }
+}

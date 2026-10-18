@@ -5,10 +5,12 @@ Ordered by what unblocks the most. Last reviewed 2026-10-05.
 ## Next: get the Android app onto a real phone
 
 > The replacement app is planned in `Mobile App/` (start at its `README.md`).
-> **Phases 0 to 3 are built** (2 is the live dashboard, 3 the ledger); what is left on them
-> is trying the lock with a real fingerprint on a phone (production sign-in and adding a
-> payment already work) and reviewing real payments on the phone (commands in `Mobile App/docs/tasks.md`). Phase 4 (statement import) has its .xlsx part built, including
-> password-protected workbooks opened on the phone; next are CSV and then PDF. The
+> **Phases 0 to 3 are built** (2 is the live dashboard, 3 the ledger). Arjun has confirmed on a real
+> phone: production sign-in, the fingerprint lock, adding a payment and importing a statement.
+> What is left on them is reviewing real payments on the phone (`Mobile App/docs/tasks.md`). Phase 4 (statement import) is built for .xlsx, CSV and
+> password-protected PDF, all opened on the phone (the PDF reader has only seen synthetic
+> statements: try a real bank PDF). Phase 5 (budgets and recurring) is built; its gate is a
+> plan saved on the phone appearing unchanged on the web. The
 > hardcoded-book and parser items below describe the older `apps/mobile` app and
 > are replaced by that plan rather than fixed here.
 

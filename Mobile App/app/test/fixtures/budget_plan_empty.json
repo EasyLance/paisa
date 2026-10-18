@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/books/book_arjun/budget-plan",
+    "body": {
+      "allocations": []
+    }
+  },
+  "status": 200,
+  "body": {
+    "items": [],
+    "baseIncomeMinor": "58786700"
+  }
+}

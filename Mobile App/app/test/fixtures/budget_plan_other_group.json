@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/books/book_arjun/budget-plan",
+    "body": {
+      "allocations": [
+        {
+          "groupName": "Travel",
+          "percent": 5
+        },
+        {
+          "groupName": "Essentials",
+          "percent": 50
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "groupName": "Essentials",
+        "percent": 50
+      },
+      {
+        "groupName": "Travel",
+        "percent": 5
+      }
+    ],
+    "baseIncomeMinor": "58786700"
+  }
+}

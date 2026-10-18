@@ -7,7 +7,7 @@ how the mobile app is built. Each one says where it was found, why it matters,
 and what happens next. Add to the bottom as new ones turn up; mark one **Resolved**
 rather than deleting it.
 
-> **Last reviewed** 2026-10-08
+> **Last reviewed** 2026-10-17
 
 | # | Finding | Status |
 |---|---|---|
@@ -318,4 +318,39 @@ narration can itself contain a counterparty's account or UPI id. If that is not 
 the API would have to stop saving `note`, `metadata` and `externalRef` for statement rows
 (which also feeds `vpa_exact` categorisation rules), and that is a server and web
 decision, not a phone one.
+
+## F21–F30 · What the budget and recurring routes do (found building Phase 5)
+
+Recorded from the real API (run in-process, since nothing was listening on a port).
+
+| # | Finding | What the phone does |
+|---|---|---|
+| F21 | `PUT budget-plan` accepts **any** group name, including Income and made-up ones. It replaces the whole plan, so omitted groups vanish | Offers the web's four groups plus the categories' groups, never Income; sends only non-zero shares |
+| F22 | **`GET recurring-plans` returns only active plans** in both stores. A stopped plan disappears; `PATCH active:true` does work and the plan returns | "Turn back on" right after a stop, nothing later. A route listing inactive plans would fix it (candidate API change) |
+| F23 | `POST recurring-plans` has **no idempotency key** | Says "may or may not have been saved" and re-fetches |
+| F24 | A 101% share returns two messages ("Too big…" then the cap sentence) | Blocks it before sending |
+| F25 | `PATCH recurring-plans {}` returns 200 and writes an audit row (no `requireFields` guard as on transactions) | Never sends an empty patch |
+| F26 | Create omits `categoryId` from the reply when none was sent; PATCH answers `categoryId:null` after a clear. An unknown category is `400 REFERENCE_SCOPE_ERROR` with no field errors | Reads both shapes |
+| F27 | A weekly income plan counts as amount × 52 / 12 in `baseIncomeMinor`, truncated | Shows what the server says |
+| F28 | The reviewer's 403 reads "Role reviewer cannot edit" | Hidden controls, so never seen |
+| F29 | **Web vs API:** the web's recurring form always sends `categoryId: categories[0]` and sends the due date as UTC midnight, so a web-made plan is 5 h 30 m off a phone-made one; its Budgets group list is hard-coded to four groups | Book-timezone midnight, as everywhere else in the app. Worth fixing in `apps/web` |
+| F30 | Every one of these was found with the local server not running on the port the brief named | Fixtures were recorded in-process with the real `buildApp`; re-record from a live server if wanted |
+
+## F31 · A phone-built CSV and an xlsx of the same statement do not de-duplicate
+
+**Where:** `domain/statement.js` mixes the account number (read from the lines above the
+table) into every row's `sourceHash`. A PDF is read on the phone and only its table goes up
+as a CSV, so there is no account-number line and the hash is computed with an empty one.
+
+**Consequences:** (1) the same statement imported once as xlsx or the bank's own CSV and
+once as a PDF is **counted twice**. (2) Two different accounts' PDFs containing an identical
+row (same date, amount, narration and reference, such as a plain "interest credit") would
+see the second skipped as a duplicate. Re-importing the *same* PDF is safe.
+
+**What the phone does:** says (1) in one sentence on the PDF import screen. It does not put
+an `Account Number :` line in the CSV, because that contradicts dropping account details,
+although the server keeps nothing of it (F20).
+
+**Open question for Arjun:** keep it this way, or let the phone add that one line so
+de-duplication works across formats? Either is a trade between privacy and double-counting.
 

@@ -43,6 +43,9 @@ dependencies:
   file_picker: ^13.1.0
   crypto: ^3.0.7
   pointycastle: ^4.0.0
+  pdf_cos: ^9.0.0
+  pdf_document: ^9.0.0
+  pdf_graphics: ^9.0.0
 
 dev_dependencies:
   flutter_test:

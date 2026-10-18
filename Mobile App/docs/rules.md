@@ -7,7 +7,7 @@ something specific, and each one names that cost. The platform's rules in the re
 [`docs/rules.md`](../../docs/rules.md) all apply (money is integer paise, history is not
 optional, verify before you claim done); these are the phone's additions.
 
-> **Last reviewed** 2026-10-08 · Operational rules live in the repo's `/CLAUDE.md`
+> **Last reviewed** 2026-10-17 · Operational rules live in the repo's `/CLAUDE.md`
 
 ---
 
@@ -87,6 +87,7 @@ final rupees = amount / 100;
 | Long money pairs go **under** the bar | `₹37,340 of ₹2,93,933.50` does not fit beside a label on 360dp. Use `Flexible`/`Wrap` wherever two pieces of text share a row |
 | **One idempotency key per form**, kept across a lost connection, replaced after any answer the server gave | A retry after a dropped connection must add one payment, not two; a key reused with a changed body is a `409` |
 | Guard on the phone what the server does not | The server lets a split payment's amount change, so the parts stop adding up. The phone locks it (`findings.md` F17) |
+| A create with no idempotency key never says "nothing was changed" after a lost connection | The server may have saved it. Say it may or may not have, and re-fetch the list |
 | Two buttons in one `Row` become a `Wrap` | "Forgot your password?" and "Request access" overflowed a 360dp phone by 226px |
 | A `ColoredBox` inside a fixed-height `Row` needs `crossAxisAlignment.stretch` | Otherwise it sizes to nothing and the chart bar is invisible. Only a screenshot showed it |
 | Cards in a row get `IntrinsicHeight` + `stretch` | Different content, different heights |
@@ -98,12 +99,13 @@ final rupees = amount / 100;
 
 ## 6. Tests
 
-- Tests live in `app/test/`. **248 passing.** Run `flutter analyze` and
+- Tests live in `app/test/`. **380 passing.** Run `flutter analyze` and
   `flutter test` before saying anything is done.
 - **Fixtures are recorded from a running API** (`apps/api` in dev auth, memory store,
   sample data) into `test/fixtures/`. Never hand-write one, and never commit real
   financial data: record from the sample data or build the case in the test.
 - A fixture changing is the signal the API moved. Update the model on purpose.
+- **Expectations for generated fixtures come from the generator, not from the code under test.** The PDF tests compare rows with what the generator drew (`pdf_truth.json`) and re-check the running balance in Dart.
 - **Test crypto and file formats against an independent implementation.** A decryptor checked only by an encryptor you wrote proves nothing. The protected-workbook fixtures are made by Python's `msoffcrypto-tool` (with a small writer of ours where its own was broken); the Dart code must reproduce the original bytes.
 - Prefer an invariant to an example: `sum(byCategory) == spent + moved` catches more
   than any single expected figure.

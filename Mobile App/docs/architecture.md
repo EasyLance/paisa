@@ -6,7 +6,7 @@ How the phone app is built: stack, folder layout, how each screen maps to an API
 route, authentication, security, push notifications, and what the server is missing.
 The server side is described in the repo's [`docs/architecture.md`](../../docs/architecture.md).
 
-> **Last reviewed** 2026-10-08 · Everything about the API was read from `apps/api`
+> **Last reviewed** 2026-10-17 · Everything about the API was read from `apps/api`
 > and recorded from a running copy of it, never guessed. Where a feature is not
 > built yet the section says so.
 
@@ -25,6 +25,7 @@ The server side is described in the repo's [`docs/architecture.md`](../../docs/a
 | Preferences | `shared_preferences` | ✅ | Theme, last book, lock settings. None of it sensitive |
 | Formatting | hand-written | ✅ | Money grouping is BigInt-safe by hand; `intl` was removed in Phase 3 because nothing used it |
 | File picking, hashing | `file_picker` 13, `crypto` | ✅ | Statement import: the system picker returns the bytes; SHA-256 of the workbook |
+| Reading PDFs | `pdf_cos`, `pdf_document`, `pdf_graphics` 9.0.0 | ✅ | Apache-2.0, pure Dart; opens password-protected PDFs and gives text with positions |
 | Opening protected workbooks | `pointycastle` | ✅ | AES-CBC for Office "agile" encryption, pure Dart. The SHA hashes come from `crypto` |
 | Push | `firebase_messaging` | ⛔ Phase 7 | FCM |
 | Crash reports | `firebase_crashlytics` | ⛔ Phase 8 | Needs its Gradle plugin; added with release hardening |
@@ -67,7 +68,8 @@ Mobile App/
     │       ├── home/             the four-tab shell
     │       ├── dashboard/        logic (pure) · providers · view
     │       ├── activity/         the ledger: list, detail, edit/add form, split editor, category sheet; logic (pure) · providers (paging, writes)
-    │       ├── import/           statement import: screen · pure logic · providers (picker, decryptor) · office_crypto (compound file + agile decryption)
+    │       ├── budgets/          the Budgets tab: % plan editor, expected income, recurring plans; logic (pure) · providers · screen · recurring form
+    │       ├── import/           statement import: screen · pure logic · providers (picker, decryptor, PDF reader) · pdf_statement + pdf_table (PDF → CSV) · office_crypto (compound file + agile decryption)
     │       ├── settings/         account, theme, lock, abilities, sign out
     │       ├── lock/             controller + the gate that covers the app
     │       └── phase0/           theme_preview.dart — throwaway, debug-only
@@ -178,8 +180,7 @@ Consequences for the app:
 - A **.xlsx over about 2.2 MB is rejected** — base64 inflates by a third, and the
   string cap is 3 MB. Check before uploading and say so; the web has the same
   limit.
-- **PDF cannot be parsed** (the API says so). Block PDFs in the picker with the
-  reason, do not upload them.
+- **The server cannot parse a PDF** (it says so), so the phone never uploads one: it reads the PDF itself and uploads a CSV (see "CSV and PDF" below).
 - The server caps a file at **2,000 rows**; surface its message on `413`.
 - The reply includes `imported`, `duplicates`, `warnings[]`. A warning means a
   row's running balance did not reconcile, and the row was still imported: show
@@ -211,8 +212,48 @@ Consequences for the app:
 - **Limits** match the server exactly: 2,359,296 bytes of workbook (the most that fits a
   3 MB base64 string), 10 MB picked, 2,000 rows (`413`, shown in the server's words).
 - **A file that cannot be imported is named, not greyed out**: the picker offers
-  `.xlsx .xls .csv .pdf`, and the last three are refused with the reason (CSV and PDF are
-  the next two steps).
+  `.xlsx .xls .csv .pdf`; `.xls` and anything else is refused with the reason.
+
+### CSV and PDF (Phase 4, built 2026-10-17)
+
+- **CSV**: bytes → text (UTF-8, a BOM stripped, Windows-1252 if the bytes are not valid
+  UTF-8) → `contentType: text/csv`, the text as `content`, under the fixed name
+  `statement.csv`; the SHA-256 is of the text as sent. Refused: an empty file, a binary
+  file renamed `.csv`, text over 3,145,728 characters (the server's cap).
+- **PDF** (`pdf_statement.dart`, `pdf_table.dart`): the PDF is opened **with the password
+  on a separate isolate**, words are taken off each page with their positions, and
+  `pdf_table.dart` (pure Dart over a `List<PositionedWord>`) rebuilds the transaction table
+  and writes a CSV of only `Date, Narration[, Ref No], Debit, Credit[, Balance]` and the
+  payment rows. Account details, the statement header, repeated page headers, footers and
+  summary blocks are dropped on the phone. That CSV goes through the CSV path, so the
+  server's running-balance check validates the parse.
+- **What the table code handles**: headings found by words (Date, Narration / Description /
+  Particulars / Details / Remarks, Withdrawal / Debit / Dr, Deposit / Credit / Cr, Balance,
+  Chq / Ref, Value Dt), including headings stacked over two lines; columns found from where
+  text actually sits, not from the headings; dates as `01/08/26`, `01-08-2026`,
+  `01 Aug 2026` (normalised to `dd/mm/yyyy`); Indian grouping; descriptions wrapped onto
+  following lines; tables that continue across pages; a `Cr` / `Dr` suffix on a balance.
+- **What it does not handle** (refused with the headings it looks for, or lost): a single
+  amount column with a Dr/Cr marker, a serial-number column left of the date, an amount
+  printed without paise on a payment's first line, columns that move between pages, a PDF
+  with no usable text (reported as scanned), public-key encryption (refused). The first row
+  on each page after the first may lose its first description line in layouts that centre
+  or bottom-align descriptions; the money is unaffected.
+- **Library**: `pdf_cos` + `pdf_document` + `pdf_graphics` 9.0.0, **Apache-2.0**, pure Dart
+  (RC4 40–128, AES-128, AES-256 R5/R6; text with per-character offsets; runs inside
+  `flutter test`; built in a release APK). The suite is brand new (published 2026-10-16) with
+  one author and almost no public use. Rejected: `dart_pdf_reader` (no encryption),
+  Syncfusion PDF (Community Licence, not a permissive one), `pdfrx` (PDFium, MIT, native and
+  not testable in `flutter test`; the fallback if a real PDF misbehaves: replace `_wordsOf`
+  in `pdf_statement.dart`, the table code is untouched).
+- **Two duplicate-hash caveats**, both because a phone-built CSV has no account-number
+  header and the server's row hashes include it: (1) the same statement imported once as
+  xlsx or bank CSV and once as PDF is **counted twice**; (2) two different accounts' PDFs
+  with an identical row (same date, amount, narration and reference) would see the second
+  skipped as a duplicate. Re-importing the same PDF is safe. The import screen states (1) in
+  one sentence. Putting an `Account Number :` line above the phone's CSV would remove both
+  and the server does not keep it (F20), but it contradicts "drop account details", so it was
+  left as an open question for Arjun (`findings.md` F31).
 
 ## 6. Authentication and session
 
@@ -383,6 +424,15 @@ Android specifics, all in place:
 - Still to add: `POST_NOTIFICATIONS` for Android 13+ (Phase 7).
 - No `READ_SMS` / `RECEIVE_SMS` in v1.
 
+### Built so far: Budgets and recurring plans
+
+- **`PUT …/budget-plan` replaces the whole plan**, so the phone sends only the groups with a share above zero (the web sends zeros too; the server drops nothing and stores what it is given). It accepts any group name, including Income and made-up ones; the phone offers the web's four groups (Essentials, Lifestyle, Saving, Other) plus any group the categories use, never Income, plus any group the saved plan already holds so it can be removed.
+- **Rupees per share** are `baseIncomeMinor × percent / 100` in BigInt, shown as "₹X a month". A percentage is a display figure only. A weekly income plan counts as amount × 52 / 12 in `baseIncomeMinor`, truncated by the server.
+- **`GET …/recurring-plans` returns only active plans** in both stores; `PATCH active:true` works and the plan reappears. The phone therefore offers "Turn back on" in a message right after a stop, and nothing later.
+- **Kind and amount are always sent together** on a plan edit, as on a transaction. The next due date is midnight in the *book's* timezone, sent with `Z`, and on an edit is sent only if the person moved it.
+- **`POST …/recurring-plans` has no idempotency key.** After a lost connection the phone says the plan may or may not have been saved and re-fetches the list; it never claims "nothing was changed".
+- **A save invalidates** `budgetPlanProvider` and `recurringPlansProvider`, so the Overview budget card follows the Budgets tab.
+
 ### Built so far: how the ledger screens use these routes
 
 - **Paging** is cursor-based: `nextCursor` is the id of the last row sent. The list
@@ -405,7 +455,7 @@ Android specifics, all in place:
 
 ## 13. Testing
 
-248 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
+380 tests, run with `flutter test` from `Mobile App/app`. The rules that keep them
 honest are in [`rules.md`](rules.md) §6.
 
 | Kind | Where | Covers |
@@ -413,7 +463,7 @@ honest are in [`rules.md`](rules.md) §6.
 | Unit | `money_test`, `time_test`, `api_client_test`, `models_test`, `dashboard_logic_test`, `theme_test` | Grouping, sign and paise; the pay-cycle label against 1,276 recorded API cases; error mapping and the 401 retry; model parsing against recorded responses; breakdown and budget maths; contrast |
 | Session | `session_test` | Signed out, one book, several books, a remembered book, no household, a token that stays invalid, a server error, sign-out |
 | Lock | `lock_test` | The controller (grace period, the prompt backgrounding the app) and the lock screen over a signed-in app |
-| Import | `office_crypto_test`, `import_logic_test`, `import_test` | Opening protected workbooks against fixtures made by an independent library in two schemes (and refusing a wrong password and a damaged file); size limits to the byte; the upload body and what it must not contain; the screen end to end: plain, protected, wrong password, repeats, warnings, `413`/`422`, refused kinds, empty file, role gating |
+| Import | `office_crypto_test`, `import_logic_test`, `import_test`, `pdf_table_test` (24, pure logic), `pdf_statement_test` (31, real PDFs checked against what the generator drew, the running balance and the absence of account details) | Opening protected workbooks against fixtures made by an independent library in two schemes (and refusing a wrong password and a damaged file); size limits to the byte; the upload body and what it must not contain; the screen end to end: plain, protected, wrong password, repeats, warnings, `413`/`422`, refused kinds, empty file, role gating |
 | Ledger | `activity_logic_test`, `activity_test` | Search, labels, the edit patch (kind and amount together), the create body, error sentences; the list at 360dp (paging, filters, errors), what each role is offered, confirm / category / void / comment / edit / add / split through a fake server, and a retry after a dropped connection creating one row |
 | Screens | `access_test`, `dashboard_test` | Sign in, request access, role gating, errors, the dashboard at 360dp in light and dark, month navigation, pay cycles, empty and error states |
 | Fixtures | `test/fixtures/` | Responses **recorded from a running copy of the API**, never hand-written: `me`, `books`, `summary`, `summary_rich`, `transactions`, `budget_plan`, `budget_plan_set`, `recurring_plans`, `memberships`, `invitations`, `accounts`, `categories`, and `period_labels` (from the real `period.js`) |

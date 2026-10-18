@@ -7,7 +7,7 @@ with its current state, and what is deliberately left out. The platform's own
 requirements are in the repo's [`docs/prd.md`](../../docs/prd.md); this is the
 phone's share of them.
 
-> **Last reviewed** 2026-10-08 · **Status** Phases 0–3 built, Phase 4 (.xlsx) built, 248 tests · **Platform** Android first, iOS later
+> **Last reviewed** 2026-10-17 · **Status** Phases 0–3 built, Phase 4 (.xlsx) built, 380 tests · **Platform** Android first, iOS later
 
 ## 1. Purpose
 
@@ -90,16 +90,16 @@ Legend — **Pri** M must · S should, cut first if time runs short.
 | T5 | Edit amount, kind, date, merchant, note, account (kind and amount change together). Type and amount are locked while a payment is split | M | ✅ |
 | T6 | Split one payment across categories; Save stays off until the parts add up exactly | M | ✅ |
 | T7 | Comment on a transaction (authors read "You" or "A member of this book" until Phase 6 can name them) | M | ✅ |
-| T8 | **Import a bank statement** from the phone's files, show imported / duplicate counts and any balance warnings. **Order: .xlsx (built, including password-protected ones, opened on the phone), then CSV, then PDF (password-protected)**. The screen says what is and is not kept | M | 🟡 |
+| T8 | **Import a bank statement** from the phone's files, show imported / duplicate counts and any balance warnings. **.xlsx, CSV and password-protected PDF are all built**, protected files opened on the phone. PDF is built against synthetic statements only; a real bank PDF is Arjun's to try. The screen says what is and is not kept | M | 🟡 |
 | T9 | Add a manual transaction; one `Idempotency-Key` per form, so a retry after a dropped connection adds one row | S | ✅ |
 
 ### 4.4 Budgets and recurring
 
 | ID | Requirement | Pri | State |
 |---|---|---|---|
-| B1 | View and edit the % plan per group; total may not exceed 100% | M | ⛔ |
-| B2 | Show expected monthly income derived from recurring plans | M | ⛔ |
-| R1 | List recurring plans, create, edit, stop | M | ⛔ |
+| B1 | View and edit the % plan per group; total may not exceed 100%; the 50/30/20 preset as the web has it. Viewers and reviewers see it read-only | M | ✅ |
+| B2 | Show expected monthly income derived from recurring plans, and say where it comes from | M | ✅ |
+| R1 | List recurring plans, create, edit, stop. **A stopped plan is not listed** (the server returns active plans only), so a stop can be undone only right after it, from the "Turn back on" message | M | ✅ |
 
 ### 4.5 People and access
 
@@ -197,7 +197,7 @@ phone adds four of its own.
 
 | Measure | Target | Today |
 |---|---|---|
-| Automated checks | All green before any phase is called done | ✅ 248 tests, analyzer clean |
+| Automated checks | All green before any phase is called done | ✅ 380 tests, analyzer clean |
 | Month logic agrees with the API | 100% on recorded cases | ✅ 1,276 of 1,276 |
 | Dashboard figures equal the API's | Every book and period checked | ✅ 2 books, 4 periods, incl. a pay-cycle boundary |
 | Sign in against production | Done once with a real account | ⛔ needs Arjun's own password |

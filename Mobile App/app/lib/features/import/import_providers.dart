@@ -6,15 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'import_logic.dart';
 import 'office_crypto.dart';
+import 'pdf_statement.dart';
 
 typedef PickedFile = ({String name, Uint8List bytes});
 
 /// Asks the phone for a file. A provider so a test can answer without a dialog.
 final statementPickerProvider = Provider<Future<PickedFile?> Function()>((ref) => _pickFromPhone);
 
-// ponytail: xls, csv and pdf are offered in the picker only so they can be
-// refused with a reason (refusalForName). Drop them from this list if the picker
-// ever greys them out too confusingly.
+// ponytail: xls is offered in the picker only so it can be refused with a reason
+// (refusalForName). Drop it from this list if the picker ever greys it out too
+// confusingly.
 Future<PickedFile?> _pickFromPhone() async {
   final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: const ['xlsx', 'xls', 'csv', 'pdf']);
   if (file == null) return null;
@@ -31,3 +32,8 @@ typedef Decryptor = Future<Uint8List> Function(Uint8List file, String password);
 /// Opening a protected workbook stretches the password with 100,000 hashes, which
 /// would freeze the screen for a moment, so it runs off the main isolate.
 final decryptorProvider = Provider<Decryptor>((ref) => (file, password) => Isolate.run(() => decryptOfficeXlsx(file, password)));
+
+/// Opens a PDF (with its password, if it has one) and returns its table of
+/// payments as CSV. Reading every page is slow enough to freeze the screen, so it
+/// runs off the main isolate; the password goes in with the file and stays there.
+final pdfReaderProvider = Provider<Future<String> Function(Uint8List pdf, String password)>((ref) => (pdf, password) => Isolate.run(() => statementCsvFromPdf(pdf, password)));

@@ -1,0 +1,7 @@
+{
+  "status": 422,
+  "body": {
+    "code": "STATEMENT_UNPARSEABLE",
+    "message": "No transaction table found. The statement needs a header row with Date, Debit and Credit columns."
+  }
+}

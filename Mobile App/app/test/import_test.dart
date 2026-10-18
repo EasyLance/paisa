@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paisa_mobile/features/import/import_logic.dart';
 import 'package:paisa_mobile/features/import/import_providers.dart';
+import 'package:crypto/crypto.dart';
 import 'package:paisa_mobile/features/import/office_crypto.dart';
+import 'package:paisa_mobile/features/import/pdf_statement.dart';
 
 import 'support/fakes.dart';
 
@@ -25,6 +27,7 @@ Future<FakeServer> pumpImport(WidgetTester tester, {PickedFile? picked, String r
     extra: [
       statementPickerProvider.overrideWithValue(() async => picked),
       decryptorProvider.overrideWithValue((file, password) async => decryptOfficeXlsx(file, password)),
+      pdfReaderProvider.overrideWithValue((pdf, password) async => statementCsvFromPdf(pdf, password)),
     ],
   );
   await tester.pumpWidget(await harness.app());
@@ -45,6 +48,12 @@ Future<void> choose(WidgetTester tester) async {
 
 Future<void> tapImport(WidgetTester tester) async {
   final button = find.widgetWithText(FilledButton, 'Import statement');
+  // A list builds only what is near the screen, and a PDF's notes push the button
+  // past that, so scroll the form first.
+  if (button.evaluate().isEmpty) {
+    await tester.drag(find.byType(ListView).hitTestable().last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+  }
   await tester.ensureVisible(button);
   await tester.pumpAndSettle();
   await tester.tap(button);
@@ -55,6 +64,10 @@ void main() {
   final plain = fixtureBytes('statement.xlsx');
   final plainFile = (name: 'My Statement 4521.xlsx', bytes: plain);
   final protectedFile = (name: 'AccountStatement_08092026.xlsx', bytes: fixtureBytes('statement_encrypted_sha1_aes128.xlsx'));
+  final csvBytes = fixtureBytes('statement.csv');
+  final csvFile = (name: 'Statement 4521.csv', bytes: csvBytes);
+  final pdfPlain = (name: 'Statement 4521.pdf', bytes: fixtureBytes('statement_hdfc_plain.pdf'));
+  final pdfLocked = (name: 'AccountStatement_08092026.pdf', bytes: fixtureBytes('statement_hdfc_aes256.pdf'));
 
   group('who can import', () {
     testWidgets('an editor can, and sees the privacy note before choosing anything', (tester) async {
@@ -192,8 +205,161 @@ void main() {
     });
   });
 
+  group('a CSV', () {
+    testWidgets('goes up as the text it is, under a generic name, with its hash, and shows the counts', (tester) async {
+      final server = await pumpImport(tester, picked: csvFile);
+      await choose(tester);
+      expect(find.text('Statement 4521.csv'), findsOneWidget, reason: 'the name is shown on screen to the person');
+      expect(find.byType(TextField), findsNothing, reason: 'a CSV has no password');
+      expect(find.textContaining('table of payments'), findsNothing, reason: 'the PDF note is only for a PDF');
+      await tapImport(tester);
+
+      final sent = server.importBodies.single;
+      expect(sent['fileName'], 'statement.csv', reason: 'the real name is never sent');
+      expect(sent['contentType'], 'text/csv');
+      expect(sent['content'], utf8.decode(csvBytes));
+      expect(sent['sha256'], sha256.convert(csvBytes).toString());
+      expect(sent['sizeBytes'], csvBytes.length);
+      expect(find.text('4 entries imported'), findsOneWidget);
+      expect(find.text('No problems found'), findsOneWidget);
+    });
+
+    testWidgets('importing it again says nothing is new', (tester) async {
+      await pumpImport(tester, picked: csvFile);
+      await choose(tester);
+      await tapImport(tester);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Import a statement'));
+      await tester.pumpAndSettle();
+      await choose(tester);
+      await tapImport(tester);
+      expect(find.text('Nothing new: all 4 entries were already in the ledger.'), findsOneWidget);
+    });
+
+    testWidgets('an older export that is not UTF-8 is read, not refused', (tester) async {
+      final latin = Uint8List.fromList([...utf8.encode('Date,Details,Debit,Credit\n01/09/2026,Caf'), 0xe9, ...utf8.encode(' bill,10.00,\n')]);
+      final server = await pumpImport(tester, picked: (name: 'old.csv', bytes: latin));
+      await choose(tester);
+      await tapImport(tester);
+      expect(server.importBodies.single['content'], 'Date,Details,Debit,Credit\n01/09/2026,Café bill,10.00,\n');
+    });
+
+    testWidgets('a CSV the server cannot read is shown in its own words, and kept for another try', (tester) async {
+      final recorded = fixture('import_error_csv_unparseable') as Map<String, dynamic>;
+      final server = FakeServer()..importOverride = (status: recorded['status'] as int, body: recorded['body'] as Map<String, dynamic>);
+      await pumpImport(tester, picked: csvFile, server: server);
+      await choose(tester);
+      await tapImport(tester);
+      expect(find.text('No transaction table found. The statement needs a header row with Date, Debit and Credit columns.'), findsOneWidget);
+      expect(find.text('Statement 4521.csv'), findsOneWidget);
+    });
+
+    testWidgets('a CSV over the server\'s 3 MB is refused before it is sent', (tester) async {
+      final big = Uint8List.fromList(utf8.encode('Date,Debit\n${'a' * maxCsvChars}'));
+      final server = await pumpImport(tester, picked: (name: 'big.csv', bytes: big));
+      await choose(tester);
+      await tapImport(tester);
+      expect(find.textContaining('3 MB of CSV'), findsOneWidget);
+      expect(server.importBodies, isEmpty);
+    });
+  });
+
+  group('a PDF', () {
+    testWidgets('that is not protected is read on the phone, and only its table of payments goes up', (tester) async {
+      final server = await pumpImport(tester, picked: pdfPlain);
+      server.csvImportFixture = 'import_result_pdf';
+      await choose(tester);
+      expect(find.text('Statement 4521.pdf'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing, reason: 'no password asked for a file that has none');
+      expect(find.textContaining('reads this PDF on your phone and sends only its table of payments'), findsOneWidget);
+      expect(find.textContaining('not matched against the same statement imported from Excel or CSV'), findsOneWidget);
+      await tapImport(tester);
+
+      final sent = server.importBodies.single;
+      expect(sent['fileName'], 'statement.csv', reason: 'what goes up is a CSV, under a fixed name');
+      expect(sent['contentType'], 'text/csv');
+      final content = sent['content'] as String;
+      expect(content.split('\n').first, 'Date,Narration,Ref No,Debit,Credit,Balance');
+      expect(content, isNot(contains('50100123456789')), reason: 'the account number stays on the phone');
+      expect(content, isNot(contains('TEST USER')));
+      expect(sent['sha256'], sha256.convert(utf8.encode(content)).toString(), reason: 'hashed as sent');
+      expect(sent['sizeBytes'], utf8.encode(content).length);
+      expect(find.text('14 entries imported'), findsOneWidget);
+      expect(find.text('No problems found'), findsOneWidget);
+    });
+
+    testWidgets('importing it again says nothing is new', (tester) async {
+      final server = await pumpImport(tester, picked: pdfPlain);
+      server.csvImportFixture = 'import_result_pdf';
+      await choose(tester);
+      await tapImport(tester);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Import a statement'));
+      await tester.pumpAndSettle();
+      await choose(tester);
+      await tapImport(tester);
+      expect(server.importBodies, hasLength(2));
+      expect(server.importBodies.first['sha256'], server.importBodies.last['sha256']);
+      expect(find.text('Nothing new: all 14 entries were already in the ledger.'), findsOneWidget);
+    });
+
+    testWidgets('that is protected asks for the password and says it stays on the phone', (tester) async {
+      await pumpImport(tester, picked: pdfLocked);
+      await choose(tester);
+      expect(find.textContaining('password protected'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Statement password'), findsOneWidget);
+      expect(find.text('Used on this phone to open the file. It is never sent or saved.'), findsOneWidget);
+    });
+
+    testWidgets('a wrong password says so and sends nothing; none at all is asked for, not tried', (tester) async {
+      final server = await pumpImport(tester, picked: pdfLocked);
+      await choose(tester);
+      await tapImport(tester);
+      expect(find.textContaining('Enter the statement'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextField, 'Statement password'), 'not-it');
+      await tapImport(tester);
+      expect(find.text('That password did not open the file. Check it and try again.'), findsOneWidget);
+      expect(server.importBodies, isEmpty);
+    });
+
+    testWidgets('the right password sends the table, never the password, and the field goes with the file', (tester) async {
+      final server = await pumpImport(tester, picked: pdfLocked);
+      server.csvImportFixture = 'import_result_pdf';
+      await choose(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'Statement password'), 'test-password');
+      await tapImport(tester);
+
+      final sent = server.importBodies.single;
+      expect(jsonEncode(sent), isNot(contains('test-password')));
+      expect(sent['content'], statementCsvFromPdf(fixtureBytes('statement_hdfc_plain.pdf'), ''), reason: 'the same table as the same statement unprotected');
+      expect(sent['sha256'], isNot(sha256.convert(pdfLocked.bytes).toString()), reason: 'the hash is of what is sent, not of the PDF');
+      expect(find.text('14 entries imported'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('a scanned statement says there is no text in it, and what to do', (tester) async {
+      final server = await pumpImport(tester, picked: (name: 'scan.pdf', bytes: fixtureBytes('statement_scanned_rc4.pdf')));
+      await choose(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'Statement password'), 'test-password');
+      await tapImport(tester);
+      expect(find.textContaining('There is no text in this PDF'), findsOneWidget);
+      expect(find.textContaining('Excel (.xlsx) or CSV'), findsOneWidget);
+      expect(server.importBodies, isEmpty);
+    });
+
+    testWidgets('a file named .pdf that is not one is refused when chosen', (tester) async {
+      final server = await pumpImport(tester, picked: (name: 'statement.pdf', bytes: Uint8List.fromList(utf8.encode('Date,Details\n'))));
+      await choose(tester);
+      expect(find.textContaining('does not look like a PDF'), findsOneWidget);
+      expect(find.text('Choose a statement file'), findsOneWidget);
+      expect(server.importBodies, isEmpty);
+    });
+  });
+
   group('files that cannot be imported', () {
-    for (final entry in {'statement.pdf': 'PDF statements cannot be imported yet', 'statement.csv': 'CSV statements cannot be imported from the phone yet', 'statement.xls': 'not the older .xls'}.entries) {
+    for (final entry in {'statement.xls': 'not the older .xls', 'statement.docx': 'Choose an Excel (.xlsx), CSV or PDF statement.'}.entries) {
       testWidgets('${entry.key} is refused with its reason, and nothing is selected', (tester) async {
         final server = await pumpImport(tester, picked: (name: entry.key, bytes: Uint8List(10)));
         await choose(tester);

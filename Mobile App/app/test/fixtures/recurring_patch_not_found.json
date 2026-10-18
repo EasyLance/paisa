@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "PATCH",
+    "path": "/books/book_arjun/recurring-plans/nope",
+    "body": {
+      "name": "x"
+    }
+  },
+  "status": 404,
+  "body": {
+    "code": "NOT_FOUND",
+    "message": "Recurring plan not found"
+  }
+}

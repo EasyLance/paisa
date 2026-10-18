@@ -5,7 +5,7 @@
 This document tracks what is built, what is next, who owns each step, and the full
 phase-by-phase plan. The repo's own `TODO.md` carries a short pointer to it.
 
-> **Last reviewed** 2026-10-08 · Read [`prd.md`](prd.md) and
+> **Last reviewed** 2026-10-17 · Read [`prd.md`](prd.md) and
 > [`architecture.md`](architecture.md) first. Phase numbers are the ones used in
 > every mobile doc.
 
@@ -38,14 +38,15 @@ flowchart LR
 
 ```text
 Phase 0  ██████████████████████████████  100%
-Phase 1  ████████████████████████████░░   95%   production sign-in done; the lock with a real fingerprint is untested
+Phase 1  ██████████████████████████████  100%   production sign-in and the real fingerprint confirmed by Arjun 2026-10-17
 Phase 2  ██████████████████████████████  100%
 Phase 3  ██████████████████████████░░░░   85%   built; ten real payments reviewed is Arjun's gate
-Phase 4  ██████████████░░░░░░░░░░░░░░░░   45%   .xlsx incl. password-protected built; CSV and PDF to come
-Phases 5–8 not started · 9 SMS capture and 10 iOS come after v1
+Phase 4  ██████████████████████████░░░░   85%   .xlsx works on Arjun's phone with a real statement; CSV and PDF built, a real bank PDF untried
+Phase 5  ██████████████████████████░░░░   85%   built and checked on the emulator; the web round-trip gate is Arjun's
+Phases 6–8 not started · 9 SMS capture and 10 iOS come after v1
 ```
 
-> **Health** — 248 tests passing · analyzer clean · release build checked (secure
+> **Health** — 380 tests passing · analyzer clean · release build checked (secure
 > window, no development header in the binary, Firebase starts) · verified on the
 > Android emulator at 360dp, light and dark, against a local copy of the API.
 
@@ -59,6 +60,7 @@ Phases 5–8 not started · 9 SMS capture and 10 iOS come after v1
 | 🔑 **1 Access** | Sign in, forgot password, request access (three replies, rate limit), "no household yet", book picker with the choice remembered, role gating, biometric / PIN lock with grace period, theme choice, sign-out that forgets the book |
 | 📊 **2 Dashboard** | Pay-cycle month navigation, four tiles, "where your money went" that adds up to spent plus saved, budget progress, review card, an error state that shows no figures |
 | 💳 **3 Transactions** | Paged ledger with state chips and search over what is loaded, payment detail, confirm / change category (with "do the same next time") / void with a two-step confirm, edit (kind and amount together, date at the book's midnight), split editor that only saves when the parts add up, comments, add a payment with one idempotency key per form; each action offered by role |
+| 🎯 **5 Budgets and recurring** | The % plan per group with a running total, the 100% cap and the 50/30/20 preset; the expected monthly income and where it comes from; recurring plans: list, add, edit, stop (and turn back on straight after). Editors change things, everyone else reads |
 
 ---
 
@@ -66,11 +68,10 @@ Phases 5–8 not started · 9 SMS capture and 10 iOS come after v1
 
 | # | Task | Owner | Blocks |
 |---|---|---|---|
-| 1 | **Try the lock with a real fingerprint or face** on a physical phone: Settings → Lock Paisa on, background the app over a minute, return. Production sign-in is done (see below); the lock's PIN path was already checked on the emulator, but an emulator has no sensor | 👤 **Arjun** | Closing Phase 1 |
-| 2 | **Review real payments on the phone** (Phase 3 gate): as the owner, review ten pending payments and see each on the web; then try the app as a viewer and a reviewer account if you have one | 👤 **Arjun** | Closing Phase 3 |
-| 3 | **Try your own statement on the emulator**: Activity → the upload icon → `MyStatement.xlsx` → type its password → Import, against the local server. Tell me the counts and any warnings (the gate wants 0) | 👤 **Arjun** | Closing the .xlsx part of Phase 4 |
-| 4 | **Phase 4, next parts**: CSV, then PDF (password-protected, opened on the phone) | 🤖 Claude | Phases 5–7 |
-| 5 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
+| 1 | **Review real payments on the phone** (Phase 3 gate): as the owner, review ten pending payments and see each on the web; then try the app as a viewer and a reviewer account if you have one | 👤 **Arjun** | Closing Phase 3 |
+| 2 | **Try a real bank PDF** (and CSV): Activity → upload icon → the file → type its password. Tell me the counts and any warnings (the gate wants 0), and which bank; it is the only way to learn how the real layout differs from the synthetic ones | 👤 **Arjun** | Closing Phase 4 |
+| 3 | **Phase 5 gate**: save a plan on the phone and see it unchanged on the web, then change it on the web and see it on the phone | 👤 **Arjun** | Closing Phase 5 |
+| 4 | Approve the light and dark look (`screenshots/`) or ask for changes | 👤 **Arjun** | Nothing now; cheaper to change early |
 
 ---
 
@@ -264,11 +265,21 @@ slow.
 | 4.4 | Server errors `413` and `422` shown verbatim | T8 |
 | 4.5 | **Password-protected .xlsx**, opened on the phone: ask for the password, check it, decrypt, send the ordinary workbook; the password is never sent, stored or logged | T8 |
 | 4.6 | A note before the file is chosen saying what is and is not kept | T8 |
-| 4.7 | *(next)* CSV | T8 |
-| 4.8 | *(after that)* PDF, password-protected, parsed on the phone | T8 |
+| 4.7 | CSV: UTF-8 or Windows-1252, fixed name `statement.csv`, same size discipline | T8 |
+| 4.8 | PDF, password-protected: opened on the phone, the table rebuilt from word positions, sent as CSV | T8 |
 
+> **State 2026-10-17:** 4.7 and 4.8 built by a subagent, merged and checked. 380 tests
+> (74 new). Checked on the emulator through the real file picker: a protected PDF
+> (AES-256) is detected, takes its password, parses to 14 payments with the running balance
+> following on every row (the server then reports them as already in the ledger, because the
+> agent had imported the same statement during testing), a CSV imports the same way, and a
+> scanned PDF is refused with a sentence saying so. **Not verified: any real bank PDF.** Arjun
+> has not yet tried one; the layouts tested are synthetic HDFC-like and SBI-like ones, in
+> three encryption schemes, made by tools independent of the app. See `architecture.md` §5
+> for what to expect to differ, and `findings.md` F31 for the duplicate-hash caveat.
+>
 > **State 2026-10-08:** order changed at Arjun's request: **.xlsx first, then CSV, then PDF.**
-> 4.1–4.6 built, 248 tests. Verified on the emulator against a local API with the
+> 4.1–4.6 built, 380 tests. Verified on the emulator against a local API with the
 > system file picker: a synthetic password-protected workbook (SHA-1 + AES-128, the
 > scheme Arjun's real bank file uses) is detected, a wrong password is refused, the
 > right one imports 7 entries with 0 warnings, and a second import says "Nothing new".
@@ -292,6 +303,17 @@ the web (17 and 172) · importing the same file again gives `imported: 0`.
 | 5.1 | % plan editor with a running total and the 100% cap, 50/30/20 preset as the web has | B1 |
 | 5.2 | Expected income line from `baseIncomeMinor` | B2 |
 | 5.3 | Recurring list, create, edit, stop (`active:false`) | R1 |
+
+> **State 2026-10-17:** built by a subagent in its own worktree, merged and checked by the
+> lead. 5.1–5.3 done; 380 tests (58 new). Checked on the emulator in light and dark
+> against a local API: the 50/30/20 preset saved and the server then held Essentials 50,
+> Lifestyle 30, Saving 20; rupee shares are right (50% of ₹5,87,867 is ₹2,93,933.50); the
+> recurring list and the add form render at 360dp. Not done: the round trip with the web,
+> and anything on a real phone. Deviations: **(a)** one scrolling page (income card, plan,
+> recurring) rather than two segments. **(b)** Stopped plans cannot be listed, so
+> re-activation is only offered right after a stop (F22). **(c)** The due date is the
+> book's midnight, where the web sends UTC midnight, so a web-made plan is 5 h 30 m off a
+> phone-made one (F29).
 
 **Gate:** a plan saved on the phone appears unchanged on the web and vice versa.
 

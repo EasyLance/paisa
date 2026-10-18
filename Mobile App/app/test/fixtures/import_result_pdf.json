@@ -1,0 +1,23 @@
+{
+  "status": 201,
+  "body": {
+    "id": "81badbf4-8a94-4cba-b444-1dc9d5a0bc0a",
+    "status": "parsed",
+    "storageKey": "imports/ws_household/book_arjun/43cd8c78-ff00-4a19-b184-d662d7ac3561",
+    "createdAt": "2026-10-17T17:11:56.734Z",
+    "duplicate": false,
+    "fileName": "statement.csv",
+    "contentType": "text/csv",
+    "sizeBytes": 1526,
+    "sha256": "1c1f1b0f2992a399fd8c2a6a1795b700b7d9b400a91259ddde6107457148b904",
+    "workspaceId": "ws_household",
+    "bookId": "book_arjun",
+    "account": {
+      "number": null,
+      "ifsc": null
+    },
+    "imported": 14,
+    "duplicates": 0,
+    "warnings": []
+  }
+}

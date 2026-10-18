@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "PATCH",
+    "path": "/books/book_arjun/recurring-plans/3b144825-3510-46b6-a3cd-8cf7c2135583",
+    "body": {
+      "amountMinor": "-3000000"
+    }
+  },
+  "status": 400,
+  "body": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": {
+      "formErrors": [],
+      "fieldErrors": {
+        "amountMinor": [
+          "Provide kind and amountMinor together"
+        ]
+      }
+    }
+  }
+}

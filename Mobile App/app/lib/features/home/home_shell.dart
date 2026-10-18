@@ -7,6 +7,7 @@ import '../../core/api/models.dart';
 import '../../core/theme/tokens.dart';
 import '../activity/activity_providers.dart';
 import '../activity/activity_screen.dart';
+import '../budgets/budgets_screen.dart';
 import '../dashboard/dashboard_view.dart';
 import '../settings/settings_screen.dart';
 
@@ -48,7 +49,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           },
         ),
         ActivityScreen(book: book, me: widget.me),
-        const _Soon(icon: Icons.donut_large, title: 'Budgets', copy: 'Plan a share of income per group, and manage recurring payments.'),
+        BudgetsScreen(book: book),
         const _Soon(icon: Icons.people_outline, title: 'People', copy: 'See who has access to this book and invite others.'),
       ]),
       bottomNavigationBar: NavigationBar(

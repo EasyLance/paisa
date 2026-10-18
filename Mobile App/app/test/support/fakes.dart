@@ -17,6 +17,8 @@ import 'package:paisa_mobile/features/dashboard/dashboard_providers.dart';
 import 'package:paisa_mobile/features/lock/lock_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'budget_fakes.dart';
+
 dynamic fixture(String name) => jsonDecode(File('test/fixtures/$name.json').readAsStringSync());
 
 class FakeAuth implements AuthService {
@@ -130,6 +132,10 @@ class FakeServer {
   /// "7 duplicates", both recorded from the real API.
   final importBodies = <Map<String, dynamic>>[];
   ({int status, Map<String, dynamic> body})? importOverride;
+
+  /// Which recording answers a CSV upload: a bank's own CSV (4 rows) or the one the
+  /// phone builds from a PDF (14 rows). A repeat is `<name>_again`.
+  String csvImportFixture = 'import_result_csv';
   final _importedHashes = <String>{};
   final _byKey = <String, Map<String, dynamic>>{};
 
@@ -153,6 +159,8 @@ class FakeServer {
       if (summaryStatus != null) return jsonResponse(summaryStatus!, {'code': 'ERROR', 'message': 'no'});
       return jsonResponse(200, summaryBody ?? fixture('summary_rich'));
     }
+    final budgetResponse = budgetRoutes(this, request, path);
+    if (budgetResponse != null) return budgetResponse;
     if (RegExp(r'^/v1/books/[^/]+/budget-plan$').hasMatch(path)) {
       if (planStatus != null) return jsonResponse(planStatus!, {'code': 'ERROR', 'message': 'no'});
       return jsonResponse(200, planBody ?? fixture('budget_plan_set'));
@@ -195,7 +203,8 @@ extension on FakeServer {
       writes.add('POST imports');
       final forced = importOverride;
       if (forced != null) return jsonResponse(forced.status, forced.body);
-      final recorded = fixture(_importedHashes.add(body['sha256'] as String) ? 'import_result' : 'import_result_again') as Map<String, dynamic>;
+      final family = body['contentType'] == 'text/csv' ? csvImportFixture : 'import_result';
+      final recorded = fixture(_importedHashes.add(body['sha256'] as String) ? family : '${family}_again') as Map<String, dynamic>;
       return jsonResponse(recorded['status'] as int, recorded['body'] as Object);
     }
     if (base == 'transactions' && request.method == 'POST') {

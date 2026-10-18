@@ -347,3 +347,45 @@ class ImportResult {
     warnings: [for (final warning in (json['warnings'] as List? ?? const [])) warning as String],
   );
 }
+
+/// A standing payment or income that the server posts by itself when it falls
+/// due. The list route returns only active plans, so a stopped one never comes
+/// back from it; [active] is read anyway so a stopped plan is labelled if it does.
+class RecurringPlan {
+  const RecurringPlan({
+    required this.id,
+    required this.name,
+    required this.kind,
+    required this.amountMinor,
+    required this.cadence,
+    required this.nextDueAt,
+    required this.active,
+    this.categoryId,
+  });
+
+  final String id;
+  final String name;
+
+  /// expense or income. The server accepts no other kind here.
+  final String kind;
+
+  /// Signed: an expense is negative, income positive.
+  final BigInt amountMinor;
+
+  /// weekly, monthly, quarterly or yearly.
+  final String cadence;
+  final DateTime nextDueAt;
+  final bool active;
+  final String? categoryId;
+
+  factory RecurringPlan.fromJson(Map<String, dynamic> json) => RecurringPlan(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    kind: json['kind'] as String,
+    amountMinor: parseMinor(json['amountMinor'] as String),
+    cadence: json['cadence'] as String,
+    nextDueAt: DateTime.parse(json['nextDueAt'] as String),
+    active: json['active'] as bool? ?? true,
+    categoryId: json['categoryId'] as String?,
+  );
+}

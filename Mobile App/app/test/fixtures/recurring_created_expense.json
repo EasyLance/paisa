@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/books/book_arjun/recurring-plans",
+    "body": {
+      "name": "Monthly rent",
+      "kind": "expense",
+      "amountMinor": "-2500000",
+      "cadence": "monthly",
+      "nextDueAt": "2026-11-01T00:00:00.000Z"
+    }
+  },
+  "status": 201,
+  "body": {
+    "id": "3b144825-3510-46b6-a3cd-8cf7c2135583",
+    "active": true,
+    "name": "Monthly rent",
+    "kind": "expense",
+    "amountMinor": "-2500000",
+    "currency": "INR",
+    "cadence": "monthly",
+    "nextDueAt": "2026-11-01T00:00:00.000Z",
+    "bookId": "book_arjun"
+  }
+}

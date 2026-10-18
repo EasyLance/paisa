@@ -1,0 +1,44 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/books/book_arjun/budget-plan",
+    "body": {
+      "allocations": [
+        {
+          "groupName": "Essentials",
+          "percent": 40
+        },
+        {
+          "groupName": "Lifestyle",
+          "percent": 25
+        },
+        {
+          "groupName": "Saving",
+          "percent": 15
+        },
+        {
+          "groupName": "Other",
+          "percent": 0
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "groupName": "Essentials",
+        "percent": 40
+      },
+      {
+        "groupName": "Lifestyle",
+        "percent": 25
+      },
+      {
+        "groupName": "Saving",
+        "percent": 15
+      }
+    ],
+    "baseIncomeMinor": "58786700"
+  }
+}

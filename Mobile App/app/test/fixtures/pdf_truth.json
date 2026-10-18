@@ -1,0 +1,1206 @@
+{
+ "statement_hdfc_plain.pdf": [
+  {
+   "date": "01/08/2026",
+   "narration": "UPI-ROYAL CITY RESTAURAN-royal99@oksbi-FDRL0001234-417776317066-PAID VIA UPI",
+   "ref": "417776317066",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "73,784.03"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city73@paytm-HDFC0000123-500080636083-PAID VIA UPI",
+   "ref": "500080636083",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "72,284.03"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro48@oksbi-SBIN0070190-740681241586-UPI",
+   "ref": "740681241586",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "1,95,740.03"
+  },
+  {
+   "date": "05/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn76@oksbi-FDRL0001234-736625851781-PAID VIA UPI",
+   "ref": "736625851781",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "45,740.03"
+  },
+  {
+   "date": "05/08/2026",
+   "narration": "CHQ DEP 988627",
+   "ref": "049996228303",
+   "debit": "",
+   "credit": "45,000.00",
+   "balance": "90,740.03"
+  },
+  {
+   "date": "06/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN76154",
+   "ref": "890682883607",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "2,10,740.03"
+  },
+  {
+   "date": "07/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 650889",
+   "ref": "650889957903",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "2,08,740.03"
+  },
+  {
+   "date": "09/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN30922",
+   "ref": "011070434192",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "3,28,740.03"
+  },
+  {
+   "date": "11/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro43@okaxis-FDRL0001234-447577104656-PAID VIA UPI",
+   "ref": "447577104656",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "3,28,289.53"
+  },
+  {
+   "date": "13/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "3,28,265.93"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 604230",
+   "ref": "604230411442",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "3,26,265.93"
+  },
+  {
+   "date": "17/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro83@paytm-SBIN0070190-939729806351-PAID VIA UPI",
+   "ref": "939729806351",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "3,25,815.43"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "UPI-BOAZ M R-boaz82@okaxis-FDRL0001234-648705964023-PAID VIA UPI",
+   "ref": "648705964023",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "3,13,469.76"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN45128",
+   "ref": "168587831012",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "4,33,469.76"
+  }
+ ],
+ "statement_hdfc_aes256.pdf": [
+  {
+   "date": "01/08/2026",
+   "narration": "UPI-ROYAL CITY RESTAURAN-royal99@oksbi-FDRL0001234-417776317066-PAID VIA UPI",
+   "ref": "417776317066",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "73,784.03"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city73@paytm-HDFC0000123-500080636083-PAID VIA UPI",
+   "ref": "500080636083",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "72,284.03"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro48@oksbi-SBIN0070190-740681241586-UPI",
+   "ref": "740681241586",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "1,95,740.03"
+  },
+  {
+   "date": "05/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn76@oksbi-FDRL0001234-736625851781-PAID VIA UPI",
+   "ref": "736625851781",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "45,740.03"
+  },
+  {
+   "date": "05/08/2026",
+   "narration": "CHQ DEP 988627",
+   "ref": "049996228303",
+   "debit": "",
+   "credit": "45,000.00",
+   "balance": "90,740.03"
+  },
+  {
+   "date": "06/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN76154",
+   "ref": "890682883607",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "2,10,740.03"
+  },
+  {
+   "date": "07/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 650889",
+   "ref": "650889957903",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "2,08,740.03"
+  },
+  {
+   "date": "09/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN30922",
+   "ref": "011070434192",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "3,28,740.03"
+  },
+  {
+   "date": "11/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro43@okaxis-FDRL0001234-447577104656-PAID VIA UPI",
+   "ref": "447577104656",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "3,28,289.53"
+  },
+  {
+   "date": "13/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "3,28,265.93"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 604230",
+   "ref": "604230411442",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "3,26,265.93"
+  },
+  {
+   "date": "17/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro83@paytm-SBIN0070190-939729806351-PAID VIA UPI",
+   "ref": "939729806351",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "3,25,815.43"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "UPI-BOAZ M R-boaz82@okaxis-FDRL0001234-648705964023-PAID VIA UPI",
+   "ref": "648705964023",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "3,13,469.76"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN45128",
+   "ref": "168587831012",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "4,33,469.76"
+  }
+ ],
+ "statement_sbi_rc4.pdf": [
+  {
+   "date": "01/09/2026",
+   "narration": "WDL TFR UPI/DR/152449390926/SHOBHA M/SBIN/shobha75/Paid",
+   "ref": "152449390926",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "73,235.53"
+  },
+  {
+   "date": "01/09/2026",
+   "narration": "WDL TFR UPI/DR/575668282330/SAAVN MEDIA/HDFC/saavn51/Paid",
+   "ref": "575668282330",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "71,735.53"
+  },
+  {
+   "date": "03/09/2026",
+   "narration": "WDL TFR UPI/DR/768595572678/METRO CAB SERVICES/SBIN/metro72/Paid",
+   "ref": "768595572678",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "70,235.53"
+  },
+  {
+   "date": "04/09/2026",
+   "narration": "CHQ DEP 426992",
+   "ref": "598773529474",
+   "debit": "",
+   "credit": "3,000.00",
+   "balance": "73,235.53"
+  },
+  {
+   "date": "05/09/2026",
+   "narration": "ATM WDL TFR 91503109 AT KOCHI",
+   "ref": "915031090493",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "71,235.53"
+  },
+  {
+   "date": "05/09/2026",
+   "narration": "WDL TFR UPI/DR/600552301110/ROYAL CITY RESTAURAN/FDRL/royal12/Paid",
+   "ref": "600552301110",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "70,985.53"
+  },
+  {
+   "date": "05/09/2026",
+   "narration": "WDL TFR UPI/DR/806903200591/GREEN LEAF PHARMACY/CNRB/green53/Paid",
+   "ref": "806903200591",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "69,986.53"
+  },
+  {
+   "date": "06/09/2026",
+   "narration": "WDL TFR UPI/DR/469273151072/SHOBHA M/FDRL/shobha72/Paid",
+   "ref": "469273151072",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "69,736.53"
+  },
+  {
+   "date": "07/09/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN76618",
+   "ref": "496082040222",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "1,54,736.53"
+  },
+  {
+   "date": "07/09/2026",
+   "narration": "DEP TFR UPI/CR/714193995464/ROYAL CITY RESTAURAN/SBIN/royal29/UPI",
+   "ref": "714193995464",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "2,78,192.53"
+  },
+  {
+   "date": "07/09/2026",
+   "narration": "WDL TFR UPI/DR/813110231308/CITY ELECTRICALS/SBIN/city68/Paid",
+   "ref": "813110231308",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "2,77,742.03"
+  },
+  {
+   "date": "07/09/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "2,77,718.43"
+  }
+ ],
+ "statement_multipage_aes128.pdf": [
+  {
+   "date": "01/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city79@paytm-SBIN0070190-597919074833-PAID VIA UPI",
+   "ref": "597919074833",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "61,888.86"
+  },
+  {
+   "date": "01/08/2026",
+   "narration": "UPI-SHOBHA M-shobha64@oksbi-SBIN0070190-286012904047-UPI",
+   "ref": "286012904047",
+   "debit": "",
+   "credit": "2,500.00",
+   "balance": "64,388.86"
+  },
+  {
+   "date": "02/08/2026",
+   "narration": "UPI-SHOBHA M-shobha84@okaxis-FDRL0001234-027346468695-PAID VIA UPI",
+   "ref": "027346468695",
+   "debit": "89.00",
+   "credit": "",
+   "balance": "64,299.86"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city21@oksbi-CNRB0003909-589913944117-PAID VIA UPI",
+   "ref": "589913944117",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "51,954.19"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-GREEN LEAF PHARMACY-green74@okaxis-CNRB0003909-466109906958-PAID VIA UPI",
+   "ref": "466109906958",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "50,955.19"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "UPI-BOAZ M R-boaz56@okaxis-SBIN0070190-198036494205-PAID VIA UPI",
+   "ref": "198036494205",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "38,609.52"
+  },
+  {
+   "date": "04/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "38,585.92"
+  },
+  {
+   "date": "06/08/2026",
+   "narration": "ATM WDL CNRB KOCHI 069920",
+   "ref": "069920575594",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "36,585.92"
+  },
+  {
+   "date": "07/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN84613",
+   "ref": "749952525594",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "1,21,585.92"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn20@oksbi-HDFC0000123-435261195537-UPI",
+   "ref": "435261195537",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "2,45,041.92"
+  },
+  {
+   "date": "09/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn63@oksbi-FDRL0001234-108359245195-UPI",
+   "ref": "108359245195",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "3,68,497.92"
+  },
+  {
+   "date": "10/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "3,68,480.22"
+  },
+  {
+   "date": "11/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN73051",
+   "ref": "853194130083",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "4,53,480.22"
+  },
+  {
+   "date": "11/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN35864",
+   "ref": "308860915248",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "5,38,480.22"
+  },
+  {
+   "date": "13/08/2026",
+   "narration": "UPI-SHOBHA M-shobha16@oksbi-FDRL0001234-234207960434-PAID VIA UPI",
+   "ref": "234207960434",
+   "debit": "89.00",
+   "credit": "",
+   "balance": "5,38,391.22"
+  },
+  {
+   "date": "13/08/2026",
+   "narration": "UPI-BOAZ M R-boaz19@oksbi-SBIN0070190-010170188752-PAID VIA UPI",
+   "ref": "010170188752",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "5,26,045.55"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN89224",
+   "ref": "543561280619",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "6,46,045.55"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "6,46,027.85"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "ATM WDL CNRB KOCHI 584171",
+   "ref": "584171861598",
+   "debit": "10,000.00",
+   "credit": "",
+   "balance": "6,36,027.85"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "UPI-FRESH MART KOCHI-fresh96@oksbi-FDRL0001234-608191620510-UPI",
+   "ref": "608191620510",
+   "debit": "",
+   "credit": "10,000.00",
+   "balance": "6,46,027.85"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn19@okaxis-HDFC0000123-988318180859-PAID VIA UPI",
+   "ref": "988318180859",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "6,45,577.35"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "6,45,559.65"
+  },
+  {
+   "date": "17/08/2026",
+   "narration": "UPI-BOAZ M R-boaz39@paytm-FDRL0001234-217787922432-PAID VIA UPI",
+   "ref": "217787922432",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "6,33,213.98"
+  },
+  {
+   "date": "19/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN88512",
+   "ref": "340476329535",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "7,18,213.98"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "UPI-GREEN LEAF PHARMACY-green27@okaxis-CNRB0003909-716073313433-PAID VIA UPI",
+   "ref": "716073313433",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "7,17,214.98"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "UPI-BOAZ M R-boaz10@okaxis-FDRL0001234-526111144057-PAID VIA UPI",
+   "ref": "526111144057",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "7,15,714.98"
+  },
+  {
+   "date": "21/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "7,15,697.28"
+  },
+  {
+   "date": "23/08/2026",
+   "narration": "ATM WDL FDRL KOCHI 574415",
+   "ref": "574415988178",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "7,13,697.28"
+  },
+  {
+   "date": "23/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city71@oksbi-HDFC0000123-571182596842-PAID VIA UPI",
+   "ref": "571182596842",
+   "debit": "120.00",
+   "credit": "",
+   "balance": "7,13,577.28"
+  },
+  {
+   "date": "23/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city74@oksbi-HDFC0000123-889651446020-PAID VIA UPI",
+   "ref": "889651446020",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "7,12,077.28"
+  },
+  {
+   "date": "24/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "7,12,053.68"
+  },
+  {
+   "date": "25/08/2026",
+   "narration": "UPI-BOAZ M R-boaz47@okaxis-SBIN0070190-992638829234-PAID VIA UPI",
+   "ref": "992638829234",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "6,99,708.01"
+  },
+  {
+   "date": "26/08/2026",
+   "narration": "ATM WDL SBIN KOCHI 894784",
+   "ref": "894784709301",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "6,97,708.01"
+  },
+  {
+   "date": "26/08/2026",
+   "narration": "UPI-ROYAL CITY RESTAURAN-royal56@paytm-HDFC0000123-087194227190-UPI",
+   "ref": "087194227190",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "7,02,708.01"
+  },
+  {
+   "date": "27/08/2026",
+   "narration": "UPI-METRO CAB SERVICES-metro65@paytm-HDFC0000123-555521901531-PAID VIA UPI",
+   "ref": "555521901531",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "5,52,708.01"
+  },
+  {
+   "date": "28/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city48@okaxis-SBIN0070190-061326771863-PAID VIA UPI",
+   "ref": "061326771863",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "4,02,708.01"
+  },
+  {
+   "date": "29/08/2026",
+   "narration": "CHQ DEP 250446",
+   "ref": "270455785963",
+   "debit": "",
+   "credit": "45,000.00",
+   "balance": "4,47,708.01"
+  },
+  {
+   "date": "31/08/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn66@oksbi-HDFC0000123-230296820219-UPI",
+   "ref": "230296820219",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "4,52,708.01"
+  },
+  {
+   "date": "31/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "4,52,690.31"
+  },
+  {
+   "date": "31/08/2026",
+   "narration": "ATM WDL FDRL KOCHI 915190",
+   "ref": "915190447473",
+   "debit": "10,000.00",
+   "credit": "",
+   "balance": "4,42,690.31"
+  },
+  {
+   "date": "31/08/2026",
+   "narration": "UPI-CITY ELECTRICALS-city16@okaxis-FDRL0001234-619901010280-PAID VIA UPI",
+   "ref": "619901010280",
+   "debit": "450.50",
+   "credit": "",
+   "balance": "4,42,239.81"
+  },
+  {
+   "date": "01/09/2026",
+   "narration": "ATM WDL SBIN KOCHI 750649",
+   "ref": "750649614261",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "4,40,239.81"
+  },
+  {
+   "date": "02/09/2026",
+   "narration": "ATM WDL HDFC KOCHI 256737",
+   "ref": "256737754289",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "4,38,239.81"
+  },
+  {
+   "date": "02/09/2026",
+   "narration": "CHQ DEP 925102",
+   "ref": "115390907755",
+   "debit": "",
+   "credit": "3,000.00",
+   "balance": "4,41,239.81"
+  },
+  {
+   "date": "03/09/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN76183",
+   "ref": "171330229013",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "5,61,239.81"
+  },
+  {
+   "date": "05/09/2026",
+   "narration": "UPI-FRESH MART KOCHI-fresh69@oksbi-HDFC0000123-729101901341-UPI",
+   "ref": "729101901341",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "5,66,239.81"
+  },
+  {
+   "date": "06/09/2026",
+   "narration": "ATM WDL CNRB KOCHI 697149",
+   "ref": "697149763180",
+   "debit": "10,000.00",
+   "credit": "",
+   "balance": "5,56,239.81"
+  },
+  {
+   "date": "07/09/2026",
+   "narration": "UPI-BOAZ M R-boaz40@oksbi-SBIN0070190-718561983350-UPI",
+   "ref": "718561983350",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "5,61,239.81"
+  },
+  {
+   "date": "08/09/2026",
+   "narration": "UPI-CITY ELECTRICALS-city62@oksbi-CNRB0003909-523397865396-UPI",
+   "ref": "523397865396",
+   "debit": "",
+   "credit": "10,000.00",
+   "balance": "5,71,239.81"
+  },
+  {
+   "date": "08/09/2026",
+   "narration": "UPI-CITY ELECTRICALS-city65@okaxis-FDRL0001234-102488070334-PAID VIA UPI",
+   "ref": "102488070334",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "4,21,239.81"
+  },
+  {
+   "date": "08/09/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN70706",
+   "ref": "217467132746",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "5,41,239.81"
+  },
+  {
+   "date": "10/09/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn90@paytm-HDFC0000123-544075543800-UPI",
+   "ref": "544075543800",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "5,46,239.81"
+  },
+  {
+   "date": "10/09/2026",
+   "narration": "UPI-SHOBHA M-shobha53@okaxis-CNRB0003909-037558072304-PAID VIA UPI",
+   "ref": "037558072304",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "3,96,239.81"
+  },
+  {
+   "date": "11/09/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN82333",
+   "ref": "376450060293",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "4,81,239.81"
+  },
+  {
+   "date": "12/09/2026",
+   "narration": "UPI-SAAVN MEDIA-saavn47@okaxis-CNRB0003909-200707789865-PAID VIA UPI",
+   "ref": "200707789865",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "4,80,989.81"
+  }
+ ],
+ "statement_alt_aes256.pdf": [
+  {
+   "date": "02/08/2026",
+   "narration": "UPI- SHOBHA M- shobha63@okaxis- HDFC0000123- 601815908301- PAID VIA UPI",
+   "ref": "601815908301",
+   "debit": "120.00",
+   "credit": "",
+   "balance": "74,114.53Cr"
+  },
+  {
+   "date": "04/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "74,096.83Cr"
+  },
+  {
+   "date": "06/08/2026",
+   "narration": "NEFT CR- HSBC0400002- UNTOLD STUDIOS PRIVATE LIMITED- JADHEER TP- HSBCN51175",
+   "ref": "821993518190",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "1,94,096.83Cr"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "CHQ DEP 636800",
+   "ref": "543231948757",
+   "debit": "",
+   "credit": "45,000.00",
+   "balance": "2,39,096.83Cr"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "ATM WDL FDRL KOCHI 276018",
+   "ref": "276018955597",
+   "debit": "10,000.00",
+   "credit": "",
+   "balance": "2,29,096.83Cr"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "UPI- CITY ELECTRICALS- city17@okaxis- FDRL0001234- 497465075291- PAID VIA UPI",
+   "ref": "497465075291",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "2,28,846.83Cr"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "2,28,829.13Cr"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "UPI- SHOBHA M- shobha78@oksbi- FDRL0001234- 223307924402- PAID VIA UPI",
+   "ref": "223307924402",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "2,28,579.13Cr"
+  },
+  {
+   "date": "10/08/2026",
+   "narration": "UPI- METRO CAB SERVICES- metro66@okaxis- CNRB0003909- 786666176031- PAID VIA UPI",
+   "ref": "786666176031",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "2,27,079.13Cr"
+  },
+  {
+   "date": "12/08/2026",
+   "narration": "UPI- SHOBHA M- shobha29@paytm- FDRL0001234- 109281590139- PAID VIA UPI",
+   "ref": "109281590139",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "2,25,579.13Cr"
+  },
+  {
+   "date": "14/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 711777",
+   "ref": "711777741215",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "2,23,579.13Cr"
+  },
+  {
+   "date": "14/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 280841",
+   "ref": "280841485253",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "2,21,579.13Cr"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "UPI- CITY ELECTRICALS- city54@oksbi- CNRB0003909- 387500474395- UPI",
+   "ref": "387500474395",
+   "debit": "",
+   "credit": "2,500.00",
+   "balance": "2,24,079.13Cr"
+  },
+  {
+   "date": "15/08/2026",
+   "narration": "UPI- SHOBHA M- shobha35@oksbi- HDFC0000123- 735379907511- UPI",
+   "ref": "735379907511",
+   "debit": "",
+   "credit": "1,23,456.00",
+   "balance": "3,47,535.13Cr"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "UPI- CITY ELECTRICALS- city94@oksbi- HDFC0000123- 676122202972- PAID VIA UPI",
+   "ref": "676122202972",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "3,47,285.13Cr"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "UPI- BOAZ M R- boaz43@paytm- SBIN0070190- 182633043483- PAID VIA UPI",
+   "ref": "182633043483",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "3,47,035.13Cr"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "ATM WDL HDFC KOCHI 798682",
+   "ref": "798682828807",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "3,45,035.13Cr"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "CHQ DEP 909774",
+   "ref": "918058887180",
+   "debit": "",
+   "credit": "3,000.00",
+   "balance": "3,48,035.13Cr"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "CHQ DEP 686692",
+   "ref": "801759898347",
+   "debit": "",
+   "credit": "3,000.00",
+   "balance": "3,51,035.13Cr"
+  },
+  {
+   "date": "19/08/2026",
+   "narration": "UPI- SAAVN MEDIA- saavn92@paytm- FDRL0001234- 616751361341- PAID VIA UPI",
+   "ref": "616751361341",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "3,50,785.13Cr"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "UPI- SHOBHA M- shobha35@oksbi- FDRL0001234- 731672326865- PAID VIA UPI",
+   "ref": "731672326865",
+   "debit": "120.00",
+   "credit": "",
+   "balance": "3,50,665.13Cr"
+  },
+  {
+   "date": "21/08/2026",
+   "narration": "UPI- FRESH MART KOCHI- fresh39@okaxis- CNRB0003909- 587706589481- PAID VIA UPI",
+   "ref": "587706589481",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "3,49,666.13Cr"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "UPI- FRESH MART KOCHI- fresh45@okaxis- HDFC0000123- 242646288975- PAID VIA UPI",
+   "ref": "242646288975",
+   "debit": "12,345.67",
+   "credit": "",
+   "balance": "3,37,320.46Cr"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "NEFT CR- HSBC0400002- UNTOLD STUDIOS PRIVATE LIMITED- JADHEER TP- HSBCN15663",
+   "ref": "014193141705",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "4,22,320.46Cr"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "UPI- GREEN LEAF PHARMACY- green54@okaxis- FDRL0001234- 402344834782- PAID VIA UPI",
+   "ref": "402344834782",
+   "debit": "89.00",
+   "credit": "",
+   "balance": "4,22,231.46Cr"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "UPI- GREEN LEAF PHARMACY- green98@okaxis- HDFC0000123- 883873716786- PAID VIA UPI",
+   "ref": "883873716786",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "4,20,731.46Cr"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "UPI- GREEN LEAF PHARMACY- green86@okaxis- FDRL0001234- 650201462016- PAID VIA UPI",
+   "ref": "650201462016",
+   "debit": "89.00",
+   "credit": "",
+   "balance": "4,20,642.46Cr"
+  },
+  {
+   "date": "23/08/2026",
+   "narration": "UPI- METRO CAB SERVICES- metro55@okaxis- CNRB0003909- 247045585304- PAID VIA UPI",
+   "ref": "247045585304",
+   "debit": "1,500.00",
+   "credit": "",
+   "balance": "4,19,142.46Cr"
+  },
+  {
+   "date": "24/08/2026",
+   "narration": "UPI- ROYAL CITY RESTAURAN- royal60@okaxis- FDRL0001234- 748338014126- PAID VIA UPI",
+   "ref": "748338014126",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "4,18,143.46Cr"
+  },
+  {
+   "date": "24/08/2026",
+   "narration": "UPI- SHOBHA M- shobha99@paytm- HDFC0000123- 982965724920- PAID VIA UPI",
+   "ref": "982965724920",
+   "debit": "89.00",
+   "credit": "",
+   "balance": "4,18,054.46Cr"
+  }
+ ],
+ "statement_centered_aes256.pdf": [
+  {
+   "date": "02/08/2026",
+   "narration": "CHQ DEP 724360",
+   "ref": "789328792174",
+   "debit": "",
+   "credit": "45,000.00",
+   "balance": "6,45,000.00"
+  },
+  {
+   "date": "03/08/2026",
+   "narration": "WDL TFR UPI/DR/908100339075/CITY ELECTRICALS/HDFC/city85/Paid",
+   "ref": "908100339075",
+   "debit": "999.00",
+   "credit": "",
+   "balance": "6,44,001.00"
+  },
+  {
+   "date": "04/08/2026",
+   "narration": "WDL TFR UPI/DR/174681453840/FRESH MART KOCHI/SBIN/fresh82/Paid",
+   "ref": "174681453840",
+   "debit": "120.00",
+   "credit": "",
+   "balance": "6,43,881.00"
+  },
+  {
+   "date": "05/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "6,43,863.30"
+  },
+  {
+   "date": "06/08/2026",
+   "narration": "ATM WDL TFR 06123100 AT KOCHI",
+   "ref": "061231007728",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "6,41,863.30"
+  },
+  {
+   "date": "07/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "23.60",
+   "credit": "",
+   "balance": "6,41,839.70"
+  },
+  {
+   "date": "08/08/2026",
+   "narration": "WDL TFR UPI/DR/954611139309/BOAZ M R/SBIN/boaz57/Paid",
+   "ref": "954611139309",
+   "debit": "250.00",
+   "credit": "",
+   "balance": "6,41,589.70"
+  },
+  {
+   "date": "10/08/2026",
+   "narration": "CHQ DEP 732851",
+   "ref": "926224393328",
+   "debit": "",
+   "credit": "3,000.00",
+   "balance": "6,44,589.70"
+  },
+  {
+   "date": "11/08/2026",
+   "narration": "WDL TFR UPI/DR/110843646974/SAAVN MEDIA/HDFC/saavn18/Paid",
+   "ref": "110843646974",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "4,94,589.70"
+  },
+  {
+   "date": "13/08/2026",
+   "narration": "WDL TFR UPI/DR/433014673002/GREEN LEAF PHARMACY/HDFC/green57/Paid",
+   "ref": "433014673002",
+   "debit": "120.00",
+   "credit": "",
+   "balance": "4,94,469.70"
+  },
+  {
+   "date": "14/08/2026",
+   "narration": "WDL TFR UPI/DR/758929007540/ROYAL CITY RESTAURAN/CNRB/royal86/Paid",
+   "ref": "758929007540",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "3,44,469.70"
+  },
+  {
+   "date": "14/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN75526",
+   "ref": "521178502551",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "4,29,469.70"
+  },
+  {
+   "date": "16/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "4,29,452.00"
+  },
+  {
+   "date": "17/08/2026",
+   "narration": "WDL TFR UPI/DR/703179740542/METRO CAB SERVICES/FDRL/metro76/Paid",
+   "ref": "703179740542",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "2,79,452.00"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "DEP TFR UPI/CR/564363363953/SAAVN MEDIA/FDRL/saavn27/UPI",
+   "ref": "564363363953",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "2,84,452.00"
+  },
+  {
+   "date": "18/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN46454",
+   "ref": "217743668759",
+   "debit": "",
+   "credit": "85,000.00",
+   "balance": "3,69,452.00"
+  },
+  {
+   "date": "19/08/2026",
+   "narration": "ATM WDL TFR 49026730 AT KOCHI",
+   "ref": "490267304320",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "3,67,452.00"
+  },
+  {
+   "date": "19/08/2026",
+   "narration": "DEP TFR UPI/CR/742078023458/SAAVN MEDIA/HDFC/saavn60/UPI",
+   "ref": "742078023458",
+   "debit": "",
+   "credit": "5,000.00",
+   "balance": "3,72,452.00"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "3,72,434.30"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "3,72,416.60"
+  },
+  {
+   "date": "20/08/2026",
+   "narration": "SMS ALERT CHARGES",
+   "ref": "",
+   "debit": "17.70",
+   "credit": "",
+   "balance": "3,72,398.90"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "NEFT CR-HSBC0400002-UNTOLD STUDIOS PRIVATE LIMITED-JADHEER TP-HSBCN89328",
+   "ref": "469342884973",
+   "debit": "",
+   "credit": "1,20,000.00",
+   "balance": "4,92,398.90"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "WDL TFR UPI/DR/868917121876/SHOBHA M/SBIN/shobha44/Paid",
+   "ref": "868917121876",
+   "debit": "1,50,000.00",
+   "credit": "",
+   "balance": "3,42,398.90"
+  },
+  {
+   "date": "22/08/2026",
+   "narration": "ATM WDL TFR 67851369 AT KOCHI",
+   "ref": "678513690420",
+   "debit": "2,000.00",
+   "credit": "",
+   "balance": "3,40,398.90"
+  }
+ ]
+}

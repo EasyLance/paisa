@@ -1,0 +1,24 @@
+,,,,,
+"Mr. Test  User
+test@example.com","State Bank of India  
+ARAKKINAR-P.O.",,,,
+Date of Statement  :  07-09-2026,Branch Code  :  70190,,,,
+"Clear Balance  :  69,889.53CR","Branch Name  :  NADUVATTOM, BEYPORE",,,,
+Limit  :  0.00,Account Number  :  37791533954,,,,
+Interest Rate  :  2.50 % p.a.,IFSC Code  :  SBIN0070190,,,,
+Statement From  :  01-09-2026  to  07-09-2026,,,,,
+Date,Details,Ref No/Cheque No,Debit,Credit,Balance
+01/09/2026," WDL TFR   UPI/DR/624417205755/SHOBHA M/FDRL/smohanes
+ h1/Paid   0097691162095 AT 70190 NADUVATTOM, BEYPORE",,1000.00,,73234.53
+02/09/2026," DEP TFR   UPI/CR/624561384758/BOAZ M R/CNRB/boazmra
+ jan/UPI   0097734162099 AT 70190 NADUVATTOM, BEYPORE",,,5000.00,78234.53
+02/09/2026," DIRECT DR   0043896596535 OF Mr. Test
+   User AT 70190 NADUVATTOM, BEYPORE",,1000.00,,77234.53
+04/09/2026," WDL TFR   UPI/DR/103986608104/SAAVN/HDFC/jiosavan1p/
+ UPI Man   0097694162092 AT 70190 NADUVATTOM, BEYPORE",,89.00,,77145.53
+,,,,,
+Statement Summary : 01-09-2026  To  07-09-2026,,,,,
+Brought Forward (₹),Dr Count,Cr Count,Total Debits (₹),Total Credits (₹),Closing Balance (₹)
+"74,234.53CR",3,1,"2,089.00","5,000.00","77,145.53CR"
+,,,,,
+This is a computer generated statement and does not require a signature.,,,,,

@@ -5,8 +5,8 @@ later. The web dashboard and API stay where they are (`apps/web`, `apps/api`);
 this app is a client of that API and adds nothing to the data model except the
 push-notification pieces in [docs/architecture.md](docs/architecture.md) §8.
 
-> **Last reviewed** 2026-10-08 · **Status** Phases 0, 1, 2 and 3 built, Phase 4 (statement import) in progress: .xlsx done, CSV and PDF to come; 248 tests passing.
-> Production sign-in and adding a payment confirmed working by Arjun; still open: the lock with a real fingerprint (Phase 1 gate) and reviewing real payments (Phase 3 gate) ·
+> **Last reviewed** 2026-10-17 · **Status** Phases 0, 1, 2 and 3 built, Phase 4 (statement import) .xlsx done with CSV and PDF in progress, Phase 5 (budgets and recurring) in progress; 380 tests passing.
+> Confirmed by Arjun on a real phone: production sign-in, the real fingerprint lock, adding a payment, importing a statement; still open: reviewing real payments (Phase 3 gate) ·
 > **Owner** Arjun
 
 ## Files
@@ -48,6 +48,9 @@ Newest first. One line per change of state, with the date.
 
 | Date | Change |
 |---|---|
+| 2026-10-17 | Phase 4, CSV and PDF built (by a subagent, merged and checked): CSV import, and **password-protected PDF import** read on the phone with a pure-Dart, Apache-2.0 library, the table rebuilt from word positions and sent as CSV so the server's balance check validates it. Checked through the real file picker on the emulator (protected PDF, CSV, scanned-PDF refusal). **No real bank PDF was available; only synthetic statements in three encryption schemes were tested.** 380 tests. Duplicate caveat F31. Open: Arjun tries a real bank PDF |
+| 2026-10-17 | Phase 5 built (by a subagent, merged and checked on the emulator): the Budgets tab — % plan with running total, 100% cap and the 50/30/20 preset; expected monthly income and its source; recurring plans (list, add, edit, stop, turn back on right after). 380 tests. Found ten server behaviours worth knowing (F21–F30), notably that a stopped plan is no longer listed and that the web sends the due date as UTC midnight. Open: the web round trip |
+| 2026-10-17 | Arjun confirmed on his phone, with the release APK: sign-in, the **real fingerprint lock**, and **importing a statement** (his own password-protected .xlsx). Phase 1 gate closed. Phase 4's remaining parts (CSV, PDF) and Phase 5 (budgets and recurring) started, in parallel, by two agents in separate worktrees |
 | 2026-10-08 | The whole app now uses **Anek Latin** (the typeface on super.money, confirmed from its CSS), bundled as one variable file with its OFL licence: no download at run time. It replaces both the system serif and sans. Checked on the emulator in light and dark at 360dp. A test fails if any screen names another family |
 | 2026-10-08 | Phase 4, .xlsx: import a bank statement from the phone, including a **password-protected** workbook, which is opened on the phone (the password is never sent or saved). Sends the ordinary workbook under a fixed name; shows imported / already-in-ledger counts and each warning; shows the server's own words on `413` / `422`; a note says what is and is not kept. The decryption is checked against fixtures made by an independent library in two encryption schemes. Verified on the emulator through the system file picker against a local API. Found: the web cannot import protected workbooks (F19); what a statement import leaves in the database (F20). Open: Arjun's own file, then CSV, then PDF |
 | 2026-10-05 | Arjun signed in against production with his own account and added a payment from the release build: both work. Open: the lock with a real fingerprint (the emulator has no sensor), reviewing real payments |

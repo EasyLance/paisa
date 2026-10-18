@@ -7,7 +7,7 @@ dashboard's [`docs/design.md`](../../docs/design.md); this file records only whe
 the phone needs something different, and the dark palette, which the web does not
 have.
 
-> **Last reviewed** 2026-10-08 · Tokens live in `app/lib/core/theme/tokens.dart` and
+> **Last reviewed** 2026-10-17 · Tokens live in `app/lib/core/theme/tokens.dart` and
 > `theme.dart`
 
 ---
@@ -161,11 +161,11 @@ flowchart LR
 
     classDef built fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
     classDef todo fill:#e5e7eb,stroke:#9ca3af,stroke-width:2px,color:#374151
-    class SI,RA,NH,BP,O,S,L,A,D,F,SP,IM built
-    class B,P todo
+    class SI,RA,NH,BP,O,S,L,A,D,F,SP,IM,B built
+    class P todo
 ```
 
-Green is built; grey is a placeholder tab until its phase (5 Budgets, 6 People).
+Green is built; grey is a placeholder tab until its phase (6 People).
 
 ---
 
@@ -191,7 +191,13 @@ Green is built; grey is a placeholder tab until its phase (5 Budgets, 6 People).
 | **Payment detail** | Hero card (type, large amount, merchant, date and time, pill) → review card for a pending payment → facts → split → actions → comments. Actions the role cannot do are absent, not greyed. Void is the only red |
 | **Category sheet** | Grouped as the dashboard groups them, 48dp rows with the category's swatch. In the change-category flow a switch at the top offers "Do the same for future payments to <merchant>" |
 | **Privacy note** | A `primaryContainer` card with a shield, headed "Your bank details are not saved", at the top of the import screen before anything is chosen. It names what is kept (date, amount, description, balance after each) |
+| **Import screen copy for PDF and CSV** | Picker line: "Excel (.xlsx), CSV or PDF". A PDF adds two notes: "Paisa reads this PDF on your phone and sends only its table of payments, not the rest of the page." and "Import each statement from one kind of file only. A PDF is not matched against the same statement imported from Excel or CSV, so its payments would be added twice." Refusals: "Choose an Excel (.xlsx), CSV or PDF statement.", a scanned PDF ("…probably a scanned picture of the statement. Paisa cannot read pictures…"), no table found (names the headings Paisa looks for), a damaged file |
 | **Import screen** | Note, then a one-line instruction and one button. After a file is chosen: its name and size (with a lock and "password protected" if so), the password field with its helper line, an optional account, then Import. The result is two cards: the counts, and "No problems found" or "Check these" with each warning |
+| **Expected-income card** | Eyebrow "EXPECTED MONTHLY INCOME", the amount in the heading weight, and one sentence on where it comes from. At zero it says a recurring income plan sets it |
+| **Share row** | Group swatch, name, "₹X a month" beneath it (or "No share"), and a 92dp percent field with "%" at the right. Digits only |
+| **Total line** | "Total 100%" with a sentence in words: "Fully planned.", "N% unassigned.", "N% over. Trim a group to save.". Save stays off over 100 and when nothing changed |
+| **Plan row** | Name, "Monthly · next 25 Oct", the signed amount (capped at 140dp and shrunk, never wrapping the name), an "active" or "stopped" pill |
+| **Stop confirmation** | A dialog on the plan's edit form, then a message with "Turn back on" |
 | **Split editor** | Total, then a live line: "₹40 left to place" / "Over by ₹60" / "Nothing left to place." The Save button stays off until it reads the last one |
 
 ---
@@ -255,7 +261,10 @@ The interface talks like a careful colleague, not a brand. Same rules as the web
 | Activity | ![Activity, light](screenshots/phase3-activity-light.png) | ![Activity, dark](screenshots/phase3-activity-dark.png) |
 | Payment detail | ![Payment detail, light](screenshots/phase3-detail-light.png) | |
 | Import: protected file | ![Import, password](screenshots/phase4-import-password.png) | ![Import, wrong password](screenshots/phase4-import-wrong-password.png) |
+| Import: PDF | ![Import, PDF](screenshots/phase4-import-pdf.png) | ![Import, scanned PDF refused](screenshots/phase4-import-pdf-scanned.png) |
 | Import: result | ![Import, result](screenshots/phase4-import-result.png) | |
+| Budgets: plan | ![Budget plan, light](screenshots/phase5-budget-plan-light.png) | ![Budget plan, dark](screenshots/phase5-budget-plan-dark.png) |
+| Budgets: recurring | ![Recurring plans, light](screenshots/phase5-recurring-light.png) | ![Recurring plans, dark](screenshots/phase5-recurring-dark.png) |
 | Dashboard, Anek Latin | ![Dashboard, light, Anek Latin](screenshots/phase4-font-dashboard-light.png) | ![Dashboard, dark, Anek Latin](screenshots/phase4-font-dashboard-dark.png) |
 | Activity, Anek Latin | ![Activity, light, Anek Latin](screenshots/phase4-font-activity-light.png) | |
 | Dashboard | ![Dashboard, light](screenshots/phase2-dashboard-light.png) | ![Dashboard, dark](screenshots/phase2-dashboard-dark.png) |

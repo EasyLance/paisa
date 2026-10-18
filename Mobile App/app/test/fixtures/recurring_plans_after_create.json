@@ -1,0 +1,47 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/books/book_arjun/recurring-plans",
+    "body": null
+  },
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "id": "recurring_salary",
+        "bookId": "book_arjun",
+        "categoryId": "cat_salary",
+        "name": "Monthly salary",
+        "kind": "income",
+        "amountMinor": "58786700",
+        "currency": "INR",
+        "cadence": "monthly",
+        "nextDueAt": "2026-09-25T05:30:00.000Z",
+        "active": true
+      },
+      {
+        "id": "3b144825-3510-46b6-a3cd-8cf7c2135583",
+        "active": true,
+        "name": "Monthly rent",
+        "kind": "expense",
+        "amountMinor": "-2500000",
+        "currency": "INR",
+        "cadence": "monthly",
+        "nextDueAt": "2026-11-01T00:00:00.000Z",
+        "bookId": "book_arjun"
+      },
+      {
+        "id": "b38c49c0-548c-48b7-89e9-c48667f56357",
+        "active": true,
+        "categoryId": "cat_salary",
+        "name": "Freelance retainer",
+        "kind": "income",
+        "amountMinor": "1200000",
+        "currency": "INR",
+        "cadence": "weekly",
+        "nextDueAt": "2026-10-17T18:30:00.000Z",
+        "bookId": "book_arjun"
+      }
+    ]
+  }
+}

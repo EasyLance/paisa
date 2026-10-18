@@ -11,8 +11,9 @@ import '../dashboard/dashboard_providers.dart';
 import 'import_logic.dart';
 import 'import_providers.dart';
 import 'office_crypto.dart';
+import 'pdf_statement.dart';
 
-/// Bring a bank statement (.xlsx, protected or not) into the ledger.
+/// Bring a bank statement (.xlsx, .csv or .pdf, protected or not) into the ledger.
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key, required this.book});
   final Book book;
@@ -24,6 +25,7 @@ class ImportScreen extends ConsumerStatefulWidget {
 class _ImportScreenState extends ConsumerState<ImportScreen> {
   final _password = TextEditingController();
   PickedFile? _file;
+  StatementKind _kind = StatementKind.xlsx;
   bool _encrypted = false;
   bool _showPassword = false;
   String? _accountId;
@@ -51,9 +53,20 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         setState(() => _failure = 'That file is empty, so there is nothing to import. Download the statement again and choose it once it has finished downloading.');
         return;
       }
+      final kind = kindOfName(picked.name)!;
+      if (kind == StatementKind.pdf && !looksLikePdf(picked.bytes)) {
+        setState(() => _failure = 'This does not look like a PDF file. Download the statement again and choose it once it has finished downloading.');
+        return;
+      }
       setState(() {
         _file = picked;
-        _encrypted = isOfficeEncrypted(picked.bytes);
+        _kind = kind;
+        // A CSV has no password; a workbook or PDF is protected if it is encrypted.
+        _encrypted = switch (kind) {
+          StatementKind.xlsx => isOfficeEncrypted(picked.bytes),
+          StatementKind.csv => false,
+          StatementKind.pdf => pdfNeedsPassword(picked.bytes),
+        };
         _password.clear();
       });
     } on ImportProblem catch (problem) {
@@ -74,8 +87,17 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     });
     try {
       // Opened here, on the phone: the password is used for this and nothing else.
-      final workbook = _encrypted ? await ref.read(decryptorProvider)(file.bytes, _password.text) : file.bytes;
-      final prepared = prepareWorkbook(workbook);
+      final PreparedStatement prepared;
+      switch (_kind) {
+        case StatementKind.xlsx:
+          final workbook = _encrypted ? await ref.read(decryptorProvider)(file.bytes, _password.text) : file.bytes;
+          prepared = prepareWorkbook(workbook);
+        case StatementKind.csv:
+          prepared = prepareCsv(decodeCsv(file.bytes));
+        case StatementKind.pdf:
+          // The phone reads the table out of the PDF and sends that as a CSV.
+          prepared = prepareCsv(await ref.read(pdfReaderProvider)(file.bytes, _password.text));
+      }
       final result = await ref.read(ledgerApiProvider(widget.book.id)).importStatement(prepared.body(accountId: _accountId));
       if (!mounted) return;
       ref.invalidate(activityProvider);
@@ -122,7 +144,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       const _PrivacyNote(),
       const SizedBox(height: 16),
       if (file == null) ...[
-        Text('Download your statement from your bank as an Excel (.xlsx) file. If it asks for a password to open, you will be asked for it here.', style: text.bodyMedium),
+        Text('Download your statement from your bank as an Excel (.xlsx), CSV or PDF file. If it asks for a password to open, you will be asked for it here.', style: text.bodyMedium),
         const SizedBox(height: 16),
         FilledButton.icon(onPressed: _busy ? null : _choose, icon: const Icon(Icons.upload_file), label: const Text('Choose a statement file')),
       ] else ...[
@@ -134,6 +156,14 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             trailing: TextButton(onPressed: _busy ? null : _choose, child: const Text('Change')),
           ),
         ),
+        if (_kind == StatementKind.pdf) ...[
+          const SizedBox(height: 12),
+          Text('Paisa reads this PDF on your phone and sends only its table of payments, not the rest of the page.', style: text.bodySmall),
+          const SizedBox(height: 6),
+          // The phone's CSV has no account number, so the server cannot match it with an
+          // Excel or CSV import of the same statement.
+          Text('Import each statement from one kind of file only. A PDF is not matched against the same statement imported from Excel or CSV, so its payments would be added twice.', style: text.bodySmall),
+        ],
         if (_encrypted) ...[
           const SizedBox(height: 16),
           TextField(

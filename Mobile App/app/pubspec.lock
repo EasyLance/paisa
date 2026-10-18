@@ -33,6 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  archive:
+    dependency: transitive
+    description:
+      name: archive
+      sha256: "0d58d1fa1fddf6588251ccf2819f3fb3b6d0452c1b2813ac7413a05592bfbefe"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.2"
   args:
     dependency: transitive
     description:
@@ -49,6 +57,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.1"
+  bidi:
+    dependency: transitive
+    description:
+      name: bidi
+      sha256: "77f475165e94b261745cf1032c751e2032b8ed92ccb2bf5716036db79320637d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.13"
   boolean_selector:
     dependency: transitive
     description:
@@ -344,6 +360,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  image:
+    dependency: transitive
+    description:
+      name: image
+      sha256: "89ed75b2f8231fe676808c5564f9590d728024ded7ac782a7ed8474f1c95b72a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.12.0"
   intl:
     dependency: transitive
     description:
@@ -528,6 +552,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  pdf_cos:
+    dependency: "direct main"
+    description:
+      name: pdf_cos
+      sha256: d79c9e8706f14b9b9a0a5be2bc078363c0258768ab9de4fda2250d3d76f8235b
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.0.0"
+  pdf_document:
+    dependency: "direct main"
+    description:
+      name: pdf_document
+      sha256: d302290d4d44dae49e0c3129f0d103c3adefbcd4d2ee981e41309dece589d2a3
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.0.0"
+  pdf_graphics:
+    dependency: "direct main"
+    description:
+      name: pdf_graphics
+      sha256: "2535d9ef26d5d243b31a767addecfd46d688aa35b0754059e3e5b58c622abb81"
+      url: "https://pub.dev"
+    source: hosted
+    version: "9.0.0"
   petitparser:
     dependency: transitive
     description:
@@ -568,6 +616,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.3"
+  posix:
+    dependency: transitive
+    description:
+      name: posix
+      sha256: bc1bad54ad2b735816e31f8d4600cfde6c7839975085ddfbca48b6c9f7c4044e
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.5.2"
   pub_semver:
     dependency: transitive
     description:

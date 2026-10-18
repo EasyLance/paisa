@@ -6,7 +6,7 @@ The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds. The platform's own are in
 the repo's [`docs/memory.md`](../../docs/memory.md).
 
-> **Last reviewed** 2026-10-08 · Working rules live in [`rules.md`](rules.md) and the
+> **Last reviewed** 2026-10-17 · Working rules live in [`rules.md`](rules.md) and the
 > repo's `/CLAUDE.md`. `/CLAUDE.md` wins any disagreement.
 
 ---
@@ -72,6 +72,13 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | **The phone sends the whole workbook, not a header-stripped copy** | The server keeps no header, file name or file anyway (F20); stripping would change the duplicate hashes, so web and phone imports of one statement would double-count | The server stops hashing the account number |
 | **The privacy note lists what is kept, including the running balance** | The server saves each row's balance-after and the full description. Saying "only date and amount" would be false | The server stops saving them |
 | **One typeface, Anek Latin, bundled; the web's Geist and serif are not used on the phone** | Arjun asked for the font super.money uses, and a single family is simpler than two. Bundled, so nothing is fetched at run time. The phone now differs from the web on purpose | He asks to match the web again, or the household finds it hard to read |
+| **The Budgets tab offers the web's four groups plus the categories' groups, never Income** | The server accepts any group name; offering Income or made-up groups would make a plan that no dashboard group matches | The server restricts group names |
+| **Stopping a recurring plan can be undone only by the message right after** | The server lists active plans only (F22), so there is nothing to tap later | The API lists inactive plans |
+| **A recurring plan's due date is the book's midnight** | A date a person picks is midnight in the book's timezone everywhere in the app; the web sends UTC midnight, 5 h 30 m earlier in India (F29) | The web is fixed to match, or the household asks for UTC |
+| **A create that loses its connection says "may or may not have been saved"** | `POST recurring-plans` has no idempotency key, so a retry could duplicate the plan | The POST gains a key |
+| **PDFs are read with `pdf_cos` / `pdf_document` (Apache-2.0, pure Dart), not PDFium or Syncfusion** | Needs RC4 and AES, runs inside `flutter test`, no native code or R8 trouble, and a permissive licence for a private app. Syncfusion's Community Licence is not permissive; PDFium is native and cannot run in tests. The suite is brand new, which is the risk | A real bank PDF needs PDFium (swap `_wordsOf`), or the library misbehaves |
+| **The phone sends only the table from a PDF, as a CSV** | The server cannot parse PDFs, and the rest of the page is exactly the bank details Arjun does not want sent | The server learns to read PDFs and the password is judged safe to send |
+| **No account number is put in a phone-built CSV** | It would contradict "drop account details"; the cost is the duplicate-hash caveats (F31) | Arjun prefers de-duplication to dropping the line |
 | **The Activity list is not re-fetched on tab change** | Pull to refresh does it, and every write updates the open list. Re-fetching on each switch would blank the list | Someone is surprised by a stale list in use |
 | **The role-abilities card lives in Settings** | It served the Phase 1 gate on the Overview tab; once the dashboard arrived it was clutter, but it still explains why a button is missing | — |
 | **An error replaces the figures** | A zeroed screen beside an error reads as "nothing happened", and old numbers read as live | — |
@@ -131,6 +138,14 @@ Dev users in the sample data: `user_owner` (two books, an owner of both), `user_
 | `adb push` straight into `/sdcard/Download` right after the emulator boots can leave a 0-byte file | The picker lists it as "0 B" and the app reads nothing. Push to `/data/local/tmp`, then `adb shell cp` into Download and broadcast `MEDIA_SCANNER_SCAN_FILE`. The app now says "That file is empty" |
 | Python's `msoffcrypto-tool` writes a broken container, and fails on SHA-1 | Its compound-file writer put the wrong bytes in `EncryptedPackage`, and its integrity step assumes the hash is a whole number of AES blocks. The fixtures use its key handling with a small writer of our own (`findings.md` F19); its *reader* then decrypts them, which is the independent check |
 | A variable font's default weight is not 400 | Anek Latin's default `wght` is 500. Flutter maps `FontWeight` onto the axis, so weights do vary on screen (checked), but a screenshot is the only proof: the test runner draws every font as boxes |
+| A `ListView` with `children` builds lazily | `ensureVisible` on an item far down finds nothing; `scrollUntilVisible` first. Budget tests use it |
+| A test that types a share pushing the total over 100 is blocked by the phone itself | Save is off over 100, so a "server rejects it" test must send the request another way (the fake server) |
+| A big amount in a `Row` squeezes the name beside it | Cap the amount (`maxWidth` 140dp) and shrink it with `FittedBox`. A 1.3× text-scale test with ₹1,23,45,67,890.12 found it |
+| A truncated PDF reads as a PDF with no text | The reader rebuilds what it can and finds nothing, which looks like "scanned". The phone checks for `%%EOF` first and says "damaged" |
+| A heading centred over a left-aligned column breaks naive column ranges | Columns are found from where text sits (strips no word crosses), not from the headings |
+| A bordered table centres each row's text vertically | Descriptions attach to the wrong payment unless line gaps decide which payment a wrapped line belongs to (found with an `fpdf2` table) |
+| The Import button is not in the widget tree when the PDF notes and password field push it down | The page builds lazily; drag first |
+| `reportlab`'s money helper loses the sign of a negative balance | Check generated balances stay positive when building PDF fixtures |
 | Excel's "agile" encryption varies by file | Arjun's file is SHA-1 + AES-128, `msoffcrypto`'s default is SHA-512 + AES-256. The decryptor reads the scheme from the file and both are tested |
 | `Isolate.run` never finishes in a widget test | Widget tests run in fake async. Override `decryptorProvider` with an inline function |
 | `file_picker` 13 is not the API in most tutorials | `FilePicker.pickFile(...)` returns a `PlatformFile?` and bytes come from `readAsBytes()`; there is no `FilePickerResult` and no `withData` |

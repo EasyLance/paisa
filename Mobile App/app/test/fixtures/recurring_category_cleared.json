@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "PATCH",
+    "path": "/books/book_arjun/recurring-plans/3b144825-3510-46b6-a3cd-8cf7c2135583",
+    "body": {
+      "categoryId": null
+    }
+  },
+  "status": 200,
+  "body": {
+    "id": "3b144825-3510-46b6-a3cd-8cf7c2135583",
+    "active": true,
+    "name": "House rent",
+    "kind": "expense",
+    "amountMinor": "-3000000",
+    "currency": "INR",
+    "cadence": "quarterly",
+    "nextDueAt": "2026-12-01T00:00:00.000Z",
+    "bookId": "book_arjun",
+    "categoryId": null
+  }
+}
