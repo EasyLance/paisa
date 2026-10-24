@@ -206,12 +206,13 @@ code:
 
 Your steps:
 
-- [ ] **Before deploying, add your Firebase uid to `PLATFORM_ADMINS`** —
-      `PLATFORM_ADMINS=arjunm295707@gmail.com,<uid>` in the live `paisa.env`
-      (uid from Firebase console → Authentication → Users). The email now only
-      counts if Firebase has verified it, and a console-created account never
-      is, so without the uid `/admin` may answer 403. The journal says
-      `PLATFORM_ADMINS lists this email but Firebase has not verified it` if so.
+- [ ] **Get back into `/admin`** — it happened: after the deploy the page said
+      "Not a master admin", because the email now only counts once Firebase
+      has verified it and this account never was. Either add the uid to the
+      live `paisa.env` (`PLATFORM_ADMINS=arjunm295707@gmail.com,<uid>`, then
+      restart `paisa-api`), or deploy the follow-up and use the page's **Send
+      verification email** button. Verifying is the better end state: it also
+      makes the email a real proof of ownership.
 - [ ] **Drop `TRUST_PROXY_HOPS` from the live `paisa.env`.** It is ignored now.
 - [ ] **Disable public sign-up in Firebase** (below) — it is the precondition
       for the admin-gate and pre-registration attacks this audit fixed.

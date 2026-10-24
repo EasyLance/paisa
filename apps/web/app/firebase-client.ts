@@ -41,6 +41,24 @@ export async function sendPasswordReset(email: string) {
   if (firebaseEnabled) await sendPasswordResetEmail(getAuth(app()), email);
 }
 
+// The admin API trusts a listed email only once Firebase has verified it, and a
+// console-created account never is. These let that admin verify their own
+// address from the gate page instead of needing shell access to the server.
+export async function sendOwnVerificationEmail() {
+  const user = firebaseEnabled ? getAuth(app()).currentUser : null;
+  if (user) await sendEmailVerification(user);
+}
+
+// The link is clicked in another tab; reload the user and force a new token so
+// the next request carries email_verified.
+export async function refreshVerification() {
+  const user = firebaseEnabled ? getAuth(app()).currentUser : null;
+  if (!user) return false;
+  await user.reload();
+  await user.getIdToken(true);
+  return user.emailVerified;
+}
+
 export async function signOutUser() {
   if (firebaseEnabled) await signOut(getAuth(app()));
 }

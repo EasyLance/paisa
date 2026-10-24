@@ -142,8 +142,9 @@ bomb and quadratic regexes; the shared rate-limit bucket; the admin gate on an
 unverified email; the cross-book `sourceHash` read; pre-registered accounts in
 `grantAccess`; negative, absurd and impossible statement rows; `npm audit`.
 Still open: the Android debug-key signing, backup and R8 (Medium), the Apache
-headers (§5), and the Lows listed in `TODO.md`. **Before the next deploy, add
-your Firebase uid to `PLATFORM_ADMINS`** (`TODO.md` says why).
+headers (§5), and the Lows listed in `TODO.md`. The new gate locked the owner
+out of `/admin` (unverified email): list the uid, or verify from the gate page
+(`TODO.md`).
 
 All High and Medium findings from the 2026-09-09 audit are fixed. These remain:
 

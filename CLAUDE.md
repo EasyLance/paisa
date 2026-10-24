@@ -215,8 +215,10 @@ FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
   (the live owner was seeded as `arjunm295707` with no domain). Never an
   unverified email either: with public sign-up open, anyone can mint a token for
   an address that has no account yet. **An admin whose email Firebase has not
-  verified is locked out** — the journal says `PLATFORM_ADMINS lists this email
-  but Firebase has not verified it`; list their uid instead.
+  verified is locked out** — it happened to the owner on the first deploy. The
+  journal says `PLATFORM_ADMINS lists this email but Firebase has not verified
+  it`. Two ways back: list their uid, or the `/admin` page itself offers an
+  unverified account **Send verification email** and re-checks after the link.
 - **`PLATFORM_ADMINS` is the whole gate.** Not listed → every `/v1/admin` route
   404s. It is an env var and not a column on purpose: granting it needs shell
   access and a restart, so nothing that can write the database can grant itself

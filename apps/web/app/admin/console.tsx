@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- see site-chrome.tsx */
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api-client';
-import { firebaseEnabled, observeUser, signOutUser } from '../firebase-client';
+import { firebaseEnabled, observeUser, refreshVerification, sendOwnVerificationEmail, signOutUser } from '../firebase-client';
 import { Leaf } from '../site-chrome';
 import '../globals.css';
 import '../admin.css';
@@ -42,6 +42,7 @@ const targetOf = (user:AdminUser) => user.id ?? user.firebaseUid;
 export default function AdminConsole() {
   const [authState, setAuthState] = useState<'loading'|'in'|'out'>(firebaseEnabled ? 'loading' : 'in');
   const [email, setEmail] = useState('');
+  const [verified, setVerified] = useState(true);
   const [state, setState] = useState<'loading'|'ready'|'forbidden'|'error'>('loading');
   const [directory, setDirectory] = useState<Directory>(empty);
   const [error, setError] = useState('');
@@ -51,7 +52,7 @@ export default function AdminConsole() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
 
-  useEffect(() => { if (!firebaseEnabled) return; return observeUser((user) => { setEmail(user?.email ?? ''); setAuthState(user ? 'in' : 'out'); }); }, []);
+  useEffect(() => { if (!firebaseEnabled) return; return observeUser((user) => { setEmail(user?.email ?? ''); setVerified(user?.emailVerified ?? true); setAuthState(user ? 'in' : 'out'); }); }, []);
   useEffect(() => { if (authState === 'out') window.location.replace('/login'); }, [authState]);
 
   const flash = useCallback((message:string) => { setNote(message); window.setTimeout(() => setNote(''), 4000); }, []);
@@ -121,12 +122,36 @@ export default function AdminConsole() {
       </main>
     );
   }
+  if (state === 'forbidden' && !verified) {
+    // The API answers 404 whether the address is unlisted or unverified, so it
+    // never confirms who is an admin. Only this browser knows it is unverified.
+    const verify = () => run(async () => {
+      if (!(await refreshVerification())) throw new Error(`Firebase still has ${email} as unverified. Click the link in the email first.`);
+      setVerified(true); setState('loading');
+      return 'Email verified';
+    });
+    const send = () => run(async () => { await sendOwnVerificationEmail(); return `Verification email sent to ${email}`; });
+    return (
+      <main className="admin-gate">
+        <h1>Verify your email first</h1>
+        <p>Firebase has not verified <strong>{email}</strong>. The admin page trusts a listed address only once it is verified, because anyone can sign in with an address they do not own until then.</p>
+        <p className="quiet">Send yourself the link, click it, then come back here. If this address is not in <code>PLATFORM_ADMINS</code>, verifying it changes nothing.</p>
+        {error && <p className="quiet">{error}</p>}
+        {note && <p className="quiet">{note}</p>}
+        <p>
+          <button className="primary-button" disabled={busy} onClick={() => void send()}>Send verification email</button>{' '}
+          <button className="text-button" disabled={busy} onClick={() => void verify()}>I&apos;ve clicked the link</button>
+        </p>
+        <p><a className="text-button" href="/">Back to the dashboard</a></p>
+      </main>
+    );
+  }
   if (state === 'forbidden') {
     return (
       <main className="admin-gate">
         <h1>Not a master admin</h1>
         <p><strong>{email || 'This account'}</strong> is not listed in <code>PLATFORM_ADMINS</code> on the server, so this page has nothing to show.</p>
-        <p className="quiet">Add the address to that variable in the API&apos;s environment file and restart the service. It is deliberately not something that can be granted from inside the app.</p>
+        <p className="quiet">Add the address, or this account&apos;s Firebase uid, to that variable in the API&apos;s environment file and restart the service. It is deliberately not something that can be granted from inside the app.</p>
         <p><a className="text-button" href="/">Back to the dashboard</a></p>
       </main>
     );

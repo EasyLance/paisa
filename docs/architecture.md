@@ -294,7 +294,7 @@ so granting it needs shell access to the host and a restart, not a row.
 
 | | |
 |---|---|
-| **Gate** | Not listed → every `/v1/admin` route **404s**, the same convention the book routes use. Listed means the token's email with `email_verified`, or its uid (`isPlatformAdminToken`) — an unverified email can be minted by anyone while public sign-up is open |
+| **Gate** | Not listed → every `/v1/admin` route **404s**, the same convention the book routes use. Listed means the token's email with `email_verified`, or its uid (`isPlatformAdminToken`) — an unverified email can be minted by anyone while public sign-up is open. The 404 never says which; the page itself sees the account is unverified and offers a verification email |
 | **Granting** | `grantAccess()` replaces an **unverified** Firebase account that no ledger profile uses yet, instead of reusing it: it may have been pre-registered by someone who knows its password |
 | **No household needed** | A master admin with no `UserProfile` authenticates with a profile-less actor. It grants no ledger access — book routes still resolve a membership |
 | **Firebase half** | `domain/firebase-admin.js` — list, create, rename, disable, delete, send a reset. Needs a service-account key |
