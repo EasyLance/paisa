@@ -5,7 +5,7 @@
 The things you cannot read off the code: decisions and their reasons, the traps
 already paid for, and what would make us change our minds.
 
-> **Last reviewed** 2026-10-05 · Working rules live in `/CLAUDE.md`
+> **Last reviewed** 2026-10-24 · Working rules live in `/CLAUDE.md`
 
 ---
 
@@ -58,6 +58,8 @@ already paid for, and what would make us change our minds.
 | **CSP with `unsafe-inline`** | vinext emits ~16 nonce-less inline scripts. A strict policy white-screens the dashboard | vinext gains nonce support |
 | **Provisioning skips email verification** | Console-created accounts are never verified, and verification stops nobody who owns their own address | — |
 | **Public pages written honestly** | No invented testimonials, no returns policy for a product that is not sold | It becomes a real product |
+| **Nightly backup from a crontab, not a systemd timer** | The units in `deploy/` name a `paisa` user the droplet does not have. A crontab belongs to whoever installs it, so it cannot drift from the host | `deploy/` is reconciled with the host. A timer then adds `Persistent=` catch-up and `systemctl list-timers` |
+| **Nightly exports stay on the droplet, in `dbbackup/`** | Arjun's call (2026-10-24): a plain cron export, chosen over an rclone off-site copy with a restore check | The droplet or its disk is lost, or a restore from `dbbackup/` fails |
 | **One `deploy/lib-db.sh`** | Three scripts each had their own `DATABASE_URL` parsing, so the fix that kept the password off the command line had to be made three times | — |
 | **Master admin is an env var, not a column** | `PLATFORM_ADMINS`. A column can be set by anything that can write the database — an injection, a restored backup, a mistyped seed. This needs shell access and a restart | Admins ever need to be managed by non-operators |
 | **No `firebase-admin` package** | It pulls google-auth-library, gaxios, Firestore and Storage in for six REST calls the API can make with the `jose` it already has. Same reasoning as the XLSX reader | Google changes the Identity Toolkit API, or we need more than user management |
@@ -95,6 +97,8 @@ already paid for, and what would make us change our minds.
 | Stale `apps/web/dist` | Old code served, build reports success | `rm -rf dist .vinext` first |
 | `npm ci` with `NODE_ENV=production` | Skips devDeps → `vinext: not found` | `--include=dev` |
 | Health check right after restart | False failure — the API takes ~3s to bind | Poll, don't curl once |
+| `apps/web` has its **own nested `.git`** | `git status` run inside `apps/web` reads a stale one-commit repo (2026-08-29, no remote) and reports the whole dashboard as modified or untracked | Run git from the repo root |
+| `dart format` would rewrite 64 files in `Mobile App/app` | CI's format step would fail on the first push, so it was dropped when CI moved to the new app | Format once, then put the step back |
 
 ### 3.2 systemd & Apache
 
@@ -112,6 +116,7 @@ already paid for, and what would make us change our minds.
 | `@` in `DATABASE_URL` | Must be written `%40` |
 | `FIREBASE_PROJECT_ID` | Needed **as well as** `NEXT_PUBLIC_FIREBASE_PROJECT_ID`. Missing it = 401 after a successful sign-in |
 | MariaDB | The client package is `mariadb-client`, not `mysql-client` |
+| `paisa.env.example` had a block pasted mid-comment | It produced `TENANT_SELF_PROVISION=false until you register a reCAPTCHA`, which is a bash syntax error once `lib-db.sh` sources a copy. Fixed 2026-10-24 |
 
 ### 3.4 Application
 

@@ -327,7 +327,8 @@ cd /srv/paisa && ./deploy/migrate.sh    # backs up, verifies the dump, then migr
 ./deploy/deploy.sh
 ```
 
-Backups land in `/var/backups/paisa`. Restore with:
+Backups land in `/var/backups/paisa`; the nightly cron export lands in
+`dbbackup/` (`docs/architecture.md` §10.1). Restore with:
 
 ```bash
 gunzip < /var/backups/paisa/paisa-TIMESTAMP.sql.gz | mysql -u paisa -p paisa

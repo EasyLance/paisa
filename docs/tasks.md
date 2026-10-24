@@ -4,7 +4,7 @@
 
 This document tracks what is shipped, what is next, and who owns each step.
 
-> **Last reviewed** 2026-10-05 · `TODO.md` at the repo root is the working
+> **Last reviewed** 2026-10-24 · `TODO.md` at the repo root is the working
 > checklist — if the two disagree, **`TODO.md` wins**
 
 ---
@@ -59,9 +59,9 @@ Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░�
 | 🔁 **Recurring** | Self-posting when due · month-end sticky · catch-up after downtime · idempotent |
 | 🏠 **Tenancy** | Isolated workspaces · invitations · self-provisioning (flagged off) |
 | 🔒 **Security** | Full-codebase audit; all High and Medium findings fixed |
-| 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset |
+| 🚀 **Ops** | One-command deploy · backed-up migrations · scoped ledger reset · nightly cron export into `dbbackup/` (needs installing) · CI runs the new mobile app's analyzer and tests |
 | 🛡️ **Master admin** | `/admin` — every account, add · rename · disable · reset password · back up · clear · **reset to new** · delete · the **access-request waiting list** |
-| 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer · **Request access** popup that files a row instead of opening an email |
+| 🌐 **Public** | Landing page at `/` · sign-in moved to `/login` · 13 information pages · one shared header and footer · **Request access** popup that files a row instead of opening an email · real 404s · `/robots.txt` and `/sitemap.xml` |
 
 ---
 
@@ -104,11 +104,12 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 
 | Task | Why it matters |
 |---|---|
+| **Install the nightly backup cron job** | 👤 Arjun's step. Built, not running. Until then the only backups are the ones `migrate.sh` takes. See `architecture.md` §10.1 |
+| **Format `Mobile App/app`** | `dart format` would rewrite 64 files, so CI checks analyze and tests but not formatting |
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
 | **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder on the contact page. **Request access** no longer needs it — it is a form now |
 | **Apache on the droplet sends 2 of 6 security headers** | The repo's vhost is not the live one. No CSP, `X-Frame-Options`, HSTS or `Permissions-Policy` on any dashboard response |
 | **Seven mutations write no audit event** | Including every SMS the Android app will upload. Decide before the phone starts posting |
-| **Unknown paths return 200, not 404** | The `[slug]` route renders a not-found body with a success status |
 | **Click Approve once on the live site** | 👤 Arjun's step — the Firebase half of approving a request has no service account on the dev machine, so only the new email lookup could be verified against the live project |
 | **Install the Firebase service-account key** | 👤 Arjun's step — without it the admin page cannot list, add, rename, disable or reset Firebase accounts |
 | **Prune expired `IdempotencyRecord` rows on a schedule** | A ledger wipe now clears the orphans, but nothing clears the expired ones |

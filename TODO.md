@@ -1,6 +1,14 @@
 # Paisa — outstanding work
 
-Ordered by what unblocks the most. Last reviewed 2026-10-05.
+Ordered by what unblocks the most. Last reviewed 2026-10-24.
+
+## Now: turn on the nightly backup
+
+- [ ] **Install the `deploy/backup.sh` cron job on the droplet.** *Arjun's
+      step.* Built 2026-10-24: a nightly gzipped dump into `dbbackup/` in the
+      checkout, 14 days kept. Run it once by hand, then add the crontab line
+      (both in `docs/architecture.md` §10.1). Until then the only backups are
+      the ones `migrate.sh` takes.
 
 ## Next: get the Android app onto a real phone
 
@@ -77,10 +85,15 @@ four are left because they are your call or they are the host, not the code:
       for ingestion: **every SMS the Android app uploads will be invisible in the
       audit trail**. Decide whether `IngestionEvent` + `TransactionSource` is
       provenance enough, or add the rows, before the phone starts posting.
-- [ ] **An unknown path returns HTTP 200.** `/anything` renders the "That page
-      does not exist" body with a 200, because the `[slug]` route never sets a
-      status. Search engines will index junk URLs and uptime checks cannot tell
-      a dead link from a live page.
+- [x] **An unknown path returns HTTP 200.** *Done 2026-10-24*: `[slug]` calls
+      `notFound()` and `app/not-found.tsx` renders the same copy with a real
+      404, for nested paths too. `/robots.txt` and `/sitemap.xml` were falling
+      into the same catch-all as HTML; they are now `app/robots.ts` and
+      `app/sitemap.ts`, the sitemap built from `siteNav`. Live after the next
+      deploy.
+- [ ] **Format the new mobile app, then restore CI's format step.** CI now
+      checks `Mobile App/app` (analyze + 380 tests) instead of the old app, but
+      `dart format` would rewrite 64 of its files, so that step was dropped.
 - [ ] **`Idempotency-Key` is required but its value is ignored in production.**
       Only the memory store reads it; `prisma-store` dedupes on the unique
       `(workspaceId, sourceHash)`. Harmless today — `sourceHash` is the right

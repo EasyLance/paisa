@@ -17,6 +17,9 @@ apps/mobile/lib/firebase_options.dart
 # Deploy stamps (see TODO.md)
 .deploy-stamp/
 
+# Nightly database exports from deploy/backup.sh: the whole ledger.
+dbbackup/
+
 # Production env lives in the app directory. The glob matters: migrate.sh and
 # the setup steps leave paisa.env.bak-<stamp> beside it, and those hold the
 # database password too.

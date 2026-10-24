@@ -5,7 +5,7 @@
 This document describes the overall system architecture, technology stack, folder
 structure, data flow, and key design decisions for the Paisa application.
 
-> **Last reviewed** 2026-10-03 · **Live** <https://paisa.easylancefreelance.com>
+> **Last reviewed** 2026-10-24 · **Live** <https://paisa.easylancefreelance.com>
 
 ---
 
@@ -87,6 +87,9 @@ Financial-App/
 │   │       ├── site-chrome.tsx   header + footer for every public page
 │   │       ├── [slug]/           13 public information pages
 │   │       ├── site-pages.ts     their content
+│   │       ├── not-found.tsx     any unknown path — a real 404, via notFound()
+│   │       ├── robots.ts         /robots.txt
+│   │       ├── sitemap.ts        /sitemap.xml, built from siteNav
 │   │       ├── landing.css       public-page styles — also reaches the dashboard
 │   │       │                      bundle, since page.tsx imports Landing
 │   │       └── globals.css       design tokens + every dashboard style
@@ -101,7 +104,7 @@ Financial-App/
 │   ├── worker/           BullMQ stubs — no Redis runs, effectively dead
 │   └── mobile/           older Flutter + Kotlin SMS bridge — never run in production
 ├── Mobile App/           new Flutter Android app (`app/`) and its plan docs
-├── deploy/               bootstrap · deploy · migrate · reset-ledger · reset-rules
+├── deploy/               bootstrap · deploy · migrate · backup · reset-ledger · reset-rules
 │                         lib-db.sh + lib-db.test.sh · systemd · Apache
 └── docs/                 prd · architecture · rules · design · tasks · memory
 ```
@@ -329,7 +332,7 @@ the form. Deleting a user drops their row, so they can ask again.
 
 ## 9. Scheduling
 
-No Redis, no cron. The API runs **one `setInterval`** (`RECURRING_POLL_MS`,
+No Redis. The only cron entry is the nightly backup (§10.1). The API runs **one `setInterval`** (`RECURRING_POLL_MS`,
 default 15 minutes) that posts due recurring plans, plus one run at boot to catch
 up after downtime.
 
@@ -350,6 +353,7 @@ all the scheduling this needs.
 | API | Honours `HOST=127.0.0.1` — never exposed directly |
 | Deploy | `./deploy/deploy.sh` — pull, install, generate, clean build, restart, poll |
 | Schema | `./deploy/migrate.sh` — verified `mysqldump` backup **before** any change |
+| Backup | `./deploy/backup.sh` nightly from the service user's crontab — a gzipped dump into `<checkout>/dbbackup/`. See §10.1 |
 | Reset | `./deploy/reset-ledger.sh <bookId>` — scoped wipe: transactions, ingestion events, imports and period reviews. Backup and typed confirmation first |
 | Reset rules | `./deploy/reset-rules.sh <bookId>` — pick which categorization rules to drop. Book-scoped, restore file written first |
 | Shared | `deploy/lib-db.sh` — one copy of the `DATABASE_URL` parsing and the 0600 credentials file, sourced by the three scripts that need a database |
@@ -357,3 +361,29 @@ all the scheduling this needs.
 > The build **fails loudly** if the Firebase config is missing from the bundle.
 > A stale `dist` once shipped an unauthenticated dashboard while reporting
 > success.
+
+### 10.1 Nightly Backup
+
+`deploy/backup.sh` writes `<checkout>/dbbackup/<db>-<stamp>.sql.gz`. The folder
+is mode 700, each file is mode 600, and the folder is gitignored. It checks the
+gzip, then deletes exports older than 14 days. `deploy.sh` only does
+`git pull --ff-only`, so a deploy never touches the folder.
+
+**Install once**, as the service user (`elance` on the live droplet):
+
+```bash
+cd /var/www/projects/Financial-App && ./deploy/backup.sh   # run it by hand first
+(crontab -l 2>/dev/null; echo '45 21 * * * /var/www/projects/Financial-App/deploy/backup.sh 2>&1 | logger -t paisa-backup') | crontab -
+```
+
+`45 21 * * *` is 03:15 IST on a UTC clock. Check with `date` first. Output goes
+to the journal: `journalctl -t paisa-backup`.
+
+**Restore:**
+
+```bash
+gunzip < dbbackup/paisa-STAMP.sql.gz | mysql -u <user> -p <db>
+```
+
+> The exports live on the same disk as the database. They cover a bad migration
+> or a mistaken wipe, not losing the droplet.

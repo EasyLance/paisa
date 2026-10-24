@@ -25,7 +25,7 @@ npm run lint     # all three JS packages
 ```
 
 The mobile app has its own checks, from `Mobile App/app`: `flutter analyze` and
-`flutter test`. Local development uses the API in dev auth
+`flutter test` (CI runs both). Local development uses the API in dev auth
 (`npm run serve`, then `flutter build apk --debug --dart-define=DEV_AUTH=true`);
 that flag only works in debug builds.
 The mobile docs are in `Mobile App/docs/`; their own "which doc to update" table is
@@ -66,6 +66,11 @@ commands — give the deploy command.
 
 `deploy/reset-ledger.sh <bookId>` wipes one book's transactions after a verified
 backup. Arjun's book is `book_owner`.
+
+`deploy/backup.sh` is the nightly backup, run from the service user's crontab:
+a gzipped dump into `<checkout>/dbbackup/` (gitignored, mode 700), 14 days kept.
+Setup and restore are in `docs/architecture.md` §10.1. Output goes to
+`journalctl -t paisa-backup`.
 
 ## Keeping the docs current
 
@@ -148,6 +153,8 @@ Three habits that keep them honest:
 - Seed env vars use `||` not `??`: an empty string must fall back.
 - `DATABASE_URL` passwords need `@` written as `%40`.
 - MariaDB, not MySQL — the client package is `mariadb-client`.
+- `apps/web` contains a stale nested `.git`. Run git from the repo root, or
+  `git status` reports the whole dashboard as untracked.
 - The API takes ~3s to bind. Health checks must poll, not curl once.
 - `DELETE` with a `content-type` header and no body is a 400 at parse; a 204
   response has no JSON to read.
