@@ -210,7 +210,9 @@ export class PrismaStore {
   async ingest(data, actorId) {
     const amountMinor = parseMinor(data.amountMinor);
     const unique = { workspaceId_sourceHash: { workspaceId: data.workspaceId, sourceHash: data.sourceHash } };
-    const findExisting = async () => { const event = await this.db.ingestionEvent.findUnique({ where: unique, include: { source: { select: { transactionId: true } } } }); return event ? { ...event, transactionId: event.source?.transactionId ?? null, duplicate: true } : null; };
+    // The duplicate guard is workspace-wide, but the caller may only see its own
+    // book: a hash already used in another one says "duplicate" and nothing more.
+    const findExisting = async () => { const event = await this.db.ingestionEvent.findUnique({ where: unique, include: { source: { select: { transactionId: true } } } }); if (!event) return null; if (event.bookId !== data.bookId) return { duplicate: true }; return { ...event, transactionId: event.source?.transactionId ?? null, duplicate: true }; };
     const existing = await findExisting(); if (existing) return existing;
     try {
       return await this.db.$transaction(async (db) => {

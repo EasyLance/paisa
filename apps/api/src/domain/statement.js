@@ -48,7 +48,7 @@ function unwrap(value) {
 // "1,000.00" and "1000.00CR" both mean 100000 paise.
 export function toMinor(value) {
   const digits = clean(value).replace(/[,\s₹]/g, '').replace(/(cr|dr)$/i, '');
-  if (!/^-?\d+(\.\d{1,2})?$/.test(digits)) return null;
+  if (digits.length > 40 || !/^-?\d+(\.\d{1,2})?$/.test(digits)) return null;
   const negative = digits.startsWith('-');
   const [whole, fraction = ''] = digits.replace('-', '').split('.');
   const minor = BigInt(whole) * 100n + BigInt(`${fraction}00`.slice(0, 2));
@@ -57,11 +57,23 @@ export function toMinor(value) {
 
 // Statements carry a date with no time; anchor it to the start of the day in the
 // bank's own timezone so a payment never drifts into the previous month.
+const DATE_SHAPE = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
+// Limits on what one statement row may hold, so a hostile or garbled file is
+// rejected whole at parse time instead of throwing halfway through the import.
+const MIN_YEAR = 1990;
+const MAX_YEAR = 2100;
+const MAX_AMOUNT_MINOR = 10n ** 15n;
+const MAX_DETAILS = 2000;
+
 export function toIsoDate(value, offset = '+05:30') {
-  const match = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(clean(value));
+  const match = DATE_SHAPE.exec(clean(value));
   if (!match) return null;
   const [, day, month, year] = match;
   const fullYear = year.length === 2 ? `20${year}` : year;
+  // Reject what Date would silently roll over (31/02 -> 2 March) or what is no real year.
+  const check = new Date(Date.UTC(Number(fullYear), Number(month) - 1, Number(day)));
+  if (Number(fullYear) < MIN_YEAR || Number(fullYear) > MAX_YEAR
+    || check.getUTCMonth() !== Number(month) - 1 || check.getUTCDate() !== Number(day)) return null;
   const date = new Date(`${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00.000${offset}`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
@@ -136,7 +148,7 @@ function describe(details) {
 }
 
 function readAccount(rows) {
-  const text = rows.flat().join('\n');
+  const text = rows.flat().map((cell) => String(cell ?? '').slice(0, MAX_DETAILS)).join('\n');
   return {
     number: ACCOUNT_NUMBER.exec(text)?.[1] ?? null,
     ifsc: IFSC.exec(text)?.[1] ?? null,
@@ -161,12 +173,18 @@ export function parseStatementRows(rows, { offset = '+05:30' } = {}) {
 
   for (const row of rows.slice(headerIndex + 1)) {
     const occurredAt = toIsoDate(row[columns.date], offset);
-    if (!occurredAt) continue; // metadata, blank lines and the summary block
-    const details = unwrap(row[columns.details]);
+    if (!occurredAt) {
+      // Metadata, blank lines and the summary block are not dates at all; a date-shaped cell that is not a real date is a bad row.
+      if (DATE_SHAPE.test(clean(row[columns.date]))) warnings.push(`Skipped a row with an impossible or out-of-range date (${clean(row[columns.date]).slice(0, 20)}): enter it by hand`);
+      continue;
+    }
+    const details = unwrap(row[columns.details]).slice(0, MAX_DETAILS);
     const debit = toMinor(row[columns.debit]);
     const credit = toMinor(row[columns.credit]);
     const balance = columns.balance === undefined ? null : toMinor(row[columns.balance]);
     if (!debit && !credit) { warnings.push(`Skipped a row with no amount: ${details.slice(0, 60) || 'blank'}`); continue; }
+    if (debit < 0n || credit < 0n) { warnings.push(`Skipped a row with a negative amount on ${clean(row[columns.date])} (${details.slice(0, 60)}): enter it by hand`); continue; }
+    if (debit > MAX_AMOUNT_MINOR || credit > MAX_AMOUNT_MINOR) { warnings.push(`Skipped a row with an amount too large to be real on ${clean(row[columns.date])} (${details.slice(0, 60)}): enter it by hand`); continue; }
     if (debit && credit) { warnings.push(`Skipped a row debited and credited at once: ${details.slice(0, 60)}`); continue; }
 
     // The running balance is the bank's own checksum on our amount parsing.

@@ -32,4 +32,12 @@ describe.skipIf(!run)('PrismaStore production invariants', () => {
     expect(second.transactionId).toBe(first.transactionId);
     expect([first.duplicate, second.duplicate]).toContain(true);
   });
+
+  it('returns nothing of another book when its source hash is reused', async () => {
+    const sourceHash = `ci-private-${Date.now()}`;
+    const data = { workspaceId: 'ws_household', bookId: 'book_owner', sourceType: 'sms', sourceHash, kind: 'expense', amountMinor: '-50000', currency: 'INR', merchant: 'CI private merchant', occurredAt: '2026-08-26T10:00:00.000Z' };
+    const original = await store.ingest(data, 'user_owner');
+    createdTransactionIds.push(original.transactionId);
+    expect(await store.ingest({ ...data, bookId: 'book_home' }, 'user_owner')).toEqual({ duplicate: true });
+  });
 });

@@ -271,7 +271,10 @@ export class MemoryStore {
   async ingest(data, actorId, idempotencyKey) {
     const key = `${data.workspaceId}:${data.sourceHash}`;
     const existing = this.ingestion.find((item) => item.key === key);
-    if (existing) return { ...existing, duplicate: true };
+    // The duplicate guard is workspace-wide, but the caller may only see its own
+    // book: a hash already used in another one says "duplicate" and nothing more.
+    if (existing) return existing.bookId === data.bookId ? { ...existing, duplicate: true } : { duplicate: true };
+    idempotencyKey &&= `${data.workspaceId}:${idempotencyKey}`;
     if (idempotencyKey && this.idempotency.has(idempotencyKey)) return this.idempotency.get(idempotencyKey);
     const event = { id: randomUUID(), key, ...data, amountMinor: parseMinor(data.amountMinor), state: 'received', createdAt: new Date(), duplicate: false };
     this.ingestion.push(event);

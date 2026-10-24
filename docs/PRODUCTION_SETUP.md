@@ -44,7 +44,6 @@ NODE_ENV=production
 AUTH_MODE=firebase
 APP_CHECK_MODE=enforce
 CORS_ORIGINS=https://your-dashboard.example
-TRUST_PROXY_HOPS=1
 DATABASE_URL=mysql://...
 REDIS_URL=rediss://...
 ```

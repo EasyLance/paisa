@@ -141,6 +141,10 @@ flowchart TD
 > **404, not 403.** A book you are not a member of returns *not found*, so book
 > ids cannot be enumerated by probing.
 
+> **Rate limits are per client.** Fastify trusts `X-Forwarded-For` only from the
+> loopback peer (`trustProxy: 'loopback'`), which is Apache. A hop count would be
+> ignored by Fastify 5, and every client would share Apache's one bucket.
+
 ---
 
 ## 5. The Domain Layer
@@ -189,7 +193,7 @@ erDiagram
 | **Book** | `Book` | One set of finances — private or shared |
 | **Money** | `Transaction.amountMinor` | `BigInt` paise. Never a float |
 | **Provenance** | `TransactionSource.importedAmount` | What the bank said, kept after any edit |
-| **Idempotency** | `IngestionEvent.sourceHash` | Unique per workspace — the duplicate guard |
+| **Idempotency** | `IngestionEvent.sourceHash` | Unique per workspace — the duplicate guard. A hash already used in **another book** answers `{ duplicate: true }` and nothing else, so it cannot read a private book |
 | **History** | `AuditEvent` | Append-only, `before` / `after` JSON |
 | **Timestamps** | `occurredAt`, `nextDueAt` | ISO 8601, `Z` or an offset like `+05:30`. A naked local time is rejected |
 | **Waiting list** | `AccessRequest` | Name and email of somebody with no account yet. Unique email; `approvedAt` is the tick |
@@ -241,7 +245,23 @@ flowchart LR
 
 **The bank's own running-balance column is the checksum.** Zero warnings on a
 real file means every amount was read correctly — the strongest signal
-available, and free.
+available, and free. It is a parse check, not an integrity control: a crafted
+file can carry a consistent balance.
+
+**Limits.** Any household member with `edit` can send a file, and parsing runs
+on the API's one event loop, so every limit is enforced before the expensive
+work:
+
+| Where | Limit | Why |
+|---|---|---|
+| `xlsx.js` | ≤ 200 ZIP entries, each ≤ 32 MiB inflated (`maxOutputLength`; the declared size is only a fast reject) | A 2 MB zip bomb inflated to 2.7 GB on a droplet shared with two other apps |
+| `xlsx.js` | Columns up to `XFD` | `ZZZZZZ1` made a 300-million-slot array: a 376-byte file killed the API |
+| `xlsx.js` | XML scanned with `indexOf`, not `[\s\S]*?` regexes | Unclosed tags made each lazy scan run to the end of the text: quadratic |
+| `statement.js` | Details capped at 2,000 characters | `stripBranch` was quadratic on long unusual whitespace: 80k characters took 9 s |
+| `statement.js` | Amounts ≤ 10^15 paise; dates 1990–2100 and real (31/02 is rejected, not rolled into March); a negative Debit or Credit is skipped | One bad row used to throw mid-import, leaving half a statement; a negative debit flipped sign against kind |
+
+A rejected row is skipped **with a warning that says to enter it by hand**. A
+rejected file is a 422.
 
 ---
 
@@ -274,7 +294,8 @@ so granting it needs shell access to the host and a restart, not a row.
 
 | | |
 |---|---|
-| **Gate** | Not listed → every `/v1/admin` route **404s**, the same convention the book routes use |
+| **Gate** | Not listed → every `/v1/admin` route **404s**, the same convention the book routes use. Listed means the token's email with `email_verified`, or its uid (`isPlatformAdminToken`) — an unverified email can be minted by anyone while public sign-up is open |
+| **Granting** | `grantAccess()` replaces an **unverified** Firebase account that no ledger profile uses yet, instead of reusing it: it may have been pre-registered by someone who knows its password |
 | **No household needed** | A master admin with no `UserProfile` authenticates with a profile-less actor. It grants no ledger access — book routes still resolve a membership |
 | **Firebase half** | `domain/firebase-admin.js` — list, create, rename, disable, delete, send a reset. Needs a service-account key |
 | **Ledger half** | `exportUserData`, `wipeUserLedger`, `deletePlatformUser`. Needs nothing extra |

@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { isPlatformAdmin } from '../domain/platform-admin.js';
+import { isPlatformAdmin, isPlatformAdminToken } from '../domain/platform-admin.js';
 import { URL } from 'node:url';
 
 const authKeys = createRemoteJWKSet(
@@ -130,7 +130,11 @@ export default fp(async function authPlugin(app, options) {
       // a profile-less actor so /v1/admin works. This grants no ledger access:
       // every book route still resolves a BookMembership and 404s without one,
       // and this actor has none.
-      if (!request.actor && isPlatformAdmin(decoded.email)) {
+      const platformAdmin = isPlatformAdminToken(decoded);
+      if (!platformAdmin && isPlatformAdmin(decoded.email)) {
+        request.log.warn({ uid: decoded.sub }, 'PLATFORM_ADMINS lists this email but Firebase has not verified it. Verify the address, or list this uid instead');
+      }
+      if (!request.actor && platformAdmin) {
         request.actor = { id: null, firebaseUid: decoded.sub, email: decoded.email, displayName: typeof decoded.name === 'string' ? decoded.name : null, platformOnly: true };
       }
       if (!request.actor || request.actor.disabledAt) {
@@ -141,7 +145,9 @@ export default fp(async function authPlugin(app, options) {
       // it drifts — ours was seeded as `arjunm295707` with the domain missing,
       // which silently locked the owner out of their own admin page.
       request.identityEmail = (typeof decoded.email === 'string' && decoded.email) || request.actor.email || null;
-      request.isPlatformAdmin = isPlatformAdmin(request.identityEmail);
+      // From the token alone: the profile email is a copy, and a fallback to it
+      // would let a token with no email borrow whatever the row says.
+      request.isPlatformAdmin = platformAdmin;
     } catch (error) {
       // The client is told nothing beyond "invalid", but the operator needs the
       // reason: a wrong FIREBASE_PROJECT_ID, an unreachable JWKS endpoint and a

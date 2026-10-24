@@ -43,7 +43,7 @@ Phase 3  ████████░░░░░░░░░░░░░░░�
 Phase 4  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    0%
 ```
 
-> **Health** — 57 tests passing · lint clean · typecheck clean · 5 migrations applied · 0 npm advisories
+> **Health** — 90 tests passing · lint clean · typecheck clean · 5 migrations applied · API: 0 npm advisories · web: one Firestore → `@grpc/grpc-js` chain, not in the bundle
 
 ---
 
@@ -136,6 +136,14 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 ---
 
 ## 7. Security Backlog
+
+**2026-10-24 audit** — four High and five Medium. Fixed: the .xlsx crash, zip
+bomb and quadratic regexes; the shared rate-limit bucket; the admin gate on an
+unverified email; the cross-book `sourceHash` read; pre-registered accounts in
+`grantAccess`; negative, absurd and impossible statement rows; `npm audit`.
+Still open: the Android debug-key signing, backup and R8 (Medium), the Apache
+headers (§5), and the Lows listed in `TODO.md`. **Before the next deploy, add
+your Firebase uid to `PLATFORM_ADMINS`** (`TODO.md` says why).
 
 All High and Medium findings from the 2026-09-09 audit are fixed. These remain:
 

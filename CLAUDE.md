@@ -153,6 +153,12 @@ Three habits that keep them honest:
 - Seed env vars use `||` not `??`: an empty string must fall back.
 - `DATABASE_URL` passwords need `@` written as `%40`.
 - MariaDB, not MySQL — the client package is `mariadb-client`.
+- Fastify 5 **ignores a numeric `trustProxy`**. The API trusts `'loopback'`
+  (Apache) by address; a hop count put every client in one rate-limit bucket.
+- Statement parsing runs on the API's one event loop. Its limits (columns to
+  `XFD`, 32 MiB per ZIP entry, 2,000-character details, amounts ≤ 10^15 paise,
+  real dates 1990–2100) live in `xlsx.js` / `statement.js`; keep any new reader
+  bounded before the expensive work.
 - `apps/web` contains a stale nested `.git`. Run git from the repo root, or
   `git status` reports the whole dashboard as untracked.
 - The API takes ~3s to bind. Health checks must poll, not curl once.
@@ -199,14 +205,18 @@ across every household. Two environment variables — in
 `/etc/paisa/paisa.env` as `deploy/` assumes (see *Live host drift* below):
 
 ```bash
-PLATFORM_ADMINS=arjunm295707@gmail.com          # comma-separated, empty by default
+PLATFORM_ADMINS=arjunm295707@gmail.com          # comma-separated emails or Firebase uids, empty by default
 FIREBASE_SERVICE_ACCOUNT_FILE=/etc/paisa/firebase-admin.json   # optional
 ```
 
-- **Matching is on the signed token email** (`request.identityEmail`), not
-  `UserProfile.email`. That row is a copy written at sign-up and it drifts — the
-  live owner was seeded as `arjunm295707` with no domain, which locked them out
-  of their own admin page while the variable was perfectly correct.
+- **Matching is on the signed token** (`isPlatformAdminToken`): a listed email
+  only if the token says `email_verified`, or a listed Firebase **uid**,
+  compared exactly. Never `UserProfile.email` — that row is a copy and it drifts
+  (the live owner was seeded as `arjunm295707` with no domain). Never an
+  unverified email either: with public sign-up open, anyone can mint a token for
+  an address that has no account yet. **An admin whose email Firebase has not
+  verified is locked out** — the journal says `PLATFORM_ADMINS lists this email
+  but Firebase has not verified it`; list their uid instead.
 - **`PLATFORM_ADMINS` is the whole gate.** Not listed → every `/v1/admin` route
   404s. It is an env var and not a column on purpose: granting it needs shell
   access and a restart, so nothing that can write the database can grant itself

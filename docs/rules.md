@@ -95,7 +95,7 @@ flowchart TD
 
 ## 5. Tests
 
-- Tests live in **`apps/api/test/api.test.js`**. One file. **57 passing.**
+- Tests live in **`apps/api/test/api.test.js`**. One file. **90 passing.**
 - Non-trivial logic — a branch, a parser, a money path — leaves **one runnable
   check**. Trivial one-liners do not.
 - **Assert the setup succeeded.** Three imports once returned 400 because an
@@ -128,9 +128,14 @@ flowchart TD
 | Never a password on a command line | `ps` is readable by every user on a shared box |
 | Never interpolate an argument into SQL | Validate the shape first |
 | Cap unbounded work | 2,000 rows per import; one request is not a job queue |
+| **A parser bounds its input before the expensive work** | The row cap ran after parsing, so it never limited parse cost. A 376-byte .xlsx crashed the API and a 2 MB zip inflated to 2.7 GB. Cap sizes, indexes and text length at the reader |
+| **No lazy `[\s\S]*?` regex over attacker text** | On unclosed tags each match scans to the end: quadratic. Scan with `indexOf`, or cap the text first |
 | Security headers belong in Apache | helmet only covers API responses |
 | **A check inside a schema must not be able to throw** | Zod runs every check on a field even after an earlier one failed, so a `BigInt()` in a `refine` sees the raw string. `safeParse` then throws and the 400 becomes a 500 |
 | **A guard classifies; it does not grep for the bad state** | Grepping only for "broken" means every failure of the check itself reads as "fine". Name the good state too, and treat anything else as a stop |
+| **Trust a proxy by address, never by hop count** | Fastify 5 ignores a number, and every client became 127.0.0.1 in one shared rate-limit bucket |
+| **A token's email counts only with `email_verified`** | While public sign-up is open, anyone can mint an unverified token for an address nobody has claimed. Gate on a verified email or a uid |
+| **A duplicate answer stays inside the caller's scope** | A workspace-wide hash check handed back another book's row — merchant, amount, raw SMS — to someone who could not open that book |
 | An unauthenticated route gets its **own** rate limit | `POST /v1/access-requests` is the only one. 5 per 10 minutes, not the global 120 a minute — it is the one write anybody on the internet can reach |
 
 ---

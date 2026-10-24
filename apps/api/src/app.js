@@ -107,8 +107,12 @@ function requireIdempotencyKey(request) {
 }
 
 export async function buildApp(options = {}) {
-  const trustedProxyHops = options.trustProxy ?? (process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY_HOPS) : false);
-  const app = Fastify({ logger: options.logger ?? false, trustProxy: trustedProxyHops, bodyLimit: 5 * 1024 * 1024 });
+  // Apache on this host is the only proxy, so trust the loopback peer and no
+  // one else. Not a hop count: Fastify 5 ignores a numeric trustProxy on
+  // purpose, which left every client looking like 127.0.0.1 and sharing one
+  // rate-limit bucket. A client connecting from anywhere else is keyed on its
+  // own address, whatever X-Forwarded-For it sends.
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: options.trustProxy ?? 'loopback', bodyLimit: 5 * 1024 * 1024 });
   app.decorate('store', options.store ?? await createStore({ memory: options.memory }));
   await app.register(cors, { origin: (process.env.CORS_ORIGINS ?? 'http://localhost:3000').split(','), credentials: true, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'] });
   await app.register(helmet, { contentSecurityPolicy: false });
@@ -381,7 +385,14 @@ export async function buildApp(options = {}) {
     // approval has to be safe to click twice.
     async function grantAccess({ email, displayName, provision }) {
       requireFirebase();
-      const existingAccount = await findFirebaseUserByEmail(email);
+      let existingAccount = await findFirebaseUserByEmail(email);
+      // With public sign-up open, anyone can register an address before its
+      // owner does, with a password they know, and an approval would hand them
+      // the household. An unverified account no ledger profile uses yet cannot
+      // be told apart from that, so it is replaced; the reset email below goes
+      // to the real inbox either way.
+      const replacedUnverifiedAccount = Boolean(existingAccount && !existingAccount.emailVerified && !(await app.store.getUserByEmail(email)));
+      if (replacedUnverifiedAccount) { await deleteFirebaseUser(existingAccount.uid); existingAccount = null; }
       const account = existingAccount ?? await createFirebaseUser({ email, displayName });
       // No password is set anywhere. The new user follows the reset link and
       // chooses their own, so nobody here ever handles it.
@@ -392,7 +403,7 @@ export async function buildApp(options = {}) {
       // Ticked whether or not they ever filled the form, so that someone the
       // admin added outright is told "access granted" rather than "wait".
       const accessRequest = await app.store.grantAccessRequest({ email, name: displayName || email.split('@')[0] });
-      return { firebase: account, profile, accessRequest, reusedExistingAccount: Boolean(existingAccount), passwordEmailSent: true };
+      return { firebase: account, profile, accessRequest, reusedExistingAccount: Boolean(existingAccount), replacedUnverifiedAccount, passwordEmailSent: true };
     }
 
     api.post('/users', async (request, reply) => {
@@ -404,7 +415,7 @@ export async function buildApp(options = {}) {
       }), request.body);
       if (await app.store.getUserByEmail(body.email)) { const error = new Error('That email already has a ledger profile'); error.statusCode = 409; error.code = 'EMAIL_IN_USE'; throw error; }
       const granted = await grantAccess(body);
-      record(request, 'admin.user_created', { email: body.email, provisioned: Boolean(granted.profile) });
+      record(request, 'admin.user_created', { email: body.email, provisioned: Boolean(granted.profile), replacedUnverifiedAccount: granted.replacedUnverifiedAccount });
       return reply.code(201).send(granted);
     });
 
@@ -418,7 +429,7 @@ export async function buildApp(options = {}) {
       if (!entry) { const error = new Error('No such access request'); error.statusCode = 404; error.code = 'NOT_FOUND'; throw error; }
       if (entry.approvedAt) return { accessRequest: entry, alreadyApproved: true };
       const granted = await grantAccess({ email: entry.email, displayName: entry.name, provision: true });
-      record(request, 'admin.access_granted', { email: entry.email, provisioned: Boolean(granted.profile) });
+      record(request, 'admin.access_granted', { email: entry.email, provisioned: Boolean(granted.profile), replacedUnverifiedAccount: granted.replacedUnverifiedAccount });
       return granted;
     });
 

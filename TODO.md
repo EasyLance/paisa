@@ -185,6 +185,57 @@ four are left because they are your call or they are the host, not the code:
 - [ ] A provisioned owner cannot be **removed or disabled** from the dashboard —
       `disabledAt` exists on `UserProfile` but nothing sets it.
 
+## Security audit 2026-10-24
+
+Four reviews (API, statement import, web, Android) plus live probes. Fixed on
+2026-10-24, live after the next deploy, each with a test that fails on the old
+code:
+
+- [x] **A 376-byte .xlsx crashed the API**, a 2 MB zip bomb inflated to 2.7 GB,
+      and three regexes went quadratic. `xlsx.js` / `statement.js` now bound
+      columns, entries, inflated size and text length (`docs/architecture.md` §7).
+- [x] **One rate-limit bucket for the whole internet.** Fastify 5 ignored
+      `TRUST_PROXY_HOPS`; now `trustProxy: 'loopback'`.
+- [x] **Admin gate trusted an unverified token email.** Now a verified email or a uid.
+- [x] **A spouse could read a private book's payment** by reposting its `sourceHash`.
+- [x] **`grantAccess` reused a pre-registered unverified Firebase account.**
+- [x] **Negative debits, absurd amounts and impossible dates** in a statement.
+- [x] **`npm audit`**: API 0 advisories (Fastify 5.12.7, Zod 4.6.7); web `next`
+      16.4.3. What remains is Firestore → `@grpc/grpc-js`, which is not in the
+      bundle, and whose only "fix" is a Firebase downgrade.
+
+Your steps:
+
+- [ ] **Before deploying, add your Firebase uid to `PLATFORM_ADMINS`** —
+      `PLATFORM_ADMINS=arjunm295707@gmail.com,<uid>` in the live `paisa.env`
+      (uid from Firebase console → Authentication → Users). The email now only
+      counts if Firebase has verified it, and a console-created account never
+      is, so without the uid `/admin` may answer 403. The journal says
+      `PLATFORM_ADMINS lists this email but Firebase has not verified it` if so.
+- [ ] **Drop `TRUST_PROXY_HOPS` from the live `paisa.env`.** It is ignored now.
+- [ ] **Disable public sign-up in Firebase** (below) — it is the precondition
+      for the admin-gate and pre-registration attacks this audit fixed.
+
+Still open from this audit:
+
+- [ ] **Android release is signed with the debug key**, `allowBackup` defaults
+      on, and R8 is off (`Mobile App/app/android/app/build.gradle.kts`). Medium.
+- [ ] Low, API: a reviewer can create rules through `reclassify` with
+      `applyToFuture`; an owner accepting their own invite leaves the book with
+      no owner; `counterAccountId` is not scope-checked on create; 500s echo
+      Prisma codes; `amountMinor`, `metadata` and the invitation email have no
+      size cap on the routes; every route takes 5 MB and parses before auth;
+      `POST /v1/access-requests` says whether an email has access; admin delete
+      of a Firebase-only user skips `confirmEmail`; ID tokens are not
+      revocation-checked; `/docs` (swagger) is unauthenticated, hidden only by
+      Apache; recurring plans post as the owner and their creation is unaudited.
+- [ ] Low, web: `/constructor`, `/__proto__` and `/toString` are 500s (`[slug]`
+      reads inherited keys — `Object.hasOwn`); `invitationToken()` also accepts
+      `?invite=`, which reaches the Apache log.
+- [ ] Low, Android: `API_URL` is not forced to https in release; the Excel
+      decryption `spinCount` is unbounded; the statement-password field lacks
+      `enableIMEPersonalizedLearning: false`.
+
 ## Security backlog (the Low findings from the 2026-09-09 audit)
 
 - [ ] **403s name the role** — `Role viewer cannot edit` in `permissions.js`.

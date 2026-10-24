@@ -9,6 +9,8 @@ import { isPlatformAdmin } from '../src/domain/platform-admin.js';
 import { DEFAULT_CATEGORIES } from '../src/domain/default-categories.js';
 import { currentPeriodLabel, normaliseStartDay, periodRangeUtc } from '../src/domain/period.js';
 import { deflateRawSync } from 'node:zlib';
+import { exportJWK, exportPKCS8, generateKeyPair, SignJWT } from 'jose';
+import { resetFirebaseAdminCache } from '../src/domain/firebase-admin.js';
 
 const sbiStatement = readFileSync(join(import.meta.dirname, 'fixtures/sbi-statement.csv'), 'utf8');
 
@@ -1012,6 +1014,101 @@ describe('Paisa API authorization and ledger invariants', () => {
     expect(good.statusCode).toBe(200);
   });
 
+  describe('trust boundaries', () => {
+    // Google stands behind token verification and the admin's Firebase calls.
+    // Both go through fetch, so a test answers for Google and nothing reaches
+    // the network.
+    const fakeGoogle = (answer) => {
+      const real = globalThis.fetch;
+      globalThis.fetch = async (url, init) => answer(String(url), init) ?? real(url, init);
+      return () => { globalThis.fetch = real; };
+    };
+    const withEnv = async (vars, fn) => {
+      const saved = Object.fromEntries(Object.keys(vars).map((key) => [key, process.env[key]]));
+      Object.assign(process.env, vars);
+      try { await fn(); } finally { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+    };
+
+    it('gives each client behind Apache its own rate-limit bucket, and lets nobody pick one', async () => {
+      // Apache connects from loopback and appends the real client to X-Forwarded-For.
+      const via = (client) => ({ method: 'GET', url: '/health', remoteAddress: '127.0.0.1', headers: { 'x-forwarded-for': client } });
+      for (let i = 0; i < 120; i += 1) await app.inject(via('198.51.100.7'));
+      expect((await app.inject(via('198.51.100.7'))).statusCode).toBe(429);
+      expect((await app.inject(via('203.0.113.9'))).statusCode).toBe(200);
+      // A client reaching the API any other way is keyed on its own address.
+      const direct = (claim) => ({ method: 'GET', url: '/health', remoteAddress: '192.0.2.50', headers: { 'x-forwarded-for': claim } });
+      for (let i = 0; i < 120; i += 1) await app.inject(direct(`10.0.0.${i % 250}`));
+      expect((await app.inject(direct('10.9.9.9'))).statusCode).toBe(429);
+    });
+
+    it('opens the admin API to a token only with a verified listed email or a listed uid', async () => {
+      const { publicKey, privateKey } = await generateKeyPair('RS256', { extractable: true });
+      const jwk = { ...(await exportJWK(publicKey)), kid: 'test-key', alg: 'RS256', use: 'sig' };
+      const restore = fakeGoogle((url) => (url.includes('securetoken@system.gserviceaccount.com') ? Response.json({ keys: [jwk] }) : null));
+      await withEnv({ FIREBASE_PROJECT_ID: 'paisa-test', APP_CHECK_MODE: 'off', PLATFORM_ADMINS: 'arjun@example.com, uid-Listed' }, async () => {
+        const firebaseApp = await buildApp({ memory: true, authMode: 'firebase' });
+        const now = Math.floor(Date.now() / 1000);
+        const status = async (sub, email, verified) => {
+          const token = await new SignJWT({ email, email_verified: verified, auth_time: now }).setProtectedHeader({ alg: 'RS256', kid: 'test-key', typ: 'JWT' })
+            .setIssuer('https://securetoken.google.com/paisa-test').setAudience('paisa-test').setSubject(sub).setIssuedAt(now).setExpirationTime(now + 3600).sign(privateKey);
+          return (await firebaseApp.inject({ method: 'GET', url: '/v1/admin/users', headers: { authorization: `Bearer ${token}` } })).statusCode;
+        };
+        try {
+          // With public sign-up open, anyone can mint this for an address that has no account.
+          expect(await status('uid-stranger', 'arjun@example.com', false)).toBe(403);
+          expect(await status('firebase-owner', 'arjun@example.com', true)).toBe(200);
+          expect(await status('uid-Listed', 'unverified@example.com', false)).toBe(200);
+          expect(await status('uid-listed', 'unverified@example.com', false)).toBe(403);
+        } finally { await firebaseApp.close(); restore(); }
+      });
+    });
+
+    it('says only "duplicate" when a payment hash already belongs to a book the caller cannot open', async () => {
+      const payload = { sourceType: 'sms', sourceHash: 'sha256:private-payment', kind: 'expense', amountMinor: '-1500000', merchant: 'Private clinic', occurredAt: '2026-08-26T10:00:00.000Z' };
+      const post = (user, bookId, key) => app.inject({ method: 'POST', url: `/v1/books/${bookId}/ingestion-events`, headers: { ...as(user), 'idempotency-key': key }, payload });
+      expect((await post('user_owner', 'book_arjun', 'owner-private-1')).statusCode).toBe(201);
+      expect((await app.inject({ method: 'GET', url: '/v1/books/book_arjun/transactions', headers: as('user_spouse') })).statusCode).toBe(404);
+      const probe = await post('user_spouse', 'book_home', 'spouse-probe-1');
+      expect(probe.statusCode).toBe(200);
+      expect(probe.json()).toEqual({ duplicate: true });
+    });
+
+    it('replaces an unverified Firebase account nobody uses yet instead of handing it a household', async () => {
+      const { privateKey } = await generateKeyPair('RS256', { extractable: true });
+      const accounts = {
+        'squatted@example.com': { localId: 'uid-squatter', email: 'squatted@example.com', emailVerified: false },
+        'verified@example.com': { localId: 'uid-verified', email: 'verified@example.com', emailVerified: true },
+      };
+      const calls = [];
+      const restore = fakeGoogle((url, init) => {
+        if (url === 'https://oauth2.googleapis.com/token') return Response.json({ access_token: 'test-token', expires_in: 3600 });
+        if (!url.startsWith('https://identitytoolkit.googleapis.com/')) return null;
+        const path = url.split('/projects/paisa-test')[1];
+        const body = JSON.parse(init?.body ?? '{}');
+        calls.push(`${path} ${body.localId ?? body.email ?? ''}`);
+        if (path === '/accounts:lookup') { const found = accounts[body.email?.[0]]; return Response.json(found ? { users: [found] } : {}); }
+        if (path === '/accounts') return Response.json({ localId: 'uid-fresh' });
+        return Response.json({});
+      });
+      const serviceAccount = JSON.stringify({ client_email: 'admin@paisa-test.iam.gserviceaccount.com', private_key: await exportPKCS8(privateKey), project_id: 'paisa-test' });
+      resetFirebaseAdminCache();
+      await withEnv({ FIREBASE_SERVICE_ACCOUNT: serviceAccount, PLATFORM_ADMINS: 'arjun@example.com' }, async () => {
+        try {
+          const add = (email) => app.inject({ method: 'POST', url: '/v1/admin/users', headers: as('user_owner'), payload: { email, displayName: 'New person' } });
+          const squatted = await add('squatted@example.com');
+          expect(squatted.statusCode).toBe(201);
+          expect(squatted.json()).toMatchObject({ replacedUnverifiedAccount: true, reusedExistingAccount: false, firebase: { uid: 'uid-fresh' } });
+          expect(calls).toContain('/accounts:delete uid-squatter');
+          expect((await app.store.getUserByEmail('squatted@example.com')).firebaseUid).toBe('uid-fresh');
+          // Somebody who proved they own the inbox keeps their account.
+          const verified = await add('verified@example.com');
+          expect(verified.json()).toMatchObject({ replacedUnverifiedAccount: false, reusedExistingAccount: true, firebase: { uid: 'uid-verified' } });
+          expect(calls).not.toContain('/accounts:delete uid-verified');
+        } finally { restore(); resetFirebaseAdminCache(); }
+      });
+    });
+  });
+
   describe('access requests', () => {
     const asAdmin = async (fn) => {
       const saved = process.env.PLATFORM_ADMINS;
@@ -1079,6 +1176,85 @@ describe('Paisa API authorization and ledger invariants', () => {
         const after = await app.inject({ method: 'GET', url: '/v1/admin/access-requests', headers: as('user_owner') });
         expect(after.json().items).toEqual([]);
       });
+    });
+  });
+
+  describe('statement parser limits', () => {
+    const header = 'Date,Narration,Debit,Credit,Balance\n';
+    const load = () => import('../src/domain/statement.js');
+    // A bare ZIP of the given members; `declared` lets a test lie about the size.
+    function zipOf(members) {
+      const locals = []; const central = []; let offset = 0;
+      for (const [name, body, declared] of members) {
+        const deflated = deflateRawSync(body);
+        const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(8, 8);
+        local.writeUInt32LE(deflated.length, 18); local.writeUInt32LE(body.length, 22); local.writeUInt16LE(name.length, 26);
+        const entry = Buffer.concat([local, Buffer.from(name), deflated]);
+        const directory = Buffer.alloc(46); directory.writeUInt32LE(0x02014b50, 0); directory.writeUInt16LE(8, 10);
+        directory.writeUInt32LE(deflated.length, 20); directory.writeUInt32LE(declared ?? body.length, 24);
+        directory.writeUInt16LE(name.length, 28); directory.writeUInt32LE(offset, 42);
+        central.push(Buffer.concat([directory, Buffer.from(name)])); locals.push(entry); offset += entry.length;
+      }
+      const dir = Buffer.concat(central); const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0);
+      end.writeUInt16LE(members.length, 8); end.writeUInt16LE(members.length, 10);
+      end.writeUInt32LE(dir.length, 12); end.writeUInt32LE(offset, 16);
+      return Buffer.concat([...locals, dir, end]);
+    }
+    const sheetOf = (rows) => Buffer.from(`<worksheet><sheetData>${rows}</sheetData></worksheet>`);
+    const timed = (work) => { const started = Date.now(); let error; try { work(); } catch (caught) { error = caught; } return { error, ms: Date.now() - started }; };
+
+    it('rejects a column beyond XFD instead of exhausting memory', async () => {
+      const { parseStatementXlsx } = await load();
+      const file = zipOf([['xl/worksheets/sheet1.xml', sheetOf('<row r="1"><c r="ZZZZZZ1"><v>1</v></c></row>')]]);
+      expect(() => parseStatementXlsx(file)).toThrow(/column/i);
+    });
+
+    it('rejects a zip bomb and an oversized or crowded archive', async () => {
+      const { parseStatementXlsx } = await load();
+      const bomb = zipOf([['xl/worksheets/sheet1.xml', Buffer.alloc(48 * 1024 * 1024, 32)]]);
+      expect(() => parseStatementXlsx(bomb)).toThrow(/large|damaged/i);
+      // A central directory that lies about the size is not trusted either.
+      const liar = zipOf([['xl/worksheets/sheet1.xml', Buffer.alloc(48 * 1024 * 1024, 32), 10]]);
+      expect(() => parseStatementXlsx(liar)).toThrow(/large|damaged/i);
+      const crowded = zipOf(Array.from({ length: 300 }, (_v, index) => [`junk${index}.xml`, Buffer.from('x')]));
+      expect(() => parseStatementXlsx(crowded)).toThrow(/too many/i);
+    });
+
+    it('scans spreadsheet XML in linear time', async () => {
+      const { parseStatementXlsx } = await load();
+      const ok = '<row r="1"><c r="A1"><v>1</v></c></row>';
+      const unclosed = zipOf([['xl/worksheets/sheet1.xml', sheetOf(ok)], ['xl/sharedStrings.xml', Buffer.from('<si>'.repeat(80000))]]);
+      const angles = zipOf([['xl/worksheets/sheet1.xml', sheetOf(`<row r="1"><c r="A1" t="inlineStr">${'<'.repeat(80000)}</c></row>`)]]);
+      for (const file of [unclosed, angles]) {
+        const { ms } = timed(() => { try { parseStatementXlsx(file); } catch { /* the rows are not a statement; only the time matters */ } });
+        expect(ms).toBeLessThan(1000);
+      }
+    });
+
+    it('does not go quadratic on a long run of unusual whitespace in the details', async () => {
+      const { parseStatementCsv } = await load();
+      const { error, ms } = timed(() => parseStatementCsv(`${header}01/01/2026,a${' '.repeat(80000)}b,5,,\n`));
+      expect(error).toBeUndefined();
+      expect(ms).toBeLessThan(1000);
+    });
+
+    it('skips a negative debit or credit rather than flipping its sign against its kind', async () => {
+      const { parseStatementCsv } = await load();
+      const parsed = parseStatementCsv(`${header}01/01/2026,reversal,-5,,\n02/01/2026,refund,,-7,\n03/01/2026,ok,10,,\n`);
+      expect(parsed.rows.map((row) => [row.kind, row.amountMinor])).toEqual([['expense', '-1000']]);
+      expect(parsed.warnings.filter((warning) => /negative/.test(warning))).toHaveLength(2);
+      expect(parsed.warnings[0]).toMatch(/01\/01\/2026.*by hand/);
+    });
+
+    it('skips rows with an absurd amount or an impossible date, with a warning each', async () => {
+      const { parseStatementCsv, toIsoDate } = await load();
+      const parsed = parseStatementCsv(`${header}01/01/2026,huge,${'9'.repeat(18)},,\n`
+        + '02/01/2026,feb,5,,\n31/02/2026,bad,5,,\n29/02/2025,bad,5,,\n01/01/0001,bad,5,,\n01/01/2101,bad,5,,\n');
+      expect(parsed.rows).toHaveLength(1);
+      expect(parsed.rows[0].merchant).toBe('feb');
+      expect(parsed.warnings).toHaveLength(5);
+      expect(toIsoDate('29/02/2028')).toBe('2028-02-28T18:30:00.000Z');
+      expect(toIsoDate('31/02/2026')).toBeNull();
     });
   });
 

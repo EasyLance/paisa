@@ -8,14 +8,25 @@
 //
 // Empty by default: a deployment that never sets it has no master admin at all,
 // and the routes behave as if they do not exist.
+const entries = () => (process.env.PLATFORM_ADMINS ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
+
+// Emails compare case-insensitively; a Firebase uid stays as written.
 export function platformAdmins() {
-  return (process.env.PLATFORM_ADMINS ?? '')
-    .split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+  return entries().map((entry) => (entry.includes('@') ? entry.toLowerCase() : entry));
 }
 
 export function isPlatformAdmin(email) {
   if (typeof email !== 'string' || !email) return false;
   return platformAdmins().includes(email.trim().toLowerCase());
+}
+
+// The gate on a signed token. Its email only proves an address once Firebase
+// has verified it: with public sign-up open, anyone can mint a token for an
+// address that has no account yet. An admin whose address is unverified is
+// listed by Firebase uid instead, compared exactly — uids are case-sensitive.
+export function isPlatformAdminToken(token) {
+  if (typeof token?.sub === 'string' && entries().includes(token.sub)) return true;
+  return token?.email_verified === true && isPlatformAdmin(token.email);
 }
 
 // One row of the master admin user table. Both stores assemble the same list of
@@ -33,7 +44,7 @@ export function summariseUser(user, books) {
     displayName: user.displayName ?? null,
     disabledAt: user.disabledAt ? new Date(user.disabledAt).toISOString() : null,
     createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : null,
-    isPlatformAdmin: isPlatformAdmin(user.email),
+    isPlatformAdmin: isPlatformAdmin(user.email) || entries().includes(user.firebaseUid),
     // The ids, not just the count: the admin page needs to count households
     // across all users, and summing per-user counts double-counts a shared one.
     workspaceIds: [...new Set(books.map((book) => book.workspaceId))],
@@ -67,7 +78,7 @@ export function mergeDirectory(profiles, firebaseUsers) {
     if (claimed.has(account.uid)) continue;
     rows.push({
       id: null, firebaseUid: account.uid, email: account.email, displayName: account.displayName,
-      disabledAt: null, createdAt: account.createdAt, isPlatformAdmin: isPlatformAdmin(account.email),
+      disabledAt: null, createdAt: account.createdAt, isPlatformAdmin: isPlatformAdmin(account.email) || entries().includes(account.uid),
       workspaceIds: [], workspaceCount: 0, bookCount: 0, ownedBookCount: 0, transactionCount: 0, lastActivityAt: null,
       books: [], firebase: account,
     });
