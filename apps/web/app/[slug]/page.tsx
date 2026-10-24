@@ -11,14 +11,18 @@ export function generateStaticParams() {
   return siteNav.map((slug) => ({ slug }));
 }
 
+// Own keys only: a plain lookup made /constructor and /__proto__ find
+// Object.prototype's members and crash with a 500 instead of a 404.
+const pageFor = (slug: string) => (Object.hasOwn(sitePages, slug) ? sitePages[slug] : undefined);
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const page = sitePages[(await params).slug];
+  const page = pageFor((await params).slug);
   return page ? { title: `${page.title} — Paisa`, description: page.summary } : {};
 }
 
 export default async function InfoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const page = sitePages[slug];
+  const page = pageFor(slug);
   if (!page) notFound();
 
   return (

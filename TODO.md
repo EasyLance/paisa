@@ -230,9 +230,20 @@ Still open from this audit:
       of a Firebase-only user skips `confirmEmail`; ID tokens are not
       revocation-checked; `/docs` (swagger) is unauthenticated, hidden only by
       Apache; recurring plans post as the owner and their creation is unaudited.
-- [ ] Low, web: `/constructor`, `/__proto__` and `/toString` are 500s (`[slug]`
-      reads inherited keys — `Object.hasOwn`); `invitationToken()` also accepts
-      `?invite=`, which reaches the Apache log.
+- [x] **The dashboard loaded everything twice on first open** — *fixed
+      2026-10-24*: 26 API calls became 13. `refresh` records the
+      `book|month` it loaded (`loadedKey`) and the effect skips that pair, so
+      setting the resolved book no longer re-runs it. Checked in a local build:
+      first open, a month change and a book switch each make 13 calls, none
+      repeated. A higher global limit for households on one IP is still open.
+- [x] **React hydration error #418 on `/`** — *fixed 2026-10-24*:
+      `returning()` is read through `useSyncExternalStore` with a server
+      snapshot of `false`. A local build with the old code threw the same #418
+      as production; the fixed build throws nothing.
+- [x] **`/constructor`, `/__proto__`, `/toString` were 500s** — *fixed
+      2026-10-24*: `[slug]` looks pages up with `Object.hasOwn`; all now 404.
+- [ ] Low, web: `invitationToken()` also accepts `?invite=`, which reaches the
+      Apache log.
 - [ ] Low, Android: `API_URL` is not forced to https in release; the Excel
       decryption `spinCount` is unbounded; the statement-password field lacks
       `enableIMEPersonalizedLearning: false`.

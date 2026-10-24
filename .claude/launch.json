@@ -7,6 +7,13 @@
       "runtimeExecutable": "/Users/arjunmohanesh/.nvm/versions/node/v26.5.0/bin/node",
       "runtimeArgs": ["node_modules/vinext/dist/cli.js", "start"],
       "port": 3000
+    },
+    {
+      "name": "paisa-api",
+      "cwd": "apps/api",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["AUTH_MODE=dev", "USE_MEMORY_STORE=true", "/Users/arjunmohanesh/.nvm/versions/node/v26.5.0/bin/node", "src/server.js"],
+      "port": 4000
     }
   ]
 }

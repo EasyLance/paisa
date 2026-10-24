@@ -158,6 +158,9 @@ flowchart TD
 | **A modal goes in a portal to `<body>`** | Rendered inside the header or footer it is clipped by `.landing`'s `overflow:hidden` and painted under the hero — both are stacking contexts |
 | **Scope a `:has()` override to a `min-width`** | `:has()` inherits its argument's specificity, so it outranks the plain-class mobile rules in `@media(max-width:680px)` and the phone layout silently loses |
 | **An unknown path calls `notFound()`** | Rendering a "does not exist" body is not enough. `[slug]` once answered every junk URL with a 200, so search engines could index it and an uptime check couldn't see a dead link |
+| **No browser-only state during render** | `localStorage` read while rendering `/` made the server and a returning browser disagree: React #418 on every visit. Read it with `useSyncExternalStore` and a server snapshot |
+| **An effect must not re-run on state its own load just set** | Refresh resolved the book and set `bookId`, which re-ran the effect: every first open loaded the dashboard twice, halving a household's rate-limit headroom |
+| **Look up a URL segment with `Object.hasOwn`** | `sitePages['constructor']` found `Object.prototype`'s member and crashed with a 500 |
 | Never `display:flex` on a `<td>` | It stops being a table-cell; two adjacent ones merge into a single anonymous cell and stack |
 
 ---

@@ -1,11 +1,13 @@
 'use client';
 
-import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { firebaseEnabled, observeUser, signOutUser } from './firebase-client';
 import { api, ApiError } from './api-client';
 import { Leaf } from './site-chrome';
 import { invitationToken, rememberSignedIn, returning, SignIn } from './sign-in';
 import Landing from './landing';
+
+const subscribeNothing=()=>()=>undefined;
 
 type BudgetPlan = { items:{groupName:string;percent:number}[]; baseIncomeMinor:string };
 type BudgetGroup = { groupName:string; percent:number; allocatedMinor:string; spentMinor:string; used:number };
@@ -178,7 +180,10 @@ export default function Home(){
   const [accounts,setAccounts]=useState<AccountRecord[]>(demoEnabled?demoAccounts:[]); const [rules,setRules]=useState<Rule[]>(demoEnabled?demoRules:[]); const [imports,setImports]=useState<ImportRecord[]>(demoEnabled?demoImports:[]);
   const [dialog,setDialog]=useState<Dialog>(null); const [editing,setEditing]=useState<AccountRecord|Category|Rule|Recurring|null>(null); const [inviteLink,setInviteLink]=useState<{email:string;url:string}|null>(null); const [selected,setSelected]=useState<Transaction|null>(null); const [toast,setToast]=useState(''); const [saving,setSaving]=useState(false);
   const [userLabel,setUserLabel]=useState('Arjun Mohanesh'); const [actorEmail,setActorEmail]=useState('');
-  const [actorKey,setActorKey]=useState(firebaseEnabled?'':'dev-owner'); const actorRef=useRef(firebaseEnabled?'':'dev-owner'); const requestGeneration=useRef(0); const [loadedContext,setLoadedContext]=useState<LoadedContext|null>(demoEnabled?{actorKey:'dev-owner',bookId:'book_arjun'}:null);
+  const [actorKey,setActorKey]=useState(firebaseEnabled?'':'dev-owner'); const actorRef=useRef(firebaseEnabled?'':'dev-owner'); const requestGeneration=useRef(0); const loadedKey=useRef('');
+  // localStorage does not exist on the server, so read it as an external store
+  // with a server snapshot of false: hydration matches, then the client re-renders.
+  const wasSignedIn=useSyncExternalStore(subscribeNothing,returning,()=>false); const [loadedContext,setLoadedContext]=useState<LoadedContext|null>(demoEnabled?{actorKey:'dev-owner',bookId:'book_arjun'}:null);
   const [authState,setAuthState]=useState<'loading'|'signed-in'|'signed-out'>(firebaseEnabled?'loading':'signed-in'); const [dataMode,setDataMode]=useState<'checking'|'live'|'demo'|'error'>(demoEnabled?'demo':'checking'); const [loadError,setLoadError]=useState('');
   const [search,setSearch]=useState(''); const [stateFilter,setStateFilter]=useState('all'); const [kindFilter,setKindFilter]=useState('all'); const [notificationsOpen,setNotificationsOpen]=useState(false); const [accountOpen,setAccountOpen]=useState(false);
   const activeBook=books.find(book=>book.id===bookId)??books[0]; const categoryMap=useMemo(()=>Object.fromEntries(categories.map(category=>[category.id,category.name])),[categories]);
@@ -200,9 +205,12 @@ export default function Home(){
       api<BudgetPlan>(`/v1/books/${resolvedBook}/budget-plan`),api<Listed<Recurring>>(`/v1/books/${resolvedBook}/recurring-plans`),api<Listed<AuditEvent>>(`/v1/books/${resolvedBook}/audit-events`),
       api<Listed<AccountRecord>>(`/v1/books/${resolvedBook}/accounts`),api<Listed<Rule>>(`/v1/books/${resolvedBook}/categorization-rules`),api<Listed<ImportRecord>>(`/v1/books/${resolvedBook}/imports`),
       targetCanManage?api<Listed<Member>>(`/v1/books/${resolvedBook}/memberships`):Promise.resolve({items:[]}),targetCanManage?api<Listed<Invitation>>(`/v1/books/${resolvedBook}/invitations`):Promise.resolve({items:[]}),
-    ]);if(generation!==requestGeneration.current||requestedActor!==actorRef.current)return;setActorUserId(me.id);setActorEmail(me.email);if(me.displayName)setUserLabel(me.displayName);setBooks(availableBooks);setBookId(resolvedBook);setSummary(summaryData);setTransactions(transactionData.items);setTxCursor(transactionData.nextCursor??null);setSelected(current=>current?transactionData.items.find(item=>item.id===current.id)??null:null);setCategories(categoryData.items);setPlan(planResult);setRecurring(recurringResult.items);setAudit(auditResult.items);setAccounts(accountResult.items);setRules(ruleResult.items);setImports(importResult.items);setMembers(memberResult.items);setInvitations(invitationResult.items);setLoadedContext({actorKey:requestedActor,bookId:resolvedBook});setDataMode('live');
+    ]);if(generation!==requestGeneration.current||requestedActor!==actorRef.current)return;setActorUserId(me.id);setActorEmail(me.email);if(me.displayName)setUserLabel(me.displayName);setBooks(availableBooks);loadedKey.current=`${resolvedBook}|${selectedMonth}`;setBookId(resolvedBook);setSummary(summaryData);setTransactions(transactionData.items);setTxCursor(transactionData.nextCursor??null);setSelected(current=>current?transactionData.items.find(item=>item.id===current.id)??null:null);setCategories(categoryData.items);setPlan(planResult);setRecurring(recurringResult.items);setAudit(auditResult.items);setAccounts(accountResult.items);setRules(ruleResult.items);setImports(importResult.items);setMembers(memberResult.items);setInvitations(invitationResult.items);setLoadedContext({actorKey:requestedActor,bookId:resolvedBook});setDataMode('live');
     }catch(error){if(generation!==requestGeneration.current||requestedActor!==actorRef.current)return;setLoadError(error instanceof Error?error.message:'The ledger is temporarily unavailable');setLoadedContext(null);setDataMode('error');}},[]);
-  useEffect(()=>{if(authState!=='signed-in')return;const timer=window.setTimeout(()=>void refresh(bookId,month),0);return()=>window.clearTimeout(timer);},[bookId,month,authState,refresh]);
+  // The first open starts with no book, so refresh picks one and sets bookId,
+  // which would run this again and load everything twice. Skip the pair it
+  // just loaded: the rate limit is per client, and a household shares one IP.
+  useEffect(()=>{if(authState!=='signed-in'||`${bookId}|${month}`===loadedKey.current)return;const timer=window.setTimeout(()=>void refresh(bookId,month),0);return()=>window.clearTimeout(timer);},[bookId,month,authState,refresh]);
   useEffect(()=>{if(authState!=='signed-in')return;const token=invitationToken();if(!token)return;void api<{bookId:string;role:string}>('/v1/invitations/accept',{method:'POST',body:JSON.stringify({token})}).then(async result=>{window.history.replaceState(null,'',`/#people`);setBookId(result.bookId);setView('people');await refresh(result.bookId);flash('Invitation accepted — the shared book is ready');}).catch(error=>reportFailure(error,'Could not accept invitation'));},[authState,refresh,flash,reportFailure]);
 
   function switchBook(nextBookId:string){requestGeneration.current+=1;setLoadedContext(null);setDataMode('checking');setBookId(nextBookId);}
@@ -269,7 +277,7 @@ export default function Home(){
   // form, because their link is the only way in. While Firebase is still
   // resolving, show whichever of the two this browser saw last — the dark
   // loading card in front of the public landing page was a visible flash.
-  if(authState==='loading'&&!returning())return <Landing/>;
+  if(authState==='loading'&&!wasSignedIn)return <Landing/>;
   if(authState==='loading')return <main className="auth-page"><div className="auth-card"><div className="brand auth-brand"><Leaf/><span>Paisa</span></div><div className="loading-line"/><p>Opening your private financial workspace…</p></div></main>;
   if(authState==='signed-out')return invitationToken()?<SignIn/>:<Landing/>;
   return <main className="app-shell">

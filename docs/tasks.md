@@ -144,7 +144,9 @@ unverified email; the cross-book `sourceHash` read; pre-registered accounts in
 Still open: the Android debug-key signing, backup and R8 (Medium), the Apache
 headers (§5), and the Lows listed in `TODO.md`. The new gate locked the owner
 out of `/admin` (unverified email): list the uid, or verify from the gate page
-(`TODO.md`).
+(`TODO.md`). The live audit afterwards found the dashboard loading everything
+twice on first open, a hydration error on `/` and 500s on `/constructor`; all
+three are fixed (`TODO.md`).
 
 All High and Medium findings from the 2026-09-09 audit are fixed. These remain:
 
