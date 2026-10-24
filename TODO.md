@@ -72,13 +72,14 @@ guesswork until real SMS from Arjun's own banks is flowing.
 Nine bugs found and fixed in the same pass — see `docs/memory.md` §3. These
 four are left because they are your call or they are the host, not the code:
 
-- [ ] **The live Apache is not the one in `deploy/paisa-apache.conf`.** The repo
-      sets six security headers; the droplet sends **two**
-      (`X-Content-Type-Options`, `Referrer-Policy`). Missing on every dashboard
-      response: `Content-Security-Policy`, `X-Frame-Options`/`frame-ancestors`,
-      `Strict-Transport-Security`, `Permissions-Policy`. The API looks covered
-      only because helmet sets its own. Concretely: the signed-in dashboard can
-      be framed by any site. Same class of drift as the systemd units.
+- [x] **The live Apache sent two of the six security headers.** *Done
+      2026-10-24*: the other four (`X-Frame-Options`, `Permissions-Policy`,
+      HSTS, CSP) were added by hand after line 33 of
+      `/etc/apache2/sites-available/zz-paisa-le-ssl.conf`, the live 443 vhost.
+      Checked afterwards: all six on every response, sign-in, the dashboard,
+      month changes and `/admin` work with no CSP violations, and
+      `easylancefreelance.com` got none of them. The live vhost is still not
+      `deploy/paisa-apache.conf` — same drift as the systemd units.
 - [ ] **Seven mutations write no audit event** — accounts, categories,
       categorization rules, recurring plans, ingestion events, imports and
       `PATCH /me`. Both stores agree, so it is a gap, not drift. It matters most

@@ -269,6 +269,7 @@ exist. The droplet was set up by hand, and differs:
 | service user `paisa` | **`elance`** (uid 1000) |
 | `EnvironmentFile=/etc/paisa/paisa.env` | **`/var/www/projects/Financial-App/paisa.env`** |
 | `/etc/paisa/` created by bootstrap | Did not exist until 2026-10-02 |
+| vhost `deploy/paisa-apache.conf` | **`/etc/apache2/sites-available/zz-paisa-le-ssl.conf`** (certbot's 443 copy; `zz-paisa.conf` on 80). The six security headers were added to it by hand on 2026-10-24 |
 
 So **`bootstrap.sh` would not reproduce this server**, and any instruction that
 hardcodes `paisa` or `/etc/paisa/paisa.env` fails on it. Read the running unit

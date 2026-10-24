@@ -108,7 +108,6 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 | **Format `Mobile App/app`** | `dart format` would rewrite 64 files, so CI checks analyze and tests but not formatting |
 | **Speed up deploys** | `npm ci` rebuilds `node_modules` twice every deploy. Plan: stamp the lockfile hash, skip when unchanged |
 | **Publish a real contact address** | `CONTACT_EMAIL` is still a placeholder on the contact page. **Request access** no longer needs it — it is a form now |
-| **Apache on the droplet sends 2 of 6 security headers** | The repo's vhost is not the live one. No CSP, `X-Frame-Options`, HSTS or `Permissions-Policy` on any dashboard response |
 | **Seven mutations write no audit event** | Including every SMS the Android app will upload. Decide before the phone starts posting |
 | **Click Approve once on the live site** | 👤 Arjun's step — the Firebase half of approving a request has no service account on the dev machine, so only the new email lookup could be verified against the live project |
 | **Install the Firebase service-account key** | 👤 Arjun's step — without it the admin page cannot list, add, rename, disable or reset Firebase accounts |
@@ -141,8 +140,9 @@ Nothing below is verifiable until real SMS from real banks is flowing.
 bomb and quadratic regexes; the shared rate-limit bucket; the admin gate on an
 unverified email; the cross-book `sourceHash` read; pre-registered accounts in
 `grantAccess`; negative, absurd and impossible statement rows; `npm audit`.
-Still open: the Android debug-key signing, backup and R8 (Medium), the Apache
-headers (§5), and the Lows listed in `TODO.md`. The new gate locked the owner
+Still open: the Android debug-key signing, backup and R8 (Medium), and the
+Lows listed in `TODO.md`. The four missing Apache headers were added on the
+droplet the same day. The new gate locked the owner
 out of `/admin` (unverified email): list the uid, or verify from the gate page
 (`TODO.md`). The live audit afterwards found the dashboard loading everything
 twice on first open, a hydration error on `/` and 500s on `/constructor`; all
